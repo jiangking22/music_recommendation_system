@@ -210,6 +210,7 @@ let pendingArtistModalCleanup = null;
 let resolvedLocalProxyOrigin = "";
 let initialMotionPlayed = false;
 let reduceMotion = false;
+let statusTween = null;
 const searchCache = new Map();
 const authoritativeCandidateCache = new Map();
 const providerHealth = new Map();
@@ -227,19 +228,23 @@ function init() {
     const seeds = parseSeedSongs(elements.seedInput.value);
     if (!seeds.length) {
       elements.activeQuery.textContent = "输入歌曲名后点击推荐按钮开始检索。";
+      animateActiveQuery();
       return;
     }
     elements.activeQuery.textContent = `已输入：${seeds.join("、")}；点击“按类型推荐 10 首”后开始联网检索。`;
+    animateActiveQuery();
   });
   elements.languageButtons.addEventListener("click", (event) => {
     const button = event.target.closest("[data-language]");
     if (!button) return;
+    animateButtonPress(button);
     currentLanguage = button.dataset.language;
     elements.languageButtons.querySelectorAll("button").forEach((item) => {
       item.classList.toggle("active", item === button);
     });
     if (elements.seedInput.value.trim()) {
       elements.activeQuery.textContent = `已切换推荐语言：${currentLanguage}；点击推荐按钮后开始检索。`;
+      animateActiveQuery();
       return;
     }
     recommendByLanguage(currentLanguage);
@@ -251,7 +256,7 @@ function initMotion() {
   if (!hasGsap()) return;
 
   document.body.classList.add("has-gsap");
-  gsap.defaults({ duration: 0.45, ease: "power2.out" });
+  gsap.defaults({ duration: 0.45, ease: "power2.out", overwrite: "auto" });
 
   const mm = gsap.matchMedia();
   mm.add(
@@ -301,7 +306,8 @@ function animateLanguageButtons() {
 
 function animateLoadingState() {
   if (!hasGsap()) return;
-  gsap.from(elements.recommendationList.querySelectorAll(".loading-card"), {
+  const cards = elements.recommendationList.querySelectorAll(".loading-card");
+  gsap.from(cards, {
     autoAlpha: 0,
     y: reduceMotion ? 0 : 10,
     duration: reduceMotion ? 0.01 : 0.34,
@@ -309,6 +315,15 @@ function animateLoadingState() {
     ease: "power2.out",
     clearProps: "visibility,opacity,transform"
   });
+  if (!reduceMotion) {
+    gsap.to(cards, {
+      backgroundPosition: "-120% 0",
+      duration: 1.15,
+      repeat: -1,
+      ease: "none",
+      stagger: 0.06
+    });
+  }
 }
 
 function animateMessageState(selector = ".empty-state, .error-state") {
@@ -324,17 +339,39 @@ function animateMessageState(selector = ".empty-state, .error-state") {
 
 function animateRecommendationResults() {
   if (!hasGsap()) return;
-  const cards = elements.recommendationList.querySelectorAll(".song-card");
   const headings = elements.recommendationList.querySelectorAll(".recommendation-column-head");
-  gsap.from([...headings, ...cards], {
+  const cards = Array.from(elements.recommendationList.querySelectorAll(".song-card"));
+  const activeCards = cards.filter((card) => card.classList.contains("is-active"));
+  const supportCards = cards.filter((card) => !card.classList.contains("is-active"));
+
+  gsap.from(headings, {
     autoAlpha: 0,
-    y: reduceMotion ? 0 : 18,
-    scale: reduceMotion ? 1 : 0.985,
-    duration: reduceMotion ? 0.01 : 0.48,
-    stagger: reduceMotion ? 0 : 0.045,
+    y: reduceMotion ? 0 : 10,
+    duration: reduceMotion ? 0.01 : 0.28,
+    stagger: reduceMotion ? 0 : 0.04,
+    ease: "power2.out",
+    clearProps: "visibility,opacity,transform"
+  });
+  gsap.from(activeCards, {
+    autoAlpha: 0,
+    y: reduceMotion ? 0 : 20,
+    scale: reduceMotion ? 1 : 0.97,
+    duration: reduceMotion ? 0.01 : 0.5,
+    stagger: reduceMotion ? 0 : 0.05,
     ease: "power3.out",
     clearProps: "visibility,opacity,transform"
   });
+  gsap.from(supportCards, {
+    autoAlpha: 0,
+    y: reduceMotion ? 0 : 14,
+    scale: reduceMotion ? 1 : 0.985,
+    duration: reduceMotion ? 0.01 : 0.38,
+    delay: reduceMotion ? 0 : 0.06,
+    stagger: reduceMotion ? 0 : 0.025,
+    ease: "power2.out",
+    clearProps: "visibility,opacity,transform"
+  });
+  animateActiveCardDetails();
 }
 
 function animateArtistModalOpen() {
@@ -361,7 +398,93 @@ function animateArtistModalOpen() {
   });
 }
 
+function animateArtistModalClose(onComplete) {
+  if (!hasGsap()) {
+    onComplete();
+    return;
+  }
+  const modal = elements.artistModal.querySelector(".artist-modal");
+  gsap.to(modal, {
+    autoAlpha: 0,
+    y: reduceMotion ? 0 : 12,
+    scale: reduceMotion ? 1 : 0.985,
+    duration: reduceMotion ? 0.01 : 0.18,
+    ease: "power2.in"
+  });
+  gsap.to(elements.artistModal, {
+    autoAlpha: 0,
+    duration: reduceMotion ? 0.01 : 0.2,
+    ease: "power2.out",
+    onComplete
+  });
+}
+
+function animateActiveCardDetails() {
+  if (!hasGsap()) return;
+  const details = elements.recommendationList.querySelectorAll(
+    ".song-card.is-active .cover, .song-card.is-active .song-title, .song-card.is-active .song-meta, .song-card.is-active .tag-row, .song-card.is-active .song-reason"
+  );
+  gsap.from(details, {
+    autoAlpha: 0,
+    y: reduceMotion ? 0 : 8,
+    scale: reduceMotion ? 1 : 0.985,
+    duration: reduceMotion ? 0.01 : 0.28,
+    stagger: reduceMotion ? 0 : 0.025,
+    ease: "power2.out",
+    clearProps: "visibility,opacity,transform"
+  });
+}
+
+function animateButtonPress(button) {
+  if (!hasGsap() || !button) return;
+  gsap.fromTo(button, { scale: reduceMotion ? 1 : 0.98 }, {
+    scale: 1,
+    duration: reduceMotion ? 0.01 : 0.24,
+    ease: "back.out(2)",
+    clearProps: "transform"
+  });
+}
+
+function animateStatusBadge() {
+  if (!hasGsap()) return;
+  statusTween?.kill();
+  statusTween = gsap.fromTo(elements.networkStatus, {
+    autoAlpha: 0.72,
+    y: reduceMotion ? 0 : -4,
+    scale: reduceMotion ? 1 : 0.98
+  }, {
+    autoAlpha: 1,
+    y: 0,
+    scale: 1,
+    duration: reduceMotion ? 0.01 : 0.28,
+    ease: "power2.out",
+    clearProps: "visibility,opacity,transform"
+  });
+}
+
+function setStatusText(text) {
+  elements.networkStatus.textContent = text;
+  animateStatusBadge();
+}
+
+function animateActiveQuery() {
+  if (!hasGsap()) return;
+  gsap.fromTo(elements.activeQuery, {
+    autoAlpha: 0.78,
+    y: reduceMotion ? 0 : 4,
+    backgroundColor: "rgba(237, 245, 255, 0.72)"
+  }, {
+    autoAlpha: 1,
+    y: 0,
+    backgroundColor: "rgba(248, 250, 252, 0.58)",
+    duration: reduceMotion ? 0.01 : 0.3,
+    ease: "power2.out",
+    clearProps: "visibility,opacity,transform,backgroundColor"
+  });
+}
+
 function clearInput() {
+  animateButtonPress(elements.clearBtn);
   requestSerial += 1;
   cancelActiveRequests();
   closeArtistModal();
@@ -370,8 +493,9 @@ function clearInput() {
   elements.resultTitle.textContent = "等待推荐";
   elements.resultCount.textContent = "0 / 10";
   elements.activeQuery.textContent = "输入歌曲后按语言、风格推荐，或直接选择语言。";
-  elements.networkStatus.textContent = "按类型推荐 · 10 首";
+  setStatusText("按类型推荐 · 10 首");
   elements.recommendationList.innerHTML = `<div class="empty-state">推荐结果会显示在这里，每首歌都会标出语言和音乐类型。</div>`;
+  animateActiveQuery();
   animateMessageState();
 }
 
@@ -434,11 +558,13 @@ async function runRecommendation(context) {
 }
 
 function setLoading(context) {
+  animateButtonPress(elements.recommendBtn);
   setControlsDisabled(true);
   elements.resultTitle.textContent = context.title;
   elements.resultCount.textContent = "联网中";
   elements.activeQuery.textContent = context.label;
-  elements.networkStatus.textContent = "正在多源检索热门歌曲";
+  animateActiveQuery();
+  setStatusText("正在多源检索热门歌曲");
   elements.recommendationList.innerHTML = `
     <div class="loading-list" aria-label="正在加载">
       ${Array.from({ length: 5 }, () => `<div class="loading-card"></div>`).join("")}
@@ -486,7 +612,7 @@ async function fetchSeedArtistRecommendations(context) {
   const providerOrder = getProviderOrder(context);
   const prefersDomestic = DOMESTIC_PROVIDERS.includes(providerOrder[0]);
   const firstProviders = providerOrder.slice(0, prefersDomestic ? 2 : 3).map(providerName).join("、");
-  elements.networkStatus.textContent = `正在优先从 ${firstProviders} 检索原唱歌手作品`;
+  setStatusText(`正在优先从 ${firstProviders} 检索原唱歌手作品`);
   const terms = uniqueStrings([
     artist,
     `${artist} top songs`,
@@ -532,7 +658,7 @@ async function resolveAuthoritativeSeedArtist(context, seedSongs = []) {
       if (selected) return selected;
     }
 
-    elements.networkStatus.textContent = "正在检索权威原唱歌手";
+    setStatusText("正在检索权威原唱歌手");
     const candidates = await fetchAuthoritativeSeedCandidates(title, seed, countries, context.serial, context);
     const artistCandidates = buildAuthoritativeArtistCandidateList(title, seed, candidates, context).slice(0, 6);
     if (artistCandidates.length) {
@@ -718,8 +844,10 @@ function showArtistSelectionModal(seed, candidates, serial, options = {}) {
       elements.artistManualBtn.removeEventListener("click", onManualClick);
       elements.artistCancelBtn.removeEventListener("click", onCancelClick);
       document.removeEventListener("keydown", onKeydown);
-      elements.artistModal.hidden = true;
       pendingArtistModalCleanup = null;
+      animateArtistModalClose(() => {
+        elements.artistModal.hidden = true;
+      });
     };
 
     const finish = (type, value) => {
@@ -833,7 +961,7 @@ async function fetchAuthoritativeSeedCandidates(title, rawSeed, countries, seria
   }
 
   if (shouldExpandAuthoritativeSeedSearch(title, rawSeed, results, context)) {
-    elements.networkStatus.textContent = "候选不足，正在扩大平台检索";
+    setStatusText("候选不足，正在扩大平台检索");
     const expandedPlan = buildAuthoritativeSearchPlan(
       getExpandedAuthoritativeArtistProviders(context),
       getExpandedAuthoritativeArtistSearchTerms(title, rawSeed, context)
@@ -845,7 +973,7 @@ async function fetchAuthoritativeSeedCandidates(title, rawSeed, countries, seria
   }
 
   if (shouldSearchWebForAuthoritativeArtist(title, rawSeed, results, context)) {
-    elements.networkStatus.textContent = "音乐平台候选不足，正在网页搜索可能歌手";
+    setStatusText("音乐平台候选不足，正在网页搜索可能歌手");
     results.push(...await fetchWebArtistCandidates(title, rawSeed, serial));
   }
 
@@ -1749,7 +1877,7 @@ function buildProviderSearchPlan(termList, countries, limit, context) {
     .slice(0, primaryGroup.length)
     .map(providerName)
     .join("、");
-  elements.networkStatus.textContent = `优先平台：${primaryProviders}`;
+  setStatusText(`优先平台：${primaryProviders}`);
   return searchPlan;
 }
 
@@ -2733,9 +2861,9 @@ function renderRecommendations(songs, context) {
   const hasArtist = hasArtistProfile(context);
   const artistSongs = hasArtist ? songs.filter((song) => artistMatchesProfile(profile, song)) : [];
   const otherSongs = hasArtist ? songs.filter((song) => !artistMatchesProfile(profile, song)) : [];
-  elements.networkStatus.textContent = hasArtist
+  setStatusText(hasArtist
     ? `原唱歌手 ${artistSongs.length} 首，其他歌手 ${otherSongs.length} 首`
-    : songs.length === TARGET_COUNT ? "热门推荐完成" : "热门结果不足 10 首";
+    : songs.length === TARGET_COUNT ? "热门推荐完成" : "热门结果不足 10 首");
 
   if (songs.length === 0) {
     elements.recommendationList.innerHTML = `<div class="empty-state">没有找到可推荐歌曲，请换一种语言或输入其他参考歌曲。</div>`;
@@ -2842,7 +2970,10 @@ function setupRecommendationDecks() {
     cards.forEach((card, index) => {
       card.dataset.deckIndex = String(index);
       card.addEventListener("click", () => {
-        if (activeIndex === index) return;
+        if (activeIndex === index) {
+          animateDeckBoundary(deck, 1);
+          return;
+        }
         activeIndex = index;
         applyRecommendationDeckState(deck, cards, activeIndex);
       });
@@ -2851,7 +2982,10 @@ function setupRecommendationDecks() {
     deck.addEventListener("wheel", (event) => {
       const direction = event.deltaY > 0 ? 1 : -1;
       const nextIndex = Math.max(0, Math.min(cards.length - 1, activeIndex + direction));
-      if (nextIndex === activeIndex) return;
+      if (nextIndex === activeIndex) {
+        animateDeckBoundary(deck, direction);
+        return;
+      }
 
       event.preventDefault();
       const now = Date.now();
@@ -2865,7 +2999,10 @@ function setupRecommendationDecks() {
       if (!["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft"].includes(event.key)) return;
       const direction = ["ArrowDown", "ArrowRight"].includes(event.key) ? 1 : -1;
       const nextIndex = Math.max(0, Math.min(cards.length - 1, activeIndex + direction));
-      if (nextIndex === activeIndex) return;
+      if (nextIndex === activeIndex) {
+        animateDeckBoundary(deck, direction);
+        return;
+      }
 
       event.preventDefault();
       activeIndex = nextIndex;
@@ -2901,6 +3038,19 @@ function applyRecommendationDeckState(deck, cards, activeIndex) {
       control.tabIndex = delta === 0 ? 0 : -1;
     });
   });
+  animateActiveCardDetails();
+}
+
+function animateDeckBoundary(deck, direction) {
+  if (!hasGsap() || reduceMotion) return;
+  const activeCard = deck.querySelector(".song-card.is-active");
+  if (!activeCard) return;
+  gsap.fromTo(activeCard, { "--deck-boundary-y": `${direction > 0 ? 8 : -8}px` }, {
+    "--deck-boundary-y": "0px",
+    duration: 0.28,
+    ease: "back.out(2.4)",
+    onComplete: () => activeCard.style.removeProperty("--deck-boundary-y")
+  });
 }
 
 function animateRecommendationCardState(card, state) {
@@ -2929,7 +3079,7 @@ function animateRecommendationCardState(card, state) {
 
 function renderError(error) {
   elements.resultCount.textContent = "0 / 10";
-  elements.networkStatus.textContent = "联网推荐失败";
+  setStatusText("联网推荐失败");
   elements.recommendationList.innerHTML = `<div class="error-state">${escapeHtml(error.message || "联网推荐失败，请稍后重试。")}</div>`;
   animateMessageState();
 }
