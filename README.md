@@ -74,16 +74,23 @@ python .\server.py
 
 ## 运行方式
 
-进入项目目录：
+克隆仓库：
 
-```powershell
-cd C:\Users\King\Desktop\信息内容安全\music_recommendation_system
+```bash
+git clone https://github.com/jiangking22/music_recommendation_system.git
+cd music_recommendation_system
 ```
 
 启动本地服务：
 
-```powershell
-python .\server.py
+```bash
+python server.py
+```
+
+如果使用 macOS 或 Linux，也可以写成：
+
+```bash
+python3 server.py
 ```
 
 启动成功后，终端会显示访问地址，默认从 `8010` 端口开始寻找可用端口：
@@ -103,8 +110,8 @@ http://127.0.0.1:8010/
 
 也可以手动指定端口：
 
-```powershell
-python .\server.py --port 8020
+```bash
+python server.py --port 8020
 ```
 
 ## 使用说明
