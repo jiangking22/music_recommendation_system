@@ -704,7 +704,7 @@ function showArtistSelectionModal(seed, candidates, serial, options = {}) {
     const seedTitle = extractSeedTitle(seed) || seed;
     const providerText = options.providerText || uniqueStrings(safeCandidates.map((candidate) => candidate.authorityProvider || "Apple Music")).join("、") || "Apple Music";
     elements.artistModalHint.textContent = safeCandidates.length
-      ? `${providerText} 检索到可能的《${seedTitle}》原唱歌手，系统不会自动确认，请选择最符合课堂演示口径的一项。系统会单独展示该歌手的歌曲，目标至少 ${ARTIST_RECOMMENDATION_MIN} 首。`
+      ? `${providerText} 检索到可能的《${seedTitle}》原唱歌手，系统不会自动确认，请选择最符合参考歌曲的一项。系统会单独展示该歌手的歌曲，目标至少 ${ARTIST_RECOMMENDATION_MIN} 首。`
       : `${providerText} 没有检索到足够可靠的《${seedTitle}》原唱歌手。请手动填写原唱歌手，系统会单独展示该歌手的歌曲，目标至少 ${ARTIST_RECOMMENDATION_MIN} 首。`;
     elements.artistManualInput.value = "";
     elements.artistCandidateList.innerHTML = safeCandidates.length
