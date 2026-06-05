@@ -3,12 +3,26 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 .env
 .env.*
+
+.venv/
+venv/
+env/
+
+*.log
+logs/
 
 .vscode/
 .idea/
 
 .DS_Store
 Thumbs.db
+
+# Local-only captures or temporary exports.
+*.tmp
+*.bak
