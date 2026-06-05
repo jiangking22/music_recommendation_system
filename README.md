@@ -41,13 +41,13 @@ music_recommendation_system/
 
 ## 环境依赖
 
-运行环境建议：
+运行环境：
 
 - Python 3.10 或更高版本
 - 现代浏览器：Chrome、Edge、Firefox 均可
 - 可访问外部音乐平台或搜索服务的网络环境
 
-Python 后端只使用标准库，不需要安装第三方 Python 包。`requirements.txt` 中也已注明这一点。
+Python 后端只使用标准库，不需要安装第三方 Python 包。`requirements.txt` 记录了这一依赖状态。
 
 前端页面通过 CDN 加载 GSAP：
 
@@ -55,9 +55,9 @@ Python 后端只使用标准库，不需要安装第三方 Python 包。`require
 https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js
 ```
 
-如果演示环境无法访问该 CDN，页面主体功能仍可使用，但进入动画可能不会显示。
+GSAP 用于页面进入动画，推荐功能不依赖该动画库。
 
-## 可选环境变量
+## Spotify 授权配置
 
 Spotify 搜索可以使用官方 Client Credentials 授权。如果不配置，系统会尝试使用公开 Web Token 作为降级方案，但稳定性可能受地区和网络影响。
 
@@ -69,7 +69,7 @@ $env:SPOTIFY_CLIENT_SECRET="你的 Spotify Client Secret"
 python .\server.py
 ```
 
-注意：不要把真实密钥写入代码或提交到 GitHub。`.gitignore` 已忽略 `.env` 和 `.env.*`。
+Spotify 凭据通过环境变量读取，`.gitignore` 已忽略 `.env` 和 `.env.*`。
 
 ## 运行方式
 
@@ -86,7 +86,7 @@ cd music_recommendation_system
 python server.py
 ```
 
-如果使用 macOS 或 Linux，也可以写成：
+macOS 或 Linux 环境：
 
 ```bash
 python3 server.py
@@ -105,9 +105,9 @@ Press Ctrl+C to stop.
 http://127.0.0.1:8010/
 ```
 
-如果 `8010` 被占用，程序会自动尝试 `8011`、`8012` 等后续端口。
+`8010` 被占用时，程序会自动尝试 `8011`、`8012` 等相邻端口。
 
-也可以手动指定端口：
+手动指定端口：
 
 ```bash
 python server.py --port 8020
@@ -157,7 +157,7 @@ flowchart TD
 | `/api/search/streaming` | YouTube Music、Spotify 搜索 |
 | `/api/search/web-artist` | 网页搜索辅助识别歌手 |
 
-这些接口只服务于本地运行场景，不建议直接部署为公开生产服务。
+这些接口面向本地运行场景，用于统一前端访问和跨平台检索。
 
 ## 设计思路
 
@@ -167,22 +167,8 @@ flowchart TD
 
 ## 安全与隐私说明
 
-- 项目不要求用户登录音乐平台账号。
+- 项目无需用户登录音乐平台账号。
 - 代码中未内置真实 API 密钥。
-- Spotify 凭据通过环境变量读取，不应提交到仓库。
+- Spotify 凭据通过环境变量读取。
 - `.env`、`.env.*`、缓存、日志、虚拟环境等本地文件已加入 `.gitignore`。
-- 本项目使用公开网络信息进行检索和推荐，不建议直接作为公开商业服务部署。
-
-## 已检查项
-
-- `.gitignore` 已包含 Python 缓存、虚拟环境、编辑器配置、环境变量文件、日志文件和系统临时文件。
-- `requirements.txt` 已注明无需第三方 Python 依赖。
-- 当前项目未发现硬编码的真实密钥或密码。
-- `server.py` 中 Spotify 相关凭据来自 `SPOTIFY_CLIENT_ID` 和 `SPOTIFY_CLIENT_SECRET` 环境变量。
-
-## 后续可改进方向
-
-- 增加真实用户反馈，例如喜欢、不喜欢、收藏，用于优化推荐排序。
-- 将推荐规则拆分为独立模块，便于单元测试和参数调优。
-- 增加离线兜底歌单，降低网络异常对推荐结果的影响。
-- 增加接口请求日志开关，方便排查平台请求失败或响应较慢的问题。
+- 系统基于公开网络信息进行检索和推荐。
