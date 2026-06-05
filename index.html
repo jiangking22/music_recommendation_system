@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>音乐推荐系统</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Online Music Recommendation</p>
+        <h1>音乐推荐系统</h1>
+      </div>
+      <div class="status-badge" id="networkStatus">按类型推荐 · 10 首</div>
+    </header>
+
+    <main class="app-shell">
+      <section class="control-panel" aria-label="推荐条件">
+        <div class="panel-heading">
+          <p class="eyebrow">Input</p>
+          <h2>输入歌曲或选择语言</h2>
+        </div>
+
+        <label class="field-label" for="seedInput">参考歌曲</label>
+        <textarea
+          id="seedInput"
+          class="song-input"
+          rows="8"
+          placeholder="晴天 - 周杰伦&#10;Love Story - Taylor Swift"
+        ></textarea>
+
+        <div class="button-row">
+          <button id="recommendBtn" class="primary-button">按类型推荐 10 首</button>
+          <button id="clearBtn" class="secondary-button">清空</button>
+        </div>
+
+        <label class="field-label">推荐语言</label>
+        <div id="languageButtons" class="language-grid" aria-label="推荐语言"></div>
+
+      </section>
+
+      <section class="result-panel" aria-label="推荐结果">
+        <div class="result-heading">
+          <div>
+            <p class="eyebrow">Top Picks</p>
+            <h2 id="resultTitle">等待推荐</h2>
+          </div>
+          <span id="resultCount">0 / 10</span>
+        </div>
+
+        <div id="activeQuery" class="active-query">输入歌曲后按语言、风格推荐，或直接选择语言。</div>
+        <div id="recommendationList" class="recommendation-list">
+          <div class="empty-state">推荐结果会显示在这里，每首歌都会标出语言和音乐类型。</div>
+        </div>
+      </section>
+    </main>
+
+    <div id="artistModal" class="modal-backdrop" hidden>
+      <section class="artist-modal" role="dialog" aria-modal="true" aria-labelledby="artistModalTitle">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Apple Music</p>
+            <h2 id="artistModalTitle">确认原唱歌手</h2>
+          </div>
+        </div>
+        <p id="artistModalHint" class="modal-hint"></p>
+        <div id="artistCandidateList" class="artist-candidate-list"></div>
+        <label class="field-label" for="artistManualInput">没有正确选项时填写原唱歌手</label>
+        <input id="artistManualInput" class="text-input" type="text" placeholder="例如：周杰伦" autocomplete="off" />
+        <div class="modal-actions">
+          <button id="artistCancelBtn" class="secondary-button" type="button">取消本次推荐</button>
+          <button id="artistManualBtn" class="primary-button" type="button">使用填写歌手</button>
+        </div>
+      </section>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
