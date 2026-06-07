@@ -14,7 +14,7 @@ from urllib import parse, request
 
 
 ROOT = Path(__file__).resolve().parent
-REQUEST_TIMEOUT = 6
+REQUEST_TIMEOUT = 4
 REQUEST_CACHE_TTL = 600
 MAX_REQUEST_CACHE_ITEMS = 256
 REQUEST_CACHE: dict[tuple[str, str], tuple[float, object]] = {}
@@ -396,7 +396,7 @@ def search_youtube_music(term: str, limit: int) -> list[dict]:
     try:
         page = request_text("https://music.youtube.com/", headers={"Referer": "https://music.youtube.com/"})
     except Exception:  # noqa: BLE001 - optional provider should degrade gracefully.
-        return search_youtube_web(term, limit)
+        return []
     api_key = read_regex(page, r'"INNERTUBE_API_KEY":"([^"]+)"')
     client_version = read_regex(page, r'"INNERTUBE_CLIENT_VERSION":"([^"]+)"') or "1.20240520.01.00"
     if not api_key:

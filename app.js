@@ -11,7 +11,7 @@ const PROVIDER_GROUPS = {
   english: [["itunes", "ytmusic", "spotify"], ["qq", "netease"]]
 };
 const FALLBACK_TERMS = ["pop hits", "mandopop", "new music", "top songs", "indie pop", "kpop"];
-const REQUEST_TIMEOUT_MS = 10000;
+const REQUEST_TIMEOUT_MS = 7000;
 const LOCAL_PROXY_ORIGINS = Array.from({ length: 50 }, (_, index) => `http://127.0.0.1:${8010 + index}`);
 const MAX_CONCURRENT_SEARCHES = 3;
 const FETCH_POOL_SIZE = 18;
@@ -1856,20 +1856,9 @@ async function fetchMany(terms, limit, desiredCount = TARGET_COUNT, serial = req
 
 function buildProviderSearchPlan(termList, countries, limit, context) {
   const providerOrder = getProviderOrder(context);
-  const searchPlan = [];
-
-  termList.forEach((term, termIndex) => {
-    providerOrder.forEach((provider) => {
-      if (provider === "itunes") {
-        const countrySet = termIndex < 2 ? countries : countries.slice(0, 2);
-        countrySet.forEach((country) => {
-          searchPlan.push({ provider, term, country, limit });
-        });
-        return;
-      }
-      searchPlan.push({ provider, term, limit });
-    });
-  });
+  const searchPlan = inferPlatformPreference(context) === "english"
+    ? buildProviderMajorSearchPlan(providerOrder, termList, countries, limit)
+    : buildTermMajorSearchPlan(providerOrder, termList, countries, limit);
 
   const primaryGroup = getProviderGroups(context)[0] || providerOrder.slice(0, 2);
   const primaryProviders = providerOrder
@@ -1879,6 +1868,42 @@ function buildProviderSearchPlan(termList, countries, limit, context) {
     .join("、");
   setStatusText(`优先平台：${primaryProviders}`);
   return searchPlan;
+}
+
+function buildTermMajorSearchPlan(providerOrder, termList, countries, limit) {
+  const searchPlan = [];
+
+  termList.forEach((term, termIndex) => {
+    providerOrder.forEach((provider) => {
+      appendProviderSearchItems(searchPlan, provider, term, termIndex, countries, limit);
+    });
+  });
+
+  return searchPlan;
+}
+
+function buildProviderMajorSearchPlan(providerOrder, termList, countries, limit) {
+  const searchPlan = [];
+
+  providerOrder.forEach((provider) => {
+    termList.forEach((term, termIndex) => {
+      appendProviderSearchItems(searchPlan, provider, term, termIndex, countries, limit);
+    });
+  });
+
+  return searchPlan;
+}
+
+function appendProviderSearchItems(searchPlan, provider, term, termIndex, countries, limit) {
+  if (provider === "itunes") {
+    const countrySet = termIndex < 2 ? countries : countries.slice(0, 2);
+    countrySet.forEach((country) => {
+      searchPlan.push({ provider, term, country, limit });
+    });
+    return;
+  }
+
+  searchPlan.push({ provider, term, limit });
 }
 
 function getProviderOrder(context = null) {
