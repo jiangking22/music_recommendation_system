@@ -8,18 +8,22 @@
   </head>
   <body>
     <header class="app-header">
-      <div>
-        <p class="eyebrow">Online Music Recommendation</p>
-        <h1>音乐推荐系统</h1>
+      <div class="brand-lockup">
+        <span class="music-mark" aria-hidden="true"></span>
+        <div>
+          <p class="eyebrow">Music Recommendation</p>
+          <h1>音乐推荐系统</h1>
+        </div>
       </div>
-      <div class="status-badge" id="networkStatus">按类型推荐 · 10 首</div>
+      <div class="status-badge" id="networkStatus">按类型推荐 10 首</div>
     </header>
 
     <main class="app-shell">
       <section class="control-panel" aria-label="推荐条件">
         <div class="panel-heading">
           <p class="eyebrow">Input</p>
-          <h2>输入歌曲或选择语言</h2>
+          <h2>从一首歌开始，整理下一段旋律</h2>
+          <p class="panel-note">输入你喜欢的歌曲，或直接选择语种，系统会联网检索并给出 10 首相近推荐。</p>
         </div>
 
         <label class="field-label" for="seedInput">参考歌曲</label>
@@ -37,13 +41,12 @@
 
         <label class="field-label">推荐语言</label>
         <div id="languageButtons" class="language-grid" aria-label="推荐语言"></div>
-
       </section>
 
       <section class="result-panel" aria-label="推荐结果">
         <div class="result-heading">
           <div>
-            <p class="eyebrow">Top Picks</p>
+            <p class="eyebrow">Listening Room</p>
             <h2 id="resultTitle">等待推荐</h2>
           </div>
           <span id="resultCount">0 / 10</span>
