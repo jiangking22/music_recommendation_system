@@ -15,7 +15,10 @@
           <h1>音乐推荐系统</h1>
         </div>
       </div>
-      <div class="status-badge" id="networkStatus">按类型推荐 10 首</div>
+      <div class="header-actions">
+        <div class="status-badge" id="networkStatus">按类型推荐 10 首</div>
+        <button id="personalRecommendBtn" class="header-button" type="button">私人电台</button>
+      </div>
     </header>
 
     <main class="app-shell">
@@ -23,7 +26,7 @@
         <div class="panel-heading">
           <p class="eyebrow">Input</p>
           <h2>从一首歌开始，整理下一段旋律</h2>
-          <p class="panel-note">输入你喜欢的歌曲，或直接选择语种，系统会联网检索并给出 10 首相近推荐。</p>
+          <p class="panel-note">输入参考歌曲后点击推荐；也可以直接选语言生成歌单。推荐卡片右上角的“喜欢 / 不喜欢”会训练你的听歌画像。</p>
         </div>
 
         <label class="field-label" for="seedInput">参考歌曲</label>
@@ -41,6 +44,39 @@
 
         <label class="field-label">推荐语言</label>
         <div id="languageButtons" class="language-grid" aria-label="推荐语言"></div>
+
+        <section class="taste-panel" aria-label="个性化偏好">
+          <div class="taste-heading">
+            <div>
+              <p class="eyebrow">Taste Lab</p>
+              <h2>你的听歌画像</h2>
+            </div>
+            <button id="resetTasteBtn" class="icon-button" type="button" aria-label="重置偏好" title="重置偏好">↻</button>
+          </div>
+
+          <div id="tasteSummary" class="taste-summary">喜欢几首歌后，系统会把语言、风格和歌手偏好记住；点“私人电台”会直接按画像推荐。</div>
+
+          <label class="field-label" for="moodSelect">当前心情</label>
+          <select id="moodSelect" class="select-input">
+            <option value="auto">自动</option>
+            <option value="focus">专注学习</option>
+            <option value="commute">通勤路上</option>
+            <option value="night">夜晚放松</option>
+            <option value="energy">运动高能</option>
+            <option value="fresh">发现新歌</option>
+          </select>
+
+          <div class="preference-grid" aria-label="推荐偏好">
+            <label>
+              <span>新鲜度</span>
+              <input id="noveltyRange" type="range" min="0" max="100" value="45" />
+            </label>
+            <label>
+              <span>热度</span>
+              <input id="popularityRange" type="range" min="0" max="100" value="62" />
+            </label>
+          </div>
+        </section>
       </section>
 
       <section class="result-panel" aria-label="推荐结果">
@@ -52,9 +88,9 @@
           <span id="resultCount">0 / 10</span>
         </div>
 
-        <div id="activeQuery" class="active-query">输入歌曲后按语言、风格推荐，或直接选择语言。</div>
+        <div id="activeQuery" class="active-query">输入歌曲后点击推荐；结果卡片可用滚轮或方向键切换，点“喜欢 / 不喜欢”会影响下一次推荐。</div>
         <div id="recommendationList" class="recommendation-list">
-          <div class="empty-state">推荐结果会显示在这里，每首歌都会标出语言和音乐类型。</div>
+          <div class="empty-state">推荐结果会显示在这里。每张卡片都会展示歌曲信息、推荐理由和“喜欢 / 不喜欢”反馈按钮。</div>
         </div>
       </section>
     </main>

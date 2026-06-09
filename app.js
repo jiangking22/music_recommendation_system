@@ -18,6 +18,8 @@ const FETCH_POOL_SIZE = 18;
 const ONLINE_POOL_KEY = "music-recommendation-online-pool-v7";
 const RUNTIME_FAMOUS_ARTISTS_KEY = "music-recommendation-runtime-famous-artists-v1";
 const OTHER_ARTIST_HISTORY_KEY = "music-recommendation-other-artist-history-v1";
+const TASTE_PROFILE_KEY = "music-recommendation-taste-profile-v1";
+const TASTE_SETTINGS_KEY = "music-recommendation-taste-settings-v1";
 const OTHER_ARTIST_HISTORY_LIMIT = 5;
 const OTHER_ARTIST_RECENT_REPEAT_PENALTY = 160;
 const MIN_RECOMMENDATION_POPULARITY = 70;
@@ -132,6 +134,15 @@ const TAG_WEIGHTS = {
   运动: 5
 };
 
+const MOOD_PRESETS = {
+  auto: { label: "自动", tags: [], types: [], queryTerms: [] },
+  focus: { label: "专注学习", tags: ["学习", "安静", "钢琴", "轻音乐", "舒缓"], types: ["轻音乐", "民谣"], queryTerms: ["study music", "piano instrumental", "lofi focus", "轻音乐 学习"] },
+  commute: { label: "通勤路上", tags: ["通勤", "旋律", "流行", "明亮"], types: ["流行", "R&B", "民谣"], queryTerms: ["commute playlist", "华语 通勤", "pop commute"] },
+  night: { label: "夜晚放松", tags: ["夜晚", "松弛", "柔和", "舒缓", "R&B"], types: ["R&B", "爵士", "轻音乐"], queryTerms: ["night chill", "late night r&b", "夜晚 放松"] },
+  energy: { label: "运动高能", tags: ["运动", "高能", "节奏", "派对", "舞曲"], types: ["电子", "摇滚", "说唱"], queryTerms: ["workout hits", "edm workout", "运动 高能"] },
+  fresh: { label: "发现新歌", tags: ["新歌", "热门", "明亮"], types: ["流行", "电子", "日韩流行"], queryTerms: ["new music", "fresh finds", "新歌 推荐"] }
+};
+
 const LANGUAGES = [
   {
     name: "不限",
@@ -188,7 +199,13 @@ const FAMOUS_ARTIST_NAMES = buildFamousArtistNameSet();
 const elements = {
   seedInput: document.getElementById("seedInput"),
   recommendBtn: document.getElementById("recommendBtn"),
+  personalRecommendBtn: document.getElementById("personalRecommendBtn"),
   clearBtn: document.getElementById("clearBtn"),
+  resetTasteBtn: document.getElementById("resetTasteBtn"),
+  tasteSummary: document.getElementById("tasteSummary"),
+  moodSelect: document.getElementById("moodSelect"),
+  noveltyRange: document.getElementById("noveltyRange"),
+  popularityRange: document.getElementById("popularityRange"),
   languageButtons: document.getElementById("languageButtons"),
   recommendationList: document.getElementById("recommendationList"),
   resultTitle: document.getElementById("resultTitle"),
@@ -206,6 +223,8 @@ const elements = {
 let currentLanguage = LANGUAGES[0].name;
 let requestSerial = 0;
 let onlineSongPool = loadOnlinePool();
+let tasteProfile = loadTasteProfile();
+let tasteSettings = loadTasteSettings();
 let pendingArtistModalCleanup = null;
 let resolvedLocalProxyOrigin = "";
 let initialMotionPlayed = false;
@@ -214,6 +233,7 @@ let statusTween = null;
 const searchCache = new Map();
 const authoritativeCandidateCache = new Map();
 const providerHealth = new Map();
+const renderedSongMap = new Map();
 
 init();
 
@@ -221,9 +241,31 @@ function init() {
   elements.languageButtons.innerHTML = LANGUAGES.map(
     (language) => `<button type="button" data-language="${language.name}" class="${language.name === currentLanguage ? "active" : ""}">${language.name}</button>`
   ).join("");
+  elements.moodSelect.value = tasteSettings.mood || "auto";
+  elements.noveltyRange.value = String(tasteSettings.novelty);
+  elements.popularityRange.value = String(tasteSettings.popularity);
+  updateTasteSummary();
 
   elements.recommendBtn.addEventListener("click", () => recommendByInput());
+  elements.personalRecommendBtn.addEventListener("click", () => recommendPersonalRadio());
   elements.clearBtn.addEventListener("click", clearInput);
+  elements.resetTasteBtn.addEventListener("click", resetTasteProfile);
+  elements.moodSelect.addEventListener("change", () => {
+    tasteSettings.mood = elements.moodSelect.value;
+    saveTasteSettings();
+    updateTasteSummary();
+  });
+  elements.noveltyRange.addEventListener("input", () => {
+    tasteSettings.novelty = Number(elements.noveltyRange.value) || 0;
+    saveTasteSettings();
+    updateTasteSummary();
+  });
+  elements.popularityRange.addEventListener("input", () => {
+    tasteSettings.popularity = Number(elements.popularityRange.value) || 0;
+    saveTasteSettings();
+    updateTasteSummary();
+  });
+  elements.recommendationList.addEventListener("click", handleRecommendationAction);
   elements.seedInput.addEventListener("input", () => {
     const seeds = parseSeedSongs(elements.seedInput.value);
     if (!seeds.length) {
@@ -492,11 +534,217 @@ function clearInput() {
   elements.seedInput.value = "";
   elements.resultTitle.textContent = "等待推荐";
   elements.resultCount.textContent = "0 / 10";
-  elements.activeQuery.textContent = "输入歌曲后按语言、风格推荐，或直接选择语言。";
+  elements.activeQuery.textContent = "输入歌曲后点击推荐；结果卡片可用滚轮或方向键切换，点“喜欢 / 不喜欢”会影响下一次推荐。";
   setStatusText("按类型推荐 · 10 首");
-  elements.recommendationList.innerHTML = `<div class="empty-state">推荐结果会显示在这里，每首歌都会标出语言和音乐类型。</div>`;
+  elements.recommendationList.innerHTML = `<div class="empty-state">推荐结果会显示在这里。每张卡片都会展示歌曲信息、推荐理由和“喜欢 / 不喜欢”反馈按钮。</div>`;
   animateActiveQuery();
   animateMessageState();
+}
+
+function loadTasteProfile() {
+  try {
+    return normalizeTasteProfile(JSON.parse(localStorage.getItem(TASTE_PROFILE_KEY) || "{}"));
+  } catch {
+    return normalizeTasteProfile({});
+  }
+}
+
+function normalizeTasteProfile(profile) {
+  return {
+    languages: normalizeWeightMap(profile.languages),
+    types: normalizeWeightMap(profile.types),
+    tags: normalizeWeightMap(profile.tags),
+    artists: normalizeWeightMap(profile.artists),
+    providers: normalizeWeightMap(profile.providers),
+    blockedKeys: Array.isArray(profile.blockedKeys) ? uniqueStrings(profile.blockedKeys).slice(-160) : [],
+    likedKeys: Array.isArray(profile.likedKeys) ? uniqueStrings(profile.likedKeys).slice(-160) : [],
+    plays: Math.max(0, Number(profile.plays) || 0),
+    likes: Math.max(0, Number(profile.likes) || 0),
+    dislikes: Math.max(0, Number(profile.dislikes) || 0),
+    updatedAt: Number(profile.updatedAt) || 0
+  };
+}
+
+function normalizeWeightMap(map) {
+  const source = map && typeof map === "object" ? map : {};
+  return Object.fromEntries(
+    Object.entries(source)
+      .map(([key, value]) => [String(key || "").trim(), Math.max(-80, Math.min(160, Number(value) || 0))])
+      .filter(([key, value]) => key && Math.abs(value) >= 0.5)
+      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+      .slice(0, 80)
+  );
+}
+
+function loadTasteSettings() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(TASTE_SETTINGS_KEY) || "{}");
+    return normalizeTasteSettings(parsed);
+  } catch {
+    return normalizeTasteSettings({});
+  }
+}
+
+function normalizeTasteSettings(settings) {
+  return {
+    mood: MOOD_PRESETS[settings.mood] ? settings.mood : "auto",
+    novelty: Math.max(0, Math.min(100, Number(settings.novelty) || 45)),
+    popularity: Math.max(0, Math.min(100, Number(settings.popularity) || 62))
+  };
+}
+
+function saveTasteProfile() {
+  tasteProfile = normalizeTasteProfile(tasteProfile);
+  try {
+    localStorage.setItem(TASTE_PROFILE_KEY, JSON.stringify(tasteProfile));
+  } catch {
+    // 个性化画像写入失败时，推荐仍按当前会话继续。
+  }
+  updateTasteSummary();
+}
+
+function saveTasteSettings() {
+  tasteSettings = normalizeTasteSettings(tasteSettings);
+  try {
+    localStorage.setItem(TASTE_SETTINGS_KEY, JSON.stringify(tasteSettings));
+  } catch {
+    // 偏好设置写入失败不影响本次推荐。
+  }
+}
+
+function updateTasteSummary() {
+  const profile = normalizeTasteProfile(tasteProfile);
+  const topTags = topWeightedEntries(profile.tags, 4).map(([tag]) => tag);
+  const topTypes = topWeightedEntries(profile.types, 3).map(([type]) => type);
+  const topArtists = topWeightedEntries(profile.artists, 2).map(([artist]) => artist);
+  const mood = MOOD_PRESETS[tasteSettings.mood] || MOOD_PRESETS.auto;
+  const learned = profile.likes + profile.plays + profile.dislikes;
+  const pieces = [];
+
+  if (topTypes.length) pieces.push(`风格 ${topTypes.join("、")}`);
+  if (topTags.length) pieces.push(`标签 ${topTags.join("、")}`);
+  if (topArtists.length) pieces.push(`歌手 ${topArtists.join("、")}`);
+  pieces.push(`心情 ${mood.label}`);
+  pieces.push(`新鲜度 ${tasteSettings.novelty}%`);
+  pieces.push(`热度 ${tasteSettings.popularity}%`);
+
+  elements.tasteSummary.textContent = learned
+    ? `已学习 ${learned} 次反馈：${pieces.join("；")}`
+    : "喜欢几首歌后，系统会把语言、风格和歌手偏好记住；点“私人电台”会直接按画像推荐。";
+}
+
+function resetTasteProfile() {
+  animateButtonPress(elements.resetTasteBtn);
+  tasteProfile = normalizeTasteProfile({});
+  localStorage.removeItem(TASTE_PROFILE_KEY);
+  updateTasteSummary();
+  setStatusText("已重置听歌画像");
+}
+
+function handleRecommendationAction(event) {
+  const actionButton = event.target.closest("[data-song-action]");
+  if (!actionButton) return;
+  const card = actionButton.closest(".song-card");
+  const song = card ? renderedSongMap.get(card.dataset.songKey) : null;
+  if (!song) return;
+  const action = actionButton.dataset.songAction;
+  recordTasteFeedback(song, action);
+  card.classList.toggle("is-liked", action === "like");
+  card.classList.toggle("is-disliked", action === "dislike");
+  animateButtonPress(actionButton);
+}
+
+function recordTasteFeedback(song, action) {
+  const weights = { like: 16, dislike: -22, play: 7, open: 5 };
+  const weight = weights[action] || 0;
+  if (!weight) return;
+
+  const profile = normalizeTasteProfile(tasteProfile);
+  addTasteWeight(profile.languages, song.language, weight * 0.78);
+  addTasteWeight(profile.types, song.type, weight);
+  addTasteWeight(profile.tags, song.rawGenre, weight * 0.72);
+  cleanRecommendationTags(song.tags || []).forEach((tag) => addTasteWeight(profile.tags, tag, weight * 0.62));
+  addTasteWeight(profile.artists, song.artist, weight * 0.86);
+  addTasteWeight(profile.providers, sourceProvider(song), weight * 0.34);
+
+  const key = songIdentityKey(song);
+  if (action === "like") {
+    profile.likes += 1;
+    profile.likedKeys = uniqueStrings([...profile.likedKeys, key]).slice(-160);
+    profile.blockedKeys = profile.blockedKeys.filter((item) => item !== key);
+    setStatusText("已记住：多推荐这类歌");
+  } else if (action === "dislike") {
+    profile.dislikes += 1;
+    profile.blockedKeys = uniqueStrings([...profile.blockedKeys, key]).slice(-160);
+    profile.likedKeys = profile.likedKeys.filter((item) => item !== key);
+    setStatusText("已记住：少推荐这类歌");
+  } else {
+    profile.plays += 1;
+    setStatusText("已学习一次试听偏好");
+  }
+
+  profile.updatedAt = Date.now();
+  tasteProfile = profile;
+  saveTasteProfile();
+}
+
+function addTasteWeight(map, key, amount) {
+  const label = String(key || "").trim();
+  if (!label) return;
+  map[label] = Math.max(-80, Math.min(160, (Number(map[label]) || 0) + amount));
+}
+
+function topWeightedEntries(map, limit = 5) {
+  return Object.entries(map || {})
+    .filter(([, value]) => Number(value) > 0)
+    .sort((a, b) => Number(b[1]) - Number(a[1]) || a[0].localeCompare(b[0], "zh-CN"))
+    .slice(0, limit);
+}
+
+function topWeightedKey(map) {
+  const [entry] = topWeightedEntries(map, 1);
+  return entry ? entry[0] : "";
+}
+
+function tasteProfileToSeedProfile(profile, languageName) {
+  const language = getLanguageConfig(languageName);
+  const mood = MOOD_PRESETS[tasteSettings.mood] || MOOD_PRESETS.auto;
+  const languages = topWeightedEntries(profile.languages, 2).map(([name]) => name);
+  return {
+    ...emptyProfile(),
+    types: uniqueStrings([...topWeightedEntries(profile.types, 4).map(([name]) => name), ...mood.types]),
+    rawGenres: topWeightedEntries(profile.types, 4).map(([name]) => name),
+    tags: uniqueStrings([...topWeightedEntries(profile.tags, 10).map(([name]) => name), ...mood.tags]),
+    artists: topWeightedEntries(profile.artists, 3).map(([name]) => name),
+    languages: languages.length ? languages : (language.name === "不限" ? [] : [language.name]),
+    countries: language.countries || []
+  };
+}
+
+function formatPersonalRadioLabel(profile, language) {
+  const tags = topWeightedEntries(profile.tags, 4).map(([name]) => name).join("、") || "你的近期偏好";
+  const artists = topWeightedEntries(profile.artists, 2).map(([name]) => name).join("、");
+  const mood = MOOD_PRESETS[tasteSettings.mood] || MOOD_PRESETS.auto;
+  return `私人电台：${language}；${artists ? `偏好歌手 ${artists}；` : ""}标签 ${tags}；心情 ${mood.label}`;
+}
+
+function tasteSearchTerms(context) {
+  const profile = normalizeTasteProfile(context.tasteProfile || tasteProfile);
+  const settings = normalizeTasteSettings(context.tasteSettings || tasteSettings);
+  const mood = MOOD_PRESETS[settings.mood] || MOOD_PRESETS.auto;
+  const languageName = context.language === "不限" ? "" : context.language;
+  const topTags = topWeightedEntries(profile.tags, 8).map(([name]) => name);
+  const topTypes = topWeightedEntries(profile.types, 5).map(([name]) => name);
+  const topArtists = topWeightedEntries(profile.artists, 5).map(([name]) => name);
+  return uniqueStrings([
+    ...topArtists,
+    ...topArtists.flatMap((artist) => [`${artist} 推荐歌曲`, `${artist} 相似歌手`]),
+    ...topTags,
+    ...topTypes,
+    ...topTags.map((tag) => `${languageName} ${tag}`),
+    ...topTypes.map((type) => `${languageName} ${type}`),
+    ...mood.queryTerms
+  ]).slice(0, 28);
 }
 
 function recommendByInput() {
@@ -510,6 +758,8 @@ function recommendByInput() {
     seeds,
     language: currentLanguage,
     seedProfile: emptyProfile(),
+    tasteProfile,
+    tasteSettings: { ...tasteSettings },
     title: "基于语言和风格推荐",
     label: `参考歌曲：${seeds.join("、")}；推荐语言：${currentLanguage}`
   });
@@ -522,8 +772,27 @@ function recommendByLanguage(language) {
     seeds: [],
     language,
     seedProfile: emptyProfile(),
+    tasteProfile,
+    tasteSettings: { ...tasteSettings },
     title,
     label: `推荐语言：${language}`
+  });
+}
+
+function recommendPersonalRadio() {
+  animateButtonPress(elements.personalRecommendBtn);
+  const profile = normalizeTasteProfile(tasteProfile);
+  const bestLanguage = topWeightedKey(profile.languages) || currentLanguage;
+  const language = bestLanguage && getLanguageConfig(bestLanguage).name === bestLanguage ? bestLanguage : currentLanguage;
+  runRecommendation({
+    mode: "personal",
+    seeds: [],
+    language,
+    seedProfile: tasteProfileToSeedProfile(profile, language),
+    tasteProfile: profile,
+    tasteSettings: { ...tasteSettings, mood: elements.moodSelect.value },
+    title: "私人电台",
+    label: formatPersonalRadioLabel(profile, language)
   });
 }
 
@@ -575,6 +844,7 @@ function setLoading(context) {
 
 function setControlsDisabled(disabled) {
   elements.recommendBtn.disabled = disabled;
+  elements.personalRecommendBtn.disabled = disabled;
   elements.languageButtons.querySelectorAll("button").forEach((button) => {
     button.disabled = disabled;
   });
@@ -1170,7 +1440,7 @@ async function fetchSeedMatchedCharts(context) {
 
 async function fetchLanguageRecommendations(context) {
   const language = getLanguageConfig(context.language);
-  let results = await fetchMany(uniqueStrings([...language.popularTerms, ...language.queries, ...language.typeHints]), 24, FETCH_POOL_SIZE, context.serial, context);
+  let results = await fetchMany(uniqueStrings([...tasteSearchTerms(context), ...language.popularTerms, ...language.queries, ...language.typeHints]), 24, FETCH_POOL_SIZE, context.serial, context);
 
   if (dedupeSongs(results, context).length < TARGET_COUNT) {
     results = results.concat(await fetchPopularCharts(context));
@@ -1353,8 +1623,10 @@ function pushProfileStyle(profile, type, tags) {
 function buildTypeSearchTerms(context) {
   const language = getLanguageConfig(context.language);
   const profile = context.seedProfile || emptyProfile();
+  const personalizedTerms = tasteSearchTerms(context);
   if (context.mode !== "seed") {
     return uniqueStrings([
+      ...personalizedTerms,
       ...profile.rawGenres,
       ...profile.types,
       ...profile.tags,
@@ -1380,6 +1652,7 @@ function buildTypeSearchTerms(context) {
   ]);
 
   return uniqueStrings([
+    ...personalizedTerms.slice(0, 10),
     ...seedTerms,
     ...styleTerms,
     ...language.queries.slice(0, 2),
@@ -1544,11 +1817,13 @@ function cachedSongMatchesSeedContext(song, context) {
 function getBackupTerms(context) {
   const language = getLanguageConfig(context.language);
   const profile = context.seedProfile || emptyProfile();
+  const personalizedTerms = tasteSearchTerms(context);
   if (context.mode === "seed") {
     const distinctiveTags = getDistinctiveProfileTags(profile);
     const famousArtistTerms = getFamousOtherArtistFallbackTerms(context, profile, language);
     return uniqueStrings([
       ...buildSeedSpecificSearchTerms(context, profile, language),
+      ...personalizedTerms.slice(0, 10),
       ...famousArtistTerms,
       ...profile.types,
       ...profile.rawGenres,
@@ -1561,6 +1836,7 @@ function getBackupTerms(context) {
   }
 
   return uniqueStrings([
+    ...personalizedTerms,
     ...profile.rawGenres,
     ...profile.types,
     ...profile.tags,
@@ -2421,6 +2697,8 @@ function readFeedHref(links, rel) {
 function rankAndLimit(songs, context) {
   const language = getLanguageConfig(context.language);
   const profile = context.seedProfile || emptyProfile();
+  const personalProfile = normalizeTasteProfile(context.tasteProfile || tasteProfile);
+  const personalSettings = normalizeTasteSettings(context.tasteSettings || tasteSettings);
   const isSeedMode = context.mode === "seed";
 
   const scored = dedupeSongs(songs, context).map((song) => {
@@ -2436,10 +2714,19 @@ function rankAndLimit(songs, context) {
     const tagScore = matchedTags.reduce((sum, tag) => sum + (TAG_WEIGHTS[tag] || 4), 0);
     const artistMatch = artistMatchesProfile(profile, song);
     const artistWeight = isSeedMode && artistMatch ? ARTIST_MATCH_WEIGHT : 0;
+    const personalScore = tasteAffinityScore(song, personalProfile, personalSettings);
+    const moodScore = moodAffinityScore(song, personalSettings.mood);
+    const blockedPenalty = personalProfile.blockedKeys.includes(songIdentityKey(song)) ? 180 : 0;
+    const likedBonus = personalProfile.likedKeys.includes(songIdentityKey(song)) ? 36 : 0;
+    const popularityPreference = (personalSettings.popularity - 50) * 0.28;
+    const noveltyPreference = (personalSettings.novelty - 50) * 0.22;
 
     score += popularity * (isSeedMode ? 0.82 : 0.92);
+    score += popularity * popularityPreference / 10;
+    score += noveltyPreferenceForSong(song, noveltyPreference, personalProfile);
     if (song.source === "chart") score += isSeedMode ? 10 : 24;
     score += providerPreferenceScore(sourceProvider(song), context);
+    score += personalScore + moodScore + likedBonus - blockedPenalty;
     if (selectedLanguageMatch) score += language.name === "不限" ? 6 : 42;
     if (seedLanguageMatch) score += isSeedMode ? 42 : 22;
     if (typeMatch) score += isSeedMode ? 58 : 34;
@@ -2457,7 +2744,8 @@ function rankAndLimit(songs, context) {
       score,
       matchedTags,
       artistWeight,
-      reason: buildReason(song, context, typeMatch || rawGenreMatch || matchedTags.length > 0, selectedLanguageMatch, artistMatch)
+      personalScore,
+      reason: buildReason(song, context, typeMatch || rawGenreMatch || matchedTags.length > 0 || personalScore > 10 || moodScore > 8, selectedLanguageMatch, artistMatch)
     };
   });
 
@@ -2693,6 +2981,47 @@ function seedSpecificAffinity(song, profile, context = null) {
   return score;
 }
 
+function tasteAffinityScore(song, profile, settings) {
+  const tags = cleanRecommendationTags([...(song.tags || []), song.rawGenre, song.type, song.language]);
+  let score = 0;
+  score += weightedTasteValue(profile.languages, song.language) * 0.56;
+  score += weightedTasteValue(profile.types, song.type) * 0.72;
+  score += weightedTasteValue(profile.tags, song.rawGenre) * 0.48;
+  score += weightedTasteValue(profile.artists, song.artist) * 0.86;
+  score += weightedTasteValue(profile.providers, sourceProvider(song)) * 0.35;
+  tags.forEach((tag) => {
+    score += weightedTasteValue(profile.tags, tag) * 0.32;
+  });
+
+  const exploration = Math.max(0, Number(settings.novelty) - 50);
+  if (exploration > 0 && weightedTasteValue(profile.artists, song.artist) <= 0) {
+    score += exploration * 0.16;
+  }
+  return Math.max(-140, Math.min(160, score));
+}
+
+function weightedTasteValue(map, key) {
+  const label = String(key || "").trim();
+  return label ? Number((map || {})[label]) || 0 : 0;
+}
+
+function moodAffinityScore(song, moodName) {
+  const mood = MOOD_PRESETS[moodName] || MOOD_PRESETS.auto;
+  if (!mood.tags.length && !mood.types.length) return 0;
+  const tags = new Set(cleanRecommendationTags([...(song.tags || []), song.rawGenre, song.type]));
+  const tagHits = mood.tags.filter((tag) => tags.has(tag)).length;
+  const typeHits = mood.types.includes(song.type) ? 1 : 0;
+  return tagHits * 9 + typeHits * 14;
+}
+
+function noveltyPreferenceForSong(song, noveltyPreference, profile) {
+  if (!noveltyPreference) return 0;
+  const year = Number(song.releaseYear) || 0;
+  const recentBonus = year >= 2023 ? 16 : year >= 2020 ? 8 : year && year < 2015 ? -6 : 0;
+  const knownArtistPenalty = weightedTasteValue(profile.artists, song.artist) > 35 ? -8 : 4;
+  return noveltyPreference * (recentBonus + knownArtistPenalty) / 10;
+}
+
 function explorationJitterScore(song, context = null, options = {}) {
   if (!options.explorationJitter || !context || context.mode !== "seed") return 0;
   const serial = Number(context.serial) || 0;
@@ -2862,6 +3191,12 @@ function buildReason(song, context, typeMatchesSeed, languageMatches, artistMatc
   if (context.mode === "seed" && artistMatch) {
     return `来自参考歌曲原唱歌手 ${escapeReasonArtist(song.artist)} 的热门作品，歌手权重 +${ARTIST_MATCH_WEIGHT}，并继续匹配当前语言与风格画像。`;
   }
+  if (Number(song.personalScore) > 18) {
+    const personalTags = topPersonalMatches(song, context).slice(0, 3).join("、");
+    return personalTags
+      ? `根据你的历史反馈上调：匹配 ${personalTags}，同时兼顾当前语言与热度。`
+      : `根据你的历史反馈上调，并兼顾当前语言、风格与热度。`;
+  }
   if (context.mode === "seed" && typeMatchesSeed) {
     const profileTypes = (context.seedProfile.types || []).slice(0, 3).join("、") || song.type;
     const matched = (song.matchedTags || []).slice(0, 5).join("、");
@@ -2875,11 +3210,29 @@ function buildReason(song, context, typeMatchesSeed, languageMatches, artistMatc
   return `根据在线曲库的语言与风格标签推荐，类型为${song.type}。`;
 }
 
+function topPersonalMatches(song, context) {
+  const profile = normalizeTasteProfile(context.tasteProfile || tasteProfile);
+  return uniqueStrings([
+    song.language,
+    song.type,
+    song.rawGenre,
+    song.artist,
+    ...cleanRecommendationTags(song.tags || [])
+  ]).filter((item) => {
+    return weightedTasteValue(profile.languages, item) > 0
+      || weightedTasteValue(profile.types, item) > 0
+      || weightedTasteValue(profile.tags, item) > 0
+      || weightedTasteValue(profile.artists, item) > 0;
+  });
+}
+
 function escapeReasonArtist(value) {
   return String(value || "该歌手");
 }
 
 function renderRecommendations(songs, context) {
+  renderedSongMap.clear();
+  songs.forEach((song) => renderedSongMap.set(songIdentityKey(song), song));
   elements.resultTitle.textContent = context.title;
   elements.resultCount.textContent = `${songs.length} / ${TARGET_COUNT}`;
   const profile = context.seedProfile || emptyProfile();
@@ -2935,12 +3288,15 @@ function renderRecommendationColumn(title, targetText, songs, context) {
 }
 
 function renderSongCard(song, rank, context) {
+  const songKey = songIdentityKey(song);
+  const isLiked = normalizeTasteProfile(tasteProfile).likedKeys.includes(songKey);
+  const isDisliked = normalizeTasteProfile(tasteProfile).blockedKeys.includes(songKey);
   const coverStyle = safeImageUrl(song.artwork) ? `style="background-image:url('${safeImageUrl(song.artwork)}')"` : "";
   const sourceLink = safeExternalUrl(song.sourceUrl)
-    ? `<a class="source-link" href="${escapeAttribute(song.sourceUrl)}" target="_blank" rel="noopener">在线查看</a>`
+    ? `<a class="source-link" href="${escapeAttribute(song.sourceUrl)}" target="_blank" rel="noopener" data-song-action="open">在线查看</a>`
     : "";
   const previewLink = safeExternalUrl(song.previewUrl)
-    ? `<a class="source-link" href="${escapeAttribute(song.previewUrl)}" target="_blank" rel="noopener">试听片段</a>`
+    ? `<a class="source-link" href="${escapeAttribute(song.previewUrl)}" target="_blank" rel="noopener" data-song-action="play">试听片段</a>`
     : "";
   const extraTags = cleanRecommendationTags(song.tags || [])
     .filter((tag) => ![song.type, song.language, song.rawGenre, "热门榜单", "热门艺人", "原唱歌手", "热门相关", "高热度"].includes(tag))
@@ -2950,7 +3306,7 @@ function renderSongCard(song, rank, context) {
     : "";
 
   return `
-    <article class="song-card">
+    <article class="song-card ${isLiked ? "is-liked" : ""} ${isDisliked ? "is-disliked" : ""}" data-song-key="${escapeAttribute(songKey)}">
       <div class="cover" ${coverStyle} aria-label="${escapeHtml(song.title)}封面"></div>
       <div class="song-main">
         <div class="song-head">
@@ -2958,7 +3314,11 @@ function renderSongCard(song, rank, context) {
             <h3 class="song-title">${escapeHtml(song.title)}</h3>
             <p class="song-meta">${escapeHtml(song.artist)}${song.releaseYear ? ` · ${song.releaseYear}` : ""} · ${countryLabel(song.country)}</p>
           </div>
-          <span class="rank-pill">#${rank}</span>
+          <div class="song-head-actions">
+            <span class="rank-pill">#${rank}</span>
+            <button class="feedback-button like-button" type="button" data-song-action="like" aria-label="喜欢这首歌">喜欢</button>
+            <button class="feedback-button dislike-button" type="button" data-song-action="dislike" aria-label="不喜欢这首歌">不喜欢</button>
+          </div>
         </div>
         <div class="tag-row">
           <span class="type-pill">类型：${escapeHtml(song.type)}</span>
@@ -2970,7 +3330,9 @@ function renderSongCard(song, rank, context) {
           ${extraTags.map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join("")}
         </div>
         <p class="song-reason">${escapeHtml(song.reason)}</p>
-        <div class="tag-row">${sourceLink}${previewLink}</div>
+        <div class="song-actions">
+          ${sourceLink}${previewLink}
+        </div>
       </div>
     </article>
   `;
