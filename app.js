@@ -3292,11 +3292,14 @@ function renderSongCard(song, rank, context) {
   const isLiked = normalizeTasteProfile(tasteProfile).likedKeys.includes(songKey);
   const isDisliked = normalizeTasteProfile(tasteProfile).blockedKeys.includes(songKey);
   const coverStyle = safeImageUrl(song.artwork) ? `style="background-image:url('${safeImageUrl(song.artwork)}')"` : "";
-  const sourceLink = safeExternalUrl(song.sourceUrl)
-    ? `<a class="source-link" href="${escapeAttribute(song.sourceUrl)}" target="_blank" rel="noopener" data-song-action="open">在线查看</a>`
+  const sourceUrl = safeExternalUrl(song.sourceUrl);
+  const previewUrl = safeExternalUrl(song.previewUrl);
+  const listenUrl = previewUrl || sourceUrl;
+  const previewLink = listenUrl
+    ? `<a class="source-link listen-link" href="${escapeAttribute(listenUrl)}" target="_blank" rel="noopener" data-song-action="play">在线试听</a>`
     : "";
-  const previewLink = safeExternalUrl(song.previewUrl)
-    ? `<a class="source-link" href="${escapeAttribute(song.previewUrl)}" target="_blank" rel="noopener" data-song-action="play">试听片段</a>`
+  const sourceLink = sourceUrl && sourceUrl !== listenUrl
+    ? `<a class="source-link source-detail-link" href="${escapeAttribute(sourceUrl)}" target="_blank" rel="noopener" data-song-action="open">在线查看</a>`
     : "";
   const extraTags = cleanRecommendationTags(song.tags || [])
     .filter((tag) => ![song.type, song.language, song.rawGenre, "热门榜单", "热门艺人", "原唱歌手", "热门相关", "高热度"].includes(tag))
@@ -3331,7 +3334,7 @@ function renderSongCard(song, rank, context) {
         </div>
         <p class="song-reason">${escapeHtml(song.reason)}</p>
         <div class="song-actions">
-          ${sourceLink}${previewLink}
+          ${previewLink}${sourceLink}
         </div>
       </div>
     </article>

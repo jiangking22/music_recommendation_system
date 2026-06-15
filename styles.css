@@ -2318,6 +2318,61 @@ body::before {
   background: rgba(245, 235, 250, 0.86);
 }
 
+/* Keep listening controls visible when titles, tags, or reasons wrap. */
+.song-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.song-card .song-reason {
+  display: -webkit-box;
+  max-height: calc(1.58em * 3);
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.recommendation-column .song-card .song-reason {
+  max-height: calc(1.58em * 2);
+  -webkit-line-clamp: 2;
+}
+
+.recommendation-column .tag-row {
+  max-height: 68px;
+  overflow: hidden;
+}
+
+.song-actions {
+  position: relative;
+  z-index: 6;
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.song-card .listen-link {
+  background: linear-gradient(135deg, var(--coral), var(--plum));
+  border-color: transparent;
+}
+
+.song-card .source-detail-link {
+  background: #315f72;
+}
+
+.song-card .listen-link:hover,
+.song-card .source-detail-link:hover {
+  background: var(--plum);
+}
+
+.recommendation-list.wheel-deck {
+  min-height: 500px;
+}
+
+.recommendation-column-list.wheel-deck {
+  min-height: 460px;
+}
+
 @media (max-width: 980px) {
   .header-actions {
     justify-content: flex-start;
@@ -2342,6 +2397,8 @@ body::before {
 
   .song-actions {
     gap: 6px;
+    margin-top: 10px;
+    padding-top: 0;
   }
 
   .song-head {
@@ -2363,6 +2420,12 @@ body::before {
   .song-card .source-link {
     min-height: 32px;
     padding: 0 10px;
+  }
+
+  .song-card .song-reason,
+  .recommendation-column .song-card .song-reason {
+    max-height: calc(1.58em * 2);
+    -webkit-line-clamp: 2;
   }
 }
 
