@@ -20,6 +20,7 @@ const RUNTIME_FAMOUS_ARTISTS_KEY = "music-recommendation-runtime-famous-artists-
 const OTHER_ARTIST_HISTORY_KEY = "music-recommendation-other-artist-history-v1";
 const TASTE_PROFILE_KEY = "music-recommendation-taste-profile-v1";
 const TASTE_SETTINGS_KEY = "music-recommendation-taste-settings-v1";
+const METRICS_KEY = "music-recommendation-metrics-v1";
 const OTHER_ARTIST_HISTORY_LIMIT = 5;
 const OTHER_ARTIST_RECENT_REPEAT_PENALTY = 160;
 const MIN_RECOMMENDATION_POPULARITY = 70;
@@ -206,6 +207,8 @@ const elements = {
   moodSelect: document.getElementById("moodSelect"),
   noveltyRange: document.getElementById("noveltyRange"),
   popularityRange: document.getElementById("popularityRange"),
+  resetMetricsBtn: document.getElementById("resetMetricsBtn"),
+  metricsGrid: document.getElementById("metricsGrid"),
   languageButtons: document.getElementById("languageButtons"),
   recommendationList: document.getElementById("recommendationList"),
   resultTitle: document.getElementById("resultTitle"),
@@ -225,6 +228,7 @@ let requestSerial = 0;
 let onlineSongPool = loadOnlinePool();
 let tasteProfile = loadTasteProfile();
 let tasteSettings = loadTasteSettings();
+let recommendationMetrics = loadMetrics();
 let pendingArtistModalCleanup = null;
 let resolvedLocalProxyOrigin = "";
 let initialMotionPlayed = false;
@@ -245,11 +249,13 @@ function init() {
   elements.noveltyRange.value = String(tasteSettings.novelty);
   elements.popularityRange.value = String(tasteSettings.popularity);
   updateTasteSummary();
+  renderMetrics();
 
   elements.recommendBtn.addEventListener("click", () => recommendByInput());
   elements.personalRecommendBtn.addEventListener("click", () => recommendPersonalRadio());
   elements.clearBtn.addEventListener("click", clearInput);
   elements.resetTasteBtn.addEventListener("click", resetTasteProfile);
+  elements.resetMetricsBtn.addEventListener("click", resetMetrics);
   elements.moodSelect.addEventListener("change", () => {
     tasteSettings.mood = elements.moodSelect.value;
     saveTasteSettings();
@@ -641,6 +647,151 @@ function resetTasteProfile() {
   setStatusText("已重置听歌画像");
 }
 
+function defaultMetrics() {
+  return {
+    totalRequests: 0,
+    successRequests: 0,
+    failedRequests: 0,
+    totalRecommendedSongs: 0,
+    exposureSongs: 0,
+    fullTenRequests: 0,
+    likeCount: 0,
+    dislikeCount: 0,
+    totalRecommendMs: 0,
+    lastPlatformCoverage: 0,
+    updatedAt: 0
+  };
+}
+
+function loadMetrics() {
+  try {
+    return normalizeMetrics(JSON.parse(localStorage.getItem(METRICS_KEY) || "{}"));
+  } catch {
+    return defaultMetrics();
+  }
+}
+
+function normalizeMetrics(metrics) {
+  const source = metrics && typeof metrics === "object" ? metrics : {};
+  const normalized = defaultMetrics();
+  Object.keys(normalized).forEach((key) => {
+    normalized[key] = Math.max(0, Number(source[key]) || 0);
+  });
+  normalized.updatedAt = Number(source.updatedAt) || 0;
+  return normalized;
+}
+
+function saveMetrics() {
+  recommendationMetrics = normalizeMetrics(recommendationMetrics);
+  recommendationMetrics.updatedAt = Date.now();
+  try {
+    localStorage.setItem(METRICS_KEY, JSON.stringify(recommendationMetrics));
+  } catch {
+    // 指标统计只用于实验展示，写入失败不影响推荐流程。
+  }
+  renderMetrics();
+}
+
+function resetMetrics() {
+  animateButtonPress(elements.resetMetricsBtn);
+  recommendationMetrics = defaultMetrics();
+  localStorage.removeItem(METRICS_KEY);
+  renderMetrics();
+  setStatusText("已重置推荐效果指标");
+}
+
+function recordRecommendStart() {
+  recommendationMetrics = normalizeMetrics(recommendationMetrics);
+  recommendationMetrics.totalRequests += 1;
+  saveMetrics();
+  return performance.now();
+}
+
+function recordRecommendSuccess(results, startTime) {
+  const songs = Array.isArray(results) ? results : [];
+  const count = songs.length;
+  recommendationMetrics = normalizeMetrics(recommendationMetrics);
+  recommendationMetrics.successRequests += 1;
+  recommendationMetrics.totalRecommendedSongs += count;
+  recommendationMetrics.exposureSongs += count;
+  if (count === TARGET_COUNT) {
+    recommendationMetrics.fullTenRequests += 1;
+  }
+  recommendationMetrics.totalRecommendMs += elapsedSince(startTime);
+  recommendationMetrics.lastPlatformCoverage = uniqueStrings(songs.map(sourceProvider)).filter(Boolean).length;
+  saveMetrics();
+}
+
+function recordRecommendFail(startTime) {
+  recommendationMetrics = normalizeMetrics(recommendationMetrics);
+  recommendationMetrics.failedRequests += 1;
+  recommendationMetrics.totalRecommendMs += elapsedSince(startTime);
+  saveMetrics();
+}
+
+function recordLikeMetric() {
+  recommendationMetrics = normalizeMetrics(recommendationMetrics);
+  recommendationMetrics.likeCount += 1;
+  saveMetrics();
+}
+
+function recordDislikeMetric() {
+  recommendationMetrics = normalizeMetrics(recommendationMetrics);
+  recommendationMetrics.dislikeCount += 1;
+  saveMetrics();
+}
+
+function elapsedSince(startTime) {
+  return Math.max(0, Math.round(performance.now() - Number(startTime || performance.now())));
+}
+
+function renderMetrics() {
+  if (!elements.metricsGrid) return;
+
+  const metrics = normalizeMetrics(recommendationMetrics);
+  const total = metrics.totalRequests;
+  const success = metrics.successRequests;
+  const exposure = metrics.exposureSongs;
+  const metricItems = [
+    ["推荐总次数", formatInteger(metrics.totalRequests)],
+    ["推荐成功次数", formatInteger(metrics.successRequests)],
+    ["推荐失败次数", formatInteger(metrics.failedRequests)],
+    ["推荐成功率", formatPercent(total ? metrics.successRequests / total : 0)],
+    ["平均推荐数量", formatDecimal(success ? metrics.totalRecommendedSongs / success : 0)],
+    ["满 10 首率", formatPercent(success ? metrics.fullTenRequests / success : 0)],
+    ["喜欢次数", formatInteger(metrics.likeCount)],
+    ["不喜欢次数", formatInteger(metrics.dislikeCount)],
+    ["喜欢率", formatPercent(exposure ? metrics.likeCount / exposure : 0)],
+    ["不喜欢率", formatPercent(exposure ? metrics.dislikeCount / exposure : 0)],
+    ["平均推荐耗时", formatDuration(total ? metrics.totalRecommendMs / total : 0)],
+    ["平台覆盖数", formatInteger(metrics.lastPlatformCoverage)]
+  ];
+
+  elements.metricsGrid.innerHTML = metricItems.map(([label, value]) => `
+    <div class="metric-card">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `).join("");
+}
+
+function formatInteger(value) {
+  return String(Math.round(Number(value) || 0));
+}
+
+function formatDecimal(value) {
+  return (Number(value) || 0).toFixed(1);
+}
+
+function formatPercent(value) {
+  return `${((Number(value) || 0) * 100).toFixed(1)}%`;
+}
+
+function formatDuration(value) {
+  const ms = Math.max(0, Number(value) || 0);
+  return ms >= 1000 ? `${(ms / 1000).toFixed(2)} 秒` : `${Math.round(ms)} 毫秒`;
+}
+
 function handleRecommendationAction(event) {
   const actionButton = event.target.closest("[data-song-action]");
   if (!actionButton) return;
@@ -649,6 +800,11 @@ function handleRecommendationAction(event) {
   if (!song) return;
   const action = actionButton.dataset.songAction;
   recordTasteFeedback(song, action);
+  if (action === "like") {
+    recordLikeMetric();
+  } else if (action === "dislike") {
+    recordDislikeMetric();
+  }
   card.classList.toggle("is-liked", action === "like");
   card.classList.toggle("is-disliked", action === "dislike");
   animateButtonPress(actionButton);
@@ -799,6 +955,18 @@ function recommendPersonalRadio() {
 async function runRecommendation(context) {
   const serial = ++requestSerial;
   const activeContext = { ...context, serial };
+  const metricsStartTime = recordRecommendStart();
+  let metricsRecorded = false;
+  const recordCurrentFail = () => {
+    if (metricsRecorded) return;
+    recordRecommendFail(metricsStartTime);
+    metricsRecorded = true;
+  };
+  const recordCurrentSuccess = (songs) => {
+    if (metricsRecorded) return;
+    recordRecommendSuccess(songs, metricsStartTime);
+    metricsRecorded = true;
+  };
   activeContext.platformPreference = inferPlatformPreference(activeContext);
   cancelActiveRequests();
   setLoading(activeContext);
@@ -808,15 +976,27 @@ async function runRecommendation(context) {
       ? await fetchSeedRecommendations(activeContext)
       : await fetchLanguageRecommendations(activeContext);
 
-    if (serial !== requestSerial) return;
+    if (serial !== requestSerial) {
+      recordCurrentFail();
+      return;
+    }
 
     const completedSongs = await ensureTenSongs(songs, activeContext);
-    if (serial !== requestSerial) return;
+    if (serial !== requestSerial) {
+      recordCurrentFail();
+      return;
+    }
 
     const ranked = rankAndLimit(completedSongs, activeContext);
+    if (ranked.length) {
+      recordCurrentSuccess(ranked);
+    } else {
+      recordCurrentFail();
+    }
     renderRecommendations(ranked, activeContext);
     rememberRecentOtherArtistRecommendations(ranked, activeContext);
   } catch (error) {
+    recordCurrentFail();
     if (serial !== requestSerial) return;
     renderError(error);
   } finally {
