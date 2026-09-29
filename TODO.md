@@ -9,9 +9,10 @@
 - [x] Preserve the legacy source files without a large migration.
 - [x] Verify the legacy runtime with `python server.py --help` and an isolated HTTP 200 homepage check.
 
-## Phase 1 — Foundation (not started)
+## Phase 1 — Foundation (in progress)
 
 - [ ] Agree exact package versions and supported local runtime.
+- [x] Add an isolated FastAPI health/device-contract foundation with focused tests.
 - [ ] Scaffold `apps/web`, `services/api`, and `infra` without deleting legacy files.
 - [ ] Add Compose, config templates, PostgreSQL/pgvector, Redis, health checks, and migration tooling.
 - [ ] Add a fixture-backed vertical recommendation API and tests.

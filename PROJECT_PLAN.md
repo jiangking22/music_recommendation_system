@@ -14,14 +14,14 @@ proxy. It already demonstrates multi-source recall, artist disambiguation, heuri
 local preference learning, and feedback metrics. It has no typed API contract, durable database,
 automated tests, dependency management, or service boundary.
 
-## Phase 0 — Audit and shared context (current)
+## Phase 0 — Audit and shared context (complete)
 
 Deliver the repository audit and the shared files named in `TODO.md`. Preserve the legacy runtime.
 
 **Exit criteria:** documentation is internally consistent; `python server.py --help` works; no
 target-runtime code or runtime dependency is introduced.
 
-## Phase 1 — Engineering foundation
+## Phase 1 — Engineering foundation (in progress)
 
 Introduce the target directory scaffold, FastAPI service, Next.js TypeScript client, Compose,
 PostgreSQL/pgvector, Redis, configuration validation, health checks, migrations, and test/lint
