@@ -58,6 +58,10 @@ def test_readiness_checks_database_and_redis(tmp_path: Path, monkeypatch: pytest
         def ping(self) -> bool:
             return True
 
+    class FailedRedis:
+        def ping(self) -> bool:
+            raise ConnectionError("private connection detail")
+
     def session_override():
         with Session(engine) as session:
             yield session
@@ -67,8 +71,12 @@ def test_readiness_checks_database_and_redis(tmp_path: Path, monkeypatch: pytest
     try:
         with TestClient(app) as client:
             response = client.get("/health/ready")
+            monkeypatch.setattr(routes, "get_redis", lambda: FailedRedis())
+            failed = client.get("/health/ready")
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
+        assert failed.status_code == 503
+        assert failed.json()["error"] == {"code": "http_error", "message": "Dependencies unavailable."}
     finally:
         app.dependency_overrides.clear()
         engine.dispose()

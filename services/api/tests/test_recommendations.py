@@ -15,7 +15,7 @@ def test_fixture_recommendations_cross_api_and_domain() -> None:
         "id": "fixture-blue-window",
         "title": "Blue Window",
         "artist": "Demo Quartet",
-        "explanation": "Bundled fixture example; no live catalog or ranking is used.",
+        "explanation": "Bundled fixture example; no live catalog or full ranking is used.",
     }
 
 

@@ -21,7 +21,7 @@ Deliver the repository audit and the shared files named in `TODO.md`. Preserve t
 **Exit criteria:** documentation is internally consistent; `python server.py --help` works; no
 target-runtime code or runtime dependency is introduced.
 
-## Phase 1 — Engineering foundation (in progress)
+## Phase 1 — Engineering foundation (complete; Docker runtime unverified locally)
 
 Introduce the target directory scaffold, FastAPI service, Next.js TypeScript client, Compose,
 PostgreSQL/pgvector, Redis, configuration validation, health checks, migrations, and test/lint

@@ -9,7 +9,7 @@
 - [x] Preserve the legacy source files without a large migration.
 - [x] Verify the legacy runtime with `python server.py --help` and an isolated HTTP 200 homepage check.
 
-## Phase 1 — Foundation (in progress)
+## Phase 1 — Foundation (complete; live Docker run unexecuted on this host)
 
 - [x] Agree exact package versions and supported local runtime (Python 3.12, Node 24, API pins in `pyproject.toml`; web pins in its scaffold).
 - [x] Add an isolated FastAPI health/device-contract foundation with focused tests.

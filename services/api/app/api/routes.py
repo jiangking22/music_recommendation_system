@@ -54,7 +54,7 @@ def recommendations(request: RecommendationRequest) -> RecommendationResponse:
             id=song.id,
             title=song.title,
             artist=song.artist,
-            explanation="Bundled fixture example; no live catalog or ranking is used.",
+            explanation="Bundled fixture example; no live catalog or full ranking is used.",
         )
         for song in songs
     ]
