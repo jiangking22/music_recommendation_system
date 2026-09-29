@@ -103,6 +103,13 @@ legacy/                      optional later home for preserved demo files
 `index.html`, `app.js`, `styles.css`, and `server.py` are the legacy demo. They stay
 available during migration and are not dependencies of the target runtime.
 
+### Phase 1 implementation status
+
+The API health/device contract, API container definition, Compose topology, Redis, and a
+PostgreSQL/pgvector initialization script now exist. The Next.js client, ORM migration tooling,
+and durable application data model remain unimplemented; Compose startup is pending a Docker-capable
+environment.
+
 ## Service boundaries / 服务边界
 
 | Area | Responsibility | Must not do |

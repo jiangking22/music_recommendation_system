@@ -15,6 +15,8 @@
 - [x] Add an isolated FastAPI health/device-contract foundation with focused tests.
 - [ ] Scaffold `apps/web`, `services/api`, and `infra` without deleting legacy files.
 - [ ] Add Compose, config templates, PostgreSQL/pgvector, Redis, health checks, and migration tooling.
+- [x] Add API container, Compose data-service topology, `.env.example`, and pgvector extension initialization.
+- [ ] Run `docker compose up --build` when Docker is available locally.
 - [ ] Add a fixture-backed vertical recommendation API and tests.
 
 ## Phase 2 — Providers (not started)
