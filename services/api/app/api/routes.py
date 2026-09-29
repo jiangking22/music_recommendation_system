@@ -51,18 +51,25 @@ def get_device(
 
 
 @router.post("/v1/recommendations", response_model=RecommendationResponse)
-def recommendations(request: RecommendationRequest) -> RecommendationResponse:
-    songs = recommend(request.seed, request.limit)
+def recommendations(
+    request: RecommendationRequest,
+    registry: Annotated[ProviderRegistry, Depends(get_provider_registry)],
+) -> RecommendationResponse:
+    songs, search = recommend(request.seed, request.limit, registry)
     items = [
         RecommendationItem(
-            id=song.id,
-            title=song.title,
-            artist=song.artist,
-            explanation="Bundled fixture example; no live catalog or full ranking is used.",
+            id=song.key,
+            title=song.track.title,
+            artist=song.track.artist.name,
+            explanation=song.explanation,
+            track=song.track,
+            score=song.score,
+            score_breakdown=song.score_breakdown,
+            provenance=list(song.provenance),
         )
         for song in songs
     ]
-    return RecommendationResponse(request_id=str(uuid4()), items=items)
+    return RecommendationResponse(request_id=str(uuid4()), items=items, sources=search.sources)
 
 
 @router.get("/v1/providers", response_model=ProvidersResponse)

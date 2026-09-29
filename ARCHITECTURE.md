@@ -137,6 +137,15 @@ track from each default provider; future availability remains unverified.
 
 ## Service boundaries / 服务边界
 
+### Phase 3 recommendation core (implemented)
+
+`app/services/recommendation.py` recalls bounded candidates from Provider Registry and the
+committed local catalog. `app/domain/pipeline.py` normalizes and merges songs across providers,
+preserving all source IDs, then extracts features, scores with one policy, applies deterministic
+diversity penalties, and produces factor-based explanations. `POST /v1/recommendations` uses this
+pipeline and returns canonical tracks, provenance, scores, breakdowns and per-source errors.
+The local catalog supplies results when upstream providers fail. The core never calls an LLM.
+
 | Area | Responsibility | Must not do |
 | --- | --- | --- |
 | Web | Present UI, persist anonymous device ID, consume REST/SSE | Rank songs or store secrets |

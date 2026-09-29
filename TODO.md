@@ -30,7 +30,7 @@
 
 ## Phase 3 — Recommendation and profile (not started)
 
-- [ ] Extract recall, normalization, ranking, diversity, and explanation domain services.
+- [x] Extract recall, normalization, ranking, diversity, and explanation domain services.
 - [ ] Persist anonymous user preference and feedback in PostgreSQL.
 - [ ] Add song/preference embeddings and offline evaluator fixtures.
 

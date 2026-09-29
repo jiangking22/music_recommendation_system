@@ -1,6 +1,13 @@
 from pydantic import BaseModel, Field, field_validator
 
-from app.domain.music import ProviderCapabilities, ProviderHealth, SearchResult
+from app.domain.music import (
+    ProviderCapabilities,
+    ProviderHealth,
+    ProviderResult,
+    ProviderSource,
+    SearchResult,
+    Track,
+)
 
 
 class HealthResponse(BaseModel):
@@ -31,11 +38,16 @@ class RecommendationItem(BaseModel):
     title: str
     artist: str
     explanation: str
+    track: Track
+    score: float
+    score_breakdown: dict[str, float]
+    provenance: list[ProviderSource]
 
 
 class RecommendationResponse(BaseModel):
     request_id: str
     items: list[RecommendationItem]
+    sources: dict[str, ProviderResult]
 
 
 class ProvidersResponse(BaseModel):

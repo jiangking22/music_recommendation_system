@@ -161,3 +161,21 @@ runtime.
 - API and future recommendation code consume one schema and never inspect provider payloads.
 - A source outage appears in `sources` without discarding healthy source results.
 - Automatic tests use fixtures and mocked HTTP; they cannot certify live upstream availability.
+
+## ADR-010: Deterministic Phase 3 recommendation policy
+
+**Status:** Accepted
+**Date:** 2026-09-29
+
+### Decision
+
+Recall from the bounded Provider Registry plus a versioned local catalog. Normalize title and
+artist variants for cross-provider deduplication while retaining every source ID. Rank with
+explicit weights in `app/domain/policy.py`, apply deterministic artist/provider/genre diversity
+penalties, and construct explanations from measured factors. Return scores and source errors.
+
+### Consequences
+
+An upstream outage leaves catalog recommendations available. Future Agent tooling may invoke
+this recommender but cannot replace its recall, rank, or explanation policy. Provider metadata
+quality and the small fallback catalog limit relevance until a larger verified catalog exists.
