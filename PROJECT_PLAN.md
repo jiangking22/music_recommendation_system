@@ -61,15 +61,20 @@ explanations. Device feedback and affinity snapshots persist in PostgreSQL table
 rating per track wins. Local 16-dimensional song/user embeddings use pgvector storage and a
 minimal similarity query. The versioned offline evaluator reports all four exit metrics. SQLite
 tests and PostgreSQL migration SQL were verified without Docker; live PostgreSQL execution
-remains unverified on this host. Phase 4 has not begun.
+remains unverified on this host.
 
 **Exit criteria:** relevance, personalization lift, diversity, and coverage are reproducibly
 reported from versioned fixtures; feedback changes a later result.
 
-## Phase 4 — Product client
+## Phase 4 — Product client (implemented; desktop browser flow verified locally)
 
-Build the Next.js user flow: anonymous device bootstrap, recommendation input/results,
-explanations, feedback, preference summary, and resilient loading/error states.
+The Next.js client now creates and reuses a random browser device ID, consumes the real
+recommendation pipeline, and offers seed/limit input, artwork-led results, provenance,
+explanations, like/dislike, and a small durable preference profile. A thin read-only
+`GET /v1/profile` endpoint exposes the existing snapshot and five recent ratings. Loading,
+empty, error, and partial-provider states are explicit. Component/API tests and a local
+browser run cover the main flow; 390px phone, 768px tablet, and 1024px desktop layouts were
+visually checked on this host.
 
 **Exit criteria:** browser and API integration tests cover the primary recommendation flow.
 

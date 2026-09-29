@@ -216,3 +216,23 @@ No paid API, model download, or training job is required. Hash collisions and ti
 limit retrieval and metric generalization; evaluation measures regression on fixed cases, not
 real-user recommendation quality. Live pgvector migration/query verification awaits a PostgreSQL
 runtime on a Docker-capable host.
+
+## ADR-013: Browser API client and read-only profile projection
+
+**Status:** Accepted
+**Date:** 2026-09-29
+
+### Decision
+
+The Phase 4 Next.js page runs its interactive requests in the browser against the versioned
+FastAPI endpoints. One API module owns the public base URL, device header, timeout, JSON parsing,
+and error envelope. The browser persists only a random anonymous device ID. A new read-only
+`GET /v1/profile` projects positive affinities and five recent ratings from Phase 3 tables; it
+does not change the recommendation policy or persistence model.
+
+### Consequences
+
+The browser can show durable feedback and partial provider failures without an additional BFF.
+Deployments must set `NEXT_PUBLIC_API_BASE_URL` to a browser-reachable API URL and allow the web
+origin in `ALLOWED_ORIGINS`. The profile is tied to one browser identifier with no account
+recovery or cross-device sync.

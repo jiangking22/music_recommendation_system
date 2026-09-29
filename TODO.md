@@ -34,10 +34,10 @@
 - [x] Persist anonymous user preference and feedback in PostgreSQL.
 - [x] Add song/preference embeddings and offline evaluator fixtures.
 
-## Phase 4 — Client (not started)
+## Phase 4 — Client (complete; browser desktop flow verified locally)
 
-- [ ] Build Next.js recommendation, feedback, preference, and explanation UI.
-- [ ] Add browser-facing tests and accessible loading/error states.
+- [x] Build Next.js recommendation, feedback, preference, and explanation UI.
+- [x] Add browser-facing tests and accessible loading/error states.
 
 ## Phase 5 — Agent/RAG/MCP (not started)
 

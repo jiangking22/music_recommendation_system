@@ -8,30 +8,58 @@
 
 - GitHub: <https://github.com/jiangking22/music_recommendation_system>
 
-## Target runtime through Phase 3 / 新工程截至第三阶段
+## Target runtime through Phase 4 / 新工程截至第四阶段
 
 The original `python server.py` demo remains available. The separate target runtime has a
-minimal Next.js 16 / TypeScript page, FastAPI service, PostgreSQL/pgvector migrations, Redis
+usable Next.js 16 / TypeScript product client, FastAPI service, PostgreSQL/pgvector migrations, Redis
 readiness check, and four-service Compose topology. iTunes and NetEase adapters provide canonical
 tracks; QQ is optional. Recommendations now use bounded multi-source recall with local catalog
 fallback, cross-provider deduplication, deterministic feature scoring and diversity reranking.
 Anonymous feedback and preference profiles persist in PostgreSQL and change later rankings.
 Results include score breakdowns, provenance and deterministic explanations. Small local
-embeddings and a fixed offline evaluation are included. The formal Phase 4 UI, Agent, RAG and
-MCP remain planned.
+embeddings and a fixed offline evaluation are included. The Sonora client creates a stable
+anonymous browser ID, displays real recommendations and partial-source status, saves like/dislike
+feedback, and shows a durable preference profile. Agent, RAG and MCP remain planned for Phase 5.
 
-旧版 `python server.py` 演示仍可运行。独立的新工程目前提供最小 Next.js 页面、FastAPI 健康检查和
+旧版 `python server.py` 演示仍可运行。独立的新工程目前提供可使用的 Next.js 产品客户端、FastAPI 健康检查和
 匿名设备持久化接口、PostgreSQL/pgvector 迁移、Redis 就绪检查及四服务 Compose 拓扑。
-最小网页通过 API 展示推荐结果。统一曲目搜索 API 接入独立的 iTunes 与网易云适配器，QQ 可选。
+新版网页自动保存匿名设备标识，可提交参考歌曲、展示真实推荐、来源降级提示与推荐理由，并可提交喜欢/不喜欢反馈及查看持久化听歌画像。统一曲目搜索 API 接入独立的 iTunes 与网易云适配器，QQ 可选。
 推荐接口现已使用多源召回、本地曲库降级、跨来源去重、确定性打分与多样性重排。匿名设备的喜欢/不喜欢反馈
 和偏好画像持久化在 PostgreSQL，后续排序会随反馈变化；每首结果包含分数拆解、来源和确定性理由。
-本地轻量向量和固定离线评估已实现。正式 Phase 4 界面、Agent、RAG、MCP 尚未开始。
+本地轻量向量和固定离线评估已实现。Agent、RAG、MCP 属于后续 Phase 5，当前未实现。
 
 Local requirements / 本地要求：Python 3.12、Node.js 24、npm 11；容器运行需要 Docker Compose。
+
+### Product client / 新版产品客户端
+
+With Docker Compose running, open `http://localhost:3000`. Enter a song, artist, or mood, choose
+3, 5, or 10 tracks, and select **Find music**. Cards show artwork, artist/album, source,
+explanation, raw ranking score, like/dislike, and a provider link when available. A failed
+provider appears as a small notice while available results remain visible. Feedback refreshes
+the preference panel; choose **Refresh recommendations** to see the new ranking.
+
+运行 Docker Compose 后打开 `http://localhost:3000`，输入歌曲、歌手或心情并选择推荐数量。
+结果卡片显示封面、歌手/专辑、来源、推荐理由、原始排序分值、反馈按钮和可用的外部链接。
+单个来源失败时仍显示可用推荐。反馈后画像会刷新，点击 **Refresh recommendations** 查看新排序。
+
+The browser stores one random anonymous device ID and sends it as `X-Device-Id` on every API
+request. It links preferences, not privileges. `GET /v1/profile` exposes up to five positive
+artist, genre, tag, and language affinities and five recent ratings. For a remote deployment,
+set `NEXT_PUBLIC_API_BASE_URL` to the browser-reachable API URL at web build time and allow the
+web origin through `ALLOWED_ORIGINS`; the local API default is `http://localhost:8000`.
+
+浏览器首次使用生成随机设备标识并随每次请求发送；它仅关联偏好，不用于认证。
+`GET /v1/profile` 提供基础偏好及最近五次反馈。远程部署需在网页构建时设置浏览器可访问的
+`NEXT_PUBLIC_API_BASE_URL`，并在 API 的 `ALLOWED_ORIGINS` 中允许网页来源。
+
+The legacy UI is still available with `python server.py`; Next.js is the target product client.
+旧版 UI 仍通过 `python server.py` 运行；新版 Next.js 是目标产品客户端。
 
 ```powershell
 Copy-Item .env.example .env
 docker compose up --build
+
+# New client / 新版客户端: http://localhost:3000
 # API tests without containers / 不启动容器的 API 测试
 cd services/api
 python -m venv .venv
@@ -39,6 +67,14 @@ python -m venv .venv
 $env:DATABASE_URL='sqlite+pysqlite:///:memory:'
 $env:REDIS_URL='redis://localhost:6379/0'
 .\.venv\Scripts\python -m pytest -q
+
+# Frontend checks / 前端检查 (from the repository root)
+cd ..\..\apps\web
+npm ci
+npm test
+npm run lint
+npm run typecheck
+npm run build
 ```
 
 The API container applies `alembic upgrade head` before starting. `/health` checks the process;
@@ -47,7 +83,7 @@ The API container applies `alembic upgrade head` before starting. `/health` chec
 `POST /v1/recommendations` accepts `{ "seed": "jazz", "limit": 3 }` and optional validated
 `X-Device-Id`. It returns `request_id`, canonical `track`, `score`, `score_breakdown`,
 `explanation`, `provenance`, and per-source results/errors. The local catalog is always available
-when external providers fail. The web page still uses only the minimal Phase 1 form.
+when external providers fail. The Sonora client displays the pipeline's ranked results.
 
 `POST /v1/feedback` requires `X-Device-Id` and accepts `{ "track": <canonical track>,
 "value": "like" | "dislike" }`. The latest rating for the same device and canonical song
@@ -89,7 +125,7 @@ QQ 默认关闭。Spotify 与 YouTube Music 目前仅属于旧版演示。自动
 so live container startup, PostgreSQL migrations and pgvector queries remain unverified;
 topology, SQLite API tests and offline migration SQL were checked.
 
-## 功能特点
+## 旧版演示功能特点 / Legacy demo features
 
 - 多平台检索：支持 QQ 音乐、网易云音乐、Apple Music / iTunes、YouTube Music、Spotify 等来源。
 - 输入歌曲推荐：输入参考歌曲后，系统会检索相关歌曲、识别原唱歌手，并按语言、类型、热度、标签和歌手相关性排序。
@@ -102,7 +138,7 @@ topology, SQLite API tests and offline migration SQL were checked.
 - 推荐卡片交互：推荐结果支持滚轮和方向键切换，卡片展示封面、来源、类型、语言、热度依据、链接和推荐理由。
 - 本地缓存：前端会将部分在线检索结果与偏好画像保存在浏览器 `localStorage` 中，提高重复查询体验。
 
-## 技术栈
+## 旧版演示技术栈 / Legacy demo stack
 
 - 前端：HTML、CSS、JavaScript
 - 动画：GSAP CDN

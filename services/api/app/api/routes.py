@@ -10,9 +10,12 @@ from app.api.schemas import (
     FeedbackRequest,
     FeedbackResponse,
     HealthResponse,
+    ProfileAffinity,
+    ProfileResponse,
     ProvidersHealthResponse,
     ProvidersResponse,
     ReadyResponse,
+    RecentFeedback,
     RecommendationItem,
     RecommendationRequest,
     RecommendationResponse,
@@ -22,7 +25,7 @@ from app.domain.device import DEVICE_ID_PATTERN
 from app.infrastructure.cache import get_redis
 from app.infrastructure.database import get_session
 from app.providers.registry import ProviderRegistry, get_provider_registry
-from app.repository.feedback import load_profile, save_feedback
+from app.repository.feedback import load_profile, recent_feedback, save_feedback
 from app.services.device import resolve_device
 from app.services.recommendation import recommend
 
@@ -88,6 +91,29 @@ def feedback(
 ) -> FeedbackResponse:
     key = save_feedback(session, x_device_id, request.track, request.value)
     return FeedbackResponse(track_key=key, value=request.value)
+
+
+@router.get("/v1/profile", response_model=ProfileResponse)
+def profile(
+    session: Annotated[Session, Depends(get_session)],
+    x_device_id: Annotated[str, Header(alias="X-Device-Id", min_length=16, max_length=128,
+                                       pattern=DEVICE_ID_PATTERN)],
+) -> ProfileResponse:
+    snapshot = load_profile(session, x_device_id)
+
+    def preferred(values: dict[str, float]) -> list[ProfileAffinity]:
+        ranked = sorted(((name, weight) for name, weight in values.items() if weight > 0),
+                        key=lambda pair: (-pair[1], pair[0]))
+        return [ProfileAffinity(name=name, weight=weight) for name, weight in ranked[:5]]
+
+    return ProfileResponse(
+        artists=preferred(snapshot.artist_affinity),
+        genres=preferred(snapshot.genre_affinity),
+        tags=preferred(snapshot.tag_affinity),
+        languages=preferred(snapshot.language_affinity),
+        recent_feedback=[RecentFeedback(track_key=item.track_key, artist=item.artist, value=item.value)
+                         for item in recent_feedback(session, x_device_id)],
+    )
 
 
 @router.get("/v1/providers", response_model=ProvidersResponse)

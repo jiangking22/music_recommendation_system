@@ -61,6 +61,37 @@ def test_feedback_upsert_persists_profile_and_changes_later_recommendations(tmp_
         engine.dispose()
 
 
+def test_profile_returns_empty_then_recent_feedback(tmp_path: Path) -> None:
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'profile.db'}")
+    Base.metadata.create_all(engine)
+
+    def session_override():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = session_override
+    headers = {"X-Device-Id": "device_1234567890"}
+    try:
+        with TestClient(app) as client:
+            empty = client.get("/v1/profile", headers=headers)
+            track = {
+                "title": "Night Signal", "artist": {"name": "Mira Vale"},
+                "source": {"provider": "local", "provider_track_id": "night-signal"},
+                "canonical_key": "night signal::mira vale", "genres": ["Jazz"],
+                "tags": ["Night"], "language": "en",
+            }
+            client.post("/v1/feedback", json={"track": track, "value": "like"}, headers=headers)
+            profile = client.get("/v1/profile", headers=headers)
+        assert empty.status_code == profile.status_code == 200
+        assert empty.json()["recent_feedback"] == []
+        assert profile.json()["artists"] == [{"name": "mira vale", "weight": 1.0}]
+        assert profile.json()["genres"] == [{"name": "jazz", "weight": 1.0}]
+        assert profile.json()["recent_feedback"][0]["value"] == "like"
+    finally:
+        app.dependency_overrides.clear()
+        engine.dispose()
+
+
 def test_feedback_validates_header_and_payload() -> None:
     with TestClient(app) as client:
         missing = client.post("/v1/feedback", json={"value": "like"})

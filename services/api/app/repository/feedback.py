@@ -96,3 +96,9 @@ def load_profile(session: Session, device_id: str) -> PreferenceProfile:
     return PreferenceProfile(artist_affinity=row.artist_affinity, genre_affinity=row.genre_affinity,
                              tag_affinity=row.tag_affinity, language_affinity=row.language_affinity,
                              disliked_tracks=disliked)
+
+
+def recent_feedback(session: Session, device_id: str, limit: int = 5) -> list[TrackFeedback]:
+    return list(session.scalars(select(TrackFeedback).where(TrackFeedback.device_id == device_id)
+                                .order_by(TrackFeedback.updated_at.desc(), TrackFeedback.track_key)
+                                .limit(limit)).all())

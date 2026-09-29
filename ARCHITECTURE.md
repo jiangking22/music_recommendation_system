@@ -161,6 +161,22 @@ minimal similarity capability and do not alter the deterministic recommendation 
 versioned `evaluation_v1.json` fixture drives `python -m app.domain.evaluation`, reporting
 precision at the case limit, rank lift, attribute diversity, and catalog coverage.
 
+### Phase 4 product client (implemented)
+
+`apps/web` is now a client-side Next.js recommendation experience. `lib/device.ts` creates a
+random UUID-based ID once in browser localStorage; `lib/api.ts` sends it on every request and
+centralizes JSON parsing, timeout, base URL, and structured errors. It is a preference linkage
+identifier, not authentication. The browser calls the FastAPI service directly; local default
+is `http://localhost:8000`, configurable at build time with `NEXT_PUBLIC_API_BASE_URL`.
+
+The homepage submits a bounded seed and one of 3/5/10 result limits, renders canonical tracks
+with source provenance and factor explanations, and treats individual provider failures as a
+notice when ranked results remain. Feedback is optimistic with rollback on save failure; a
+successful rating refreshes the profile and offers a fresh recommendation run. The client does
+not rank or transform provider payloads. `GET /v1/profile` reads existing affinities and the
+latest five feedback rows, returning up to five positive artists, genres, tags, and languages.
+No migration or recommendation policy change was needed.
+
 | Area | Responsibility | Must not do |
 | --- | --- | --- |
 | Web | Present UI, persist anonymous device ID, consume REST/SSE | Rank songs or store secrets |

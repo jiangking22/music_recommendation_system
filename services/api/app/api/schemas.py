@@ -77,6 +77,25 @@ class FeedbackResponse(BaseModel):
     value: Literal["like", "dislike"]
 
 
+class ProfileAffinity(BaseModel):
+    name: str
+    weight: float
+
+
+class RecentFeedback(BaseModel):
+    track_key: str
+    artist: str
+    value: Literal["like", "dislike"]
+
+
+class ProfileResponse(BaseModel):
+    artists: list[ProfileAffinity]
+    genres: list[ProfileAffinity]
+    tags: list[ProfileAffinity]
+    languages: list[ProfileAffinity]
+    recent_feedback: list[RecentFeedback]
+
+
 class ProvidersResponse(BaseModel):
     providers: list[ProviderCapabilities]
 
