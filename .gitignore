@@ -28,3 +28,7 @@ Thumbs.db
 # Local-only captures or temporary exports.
 *.tmp
 *.bak
+
+node_modules/
+.next/
+*.tsbuildinfo
