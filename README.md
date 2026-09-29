@@ -8,6 +8,41 @@
 
 - GitHub: <https://github.com/jiangking22/music_recommendation_system>
 
+## Phase 1 target runtime / 第一阶段目标运行环境
+
+The original `python server.py` demo remains available. The separate target runtime currently
+has a minimal Next.js 16 / TypeScript page, FastAPI health and persistent anonymous device
+endpoint, PostgreSQL/pgvector migration, Redis readiness check, and four-service Compose topology.
+Fixture recommendations are being added in this phase. Provider migration, personalization,
+Agent, RAG, and MCP are planned for later phases.
+
+旧版 `python server.py` 演示仍可运行。独立的新工程目前提供最小 Next.js 页面、FastAPI 健康检查和
+匿名设备持久化接口、PostgreSQL/pgvector 迁移、Redis 就绪检查及四服务 Compose 拓扑。
+fixture 推荐接口仍在本阶段实现中；真实音乐源迁移、个性化、Agent、RAG 和 MCP 属于后续阶段。
+
+Local requirements / 本地要求：Python 3.12、Node.js 24、npm 11；容器运行需要 Docker Compose。
+
+```powershell
+Copy-Item .env.example .env
+docker compose up --build
+# API tests without containers / 不启动容器的 API 测试
+cd services/api
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -e '.[dev]'
+$env:DATABASE_URL='sqlite+pysqlite:///:memory:'
+$env:REDIS_URL='redis://localhost:6379/0'
+.\.venv\Scripts\python -m pytest -q
+```
+
+The API container applies `alembic upgrade head` before starting. `/health` checks the process;
+`/health/ready` checks PostgreSQL and Redis. `GET /v1/device` requires a 16–128 character
+`X-Device-Id` and creates or retrieves a durable device row; it is not authentication.
+
+当前主机没有 Docker 命令，因此尚未执行容器启动或真实 PostgreSQL 迁移。已验证 Compose 四服务结构、
+API 测试及 Alembic 离线生成的建表 SQL。/ Docker is absent on this host, so live container
+startup and PostgreSQL migration have not been run; topology, API tests, and offline migration
+SQL were checked.
+
 ## 功能特点
 
 - 多平台检索：支持 QQ 音乐、网易云音乐、Apple Music / iTunes、YouTube Music、Spotify 等来源。

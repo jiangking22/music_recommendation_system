@@ -105,10 +105,14 @@ available during migration and are not dependencies of the target runtime.
 
 ### Phase 1 implementation status
 
-The API health/device contract, API container definition, Compose topology, Redis, and a
-PostgreSQL/pgvector initialization script now exist. The Next.js client, ORM migration tooling,
-and durable application data model remain unimplemented; Compose startup is pending a Docker-capable
-environment.
+The Next.js TypeScript shell and FastAPI service are runnable. API routes use typed schemas and
+delegate device creation to a service and SQLAlchemy repository. Configuration validates the
+database and Redis URLs. PostgreSQL stores `device_users`; Alembic revision `0001_device_users`
+creates that table and enables pgvector. Redis is connected by a bounded client and checked by
+`GET /health/ready`; no cache behaviour exists yet. Compose defines web, API, PostgreSQL/pgvector,
+and Redis with health dependencies. The recommendation fixture chain is still pending. Docker is
+not installed on the current host, so Compose startup and a live PostgreSQL migration remain
+unverified; the four-service topology and offline migration SQL were checked statically.
 
 ## Service boundaries / 服务边界
 

@@ -30,7 +30,9 @@ commands. Deliver one small, end-to-end recommendation response using fixture da
 Supported local runtime for this phase: Python 3.12 and Node.js 24. API dependencies are
 exactly pinned in `services/api/pyproject.toml`; the web scaffold will commit an npm lockfile.
 
-**Exit criteria:** a clean clone starts with Docker Compose and one API integration test passes.
+**Exit criteria:** a clean clone starts with Docker Compose where Docker is available, and one
+API integration test passes. On a host without Docker, validate Compose topology and generated
+migration SQL statically, and record that live container startup was not executed.
 
 ## Phase 2 — Canonical catalog and provider adapters
 

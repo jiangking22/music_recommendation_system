@@ -1,33 +1,33 @@
-from __future__ import annotations
-
-import re
-import os
-from typing import Annotated
-
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
+from app.api.routes import router
+from app.infrastructure.config import get_settings
 
-DEVICE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
-
-allowed_origins = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",") if origin.strip()]
-
+settings = get_settings()
 app = FastAPI(title="Music Recommendation API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_methods=["GET"],
-    allow_headers=["X-Device-Id"],
+    allow_origins=settings.allowed_origins_list,
+    allow_methods=["GET", "POST"],
+    allow_headers=["X-Device-Id", "Content-Type"],
 )
+app.include_router(router)
 
 
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "service": "music-recommendation-api"}
+@app.exception_handler(RequestValidationError)
+async def validation_error(_request: Request, _error: RequestValidationError) -> JSONResponse:
+    return JSONResponse(status_code=422, content={"error": {"code": "validation_error", "message": "Invalid request."}})
 
 
-@app.get("/v1/device")
-def get_device(x_device_id: Annotated[str | None, Header(alias="X-Device-Id")] = None) -> dict[str, str]:
-    if x_device_id is None or not DEVICE_ID_PATTERN.fullmatch(x_device_id):
-        raise HTTPException(status_code=422, detail="A valid X-Device-Id header is required.")
-    return {"deviceId": x_device_id}
+@app.exception_handler(HTTPException)
+async def http_error(_request: Request, error: HTTPException) -> JSONResponse:
+    return JSONResponse(status_code=error.status_code, content={"error": {"code": "http_error", "message": str(error.detail)}})
+
+
+@app.exception_handler(SQLAlchemyError)
+async def database_error(_request: Request, _error: SQLAlchemyError) -> JSONResponse:
+    return JSONResponse(status_code=503, content={"error": {"code": "database_unavailable", "message": "Database unavailable."}})

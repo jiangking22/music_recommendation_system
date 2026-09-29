@@ -99,3 +99,22 @@ and never determine core availability.
 
 - Provider capability and health are explicit.
 - Multi-source recall remains a product feature without promising every legacy source indefinitely.
+
+## ADR-007: Phase 1 persistence and startup
+
+**Status:** Accepted
+**Date:** 2026-09-29
+
+### Decision
+
+Use synchronous SQLAlchemy 2.0 with psycopg and Alembic for the small Phase 1 data surface.
+The API container runs migrations before serving requests. `GET /health` is a liveness check;
+`GET /health/ready` verifies PostgreSQL and Redis. Anonymous device IDs are the primary key of
+`device_users` and grant no permissions. SQLite is used only for fast local repository/API tests.
+
+### Consequences
+
+- A failed migration prevents API startup instead of serving against an outdated schema.
+- Tests prove repository behaviour without Docker; live PostgreSQL migration still needs a
+  Docker-capable environment.
+- Redis is a connected ephemeral dependency, not a source of durable device identity.
