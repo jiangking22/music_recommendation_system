@@ -8,20 +8,24 @@
 
 - GitHub: <https://github.com/jiangking22/music_recommendation_system>
 
-## Target runtime through Phase 2 / 新工程截至第二阶段
+## Target runtime through Phase 3 / 新工程截至第三阶段
 
-The original `python server.py` demo remains available. The separate target runtime currently
-has a minimal Next.js 16 / TypeScript page, FastAPI health and persistent anonymous device
-endpoint, PostgreSQL/pgvector migration, Redis readiness check, and four-service Compose topology.
-The fixture recommendation endpoint and minimal web form show bundled example tracks through
-the Web → API → domain chain. A separate canonical track search API now uses independent iTunes
-and NetEase adapters; QQ is optional. Personalization, real recommendation ranking, Agent, RAG,
-and MCP are planned for later phases.
+The original `python server.py` demo remains available. The separate target runtime has a
+minimal Next.js 16 / TypeScript page, FastAPI service, PostgreSQL/pgvector migrations, Redis
+readiness check, and four-service Compose topology. iTunes and NetEase adapters provide canonical
+tracks; QQ is optional. Recommendations now use bounded multi-source recall with local catalog
+fallback, cross-provider deduplication, deterministic feature scoring and diversity reranking.
+Anonymous feedback and preference profiles persist in PostgreSQL and change later rankings.
+Results include score breakdowns, provenance and deterministic explanations. Small local
+embeddings and a fixed offline evaluation are included. The formal Phase 4 UI, Agent, RAG and
+MCP remain planned.
 
 旧版 `python server.py` 演示仍可运行。独立的新工程目前提供最小 Next.js 页面、FastAPI 健康检查和
 匿名设备持久化接口、PostgreSQL/pgvector 迁移、Redis 就绪检查及四服务 Compose 拓扑。
-最小网页通过 API 展示内置 fixture 示例歌曲。新的统一曲目搜索 API 接入独立的 iTunes 与网易云适配器；
-QQ 可选。个性化、正式推荐排序、Agent、RAG 和 MCP 属于后续阶段。
+最小网页通过 API 展示推荐结果。统一曲目搜索 API 接入独立的 iTunes 与网易云适配器，QQ 可选。
+推荐接口现已使用多源召回、本地曲库降级、跨来源去重、确定性打分与多样性重排。匿名设备的喜欢/不喜欢反馈
+和偏好画像持久化在 PostgreSQL，后续排序会随反馈变化；每首结果包含分数拆解、来源和确定性理由。
+本地轻量向量和固定离线评估已实现。正式 Phase 4 界面、Agent、RAG、MCP 尚未开始。
 
 Local requirements / 本地要求：Python 3.12、Node.js 24、npm 11；容器运行需要 Docker Compose。
 
@@ -40,22 +44,34 @@ $env:REDIS_URL='redis://localhost:6379/0'
 The API container applies `alembic upgrade head` before starting. `/health` checks the process;
 `/health/ready` checks PostgreSQL and Redis. `GET /v1/device` requires a 16–128 character
 `X-Device-Id` and creates or retrieves a durable device row; it is not authentication.
-`POST /v1/recommendations` accepts `{ "seed": "jazz", "limit": 3 }` and returns fixture songs
-with `request_id`, `items`, and explanations. The web page calls this endpoint at request time.
-Its simple tag match is only a fixture selector, not the planned recommendation algorithm.
+`POST /v1/recommendations` accepts `{ "seed": "jazz", "limit": 3 }` and optional validated
+`X-Device-Id`. It returns `request_id`, canonical `track`, `score`, `score_breakdown`,
+`explanation`, `provenance`, and per-source results/errors. The local catalog is always available
+when external providers fail. The web page still uses only the minimal Phase 1 form.
+
+`POST /v1/feedback` requires `X-Device-Id` and accepts `{ "track": <canonical track>,
+"value": "like" | "dislike" }`. The latest rating for the same device and canonical song
+replaces the previous rating. It updates persisted artist, genre/tag and language affinities,
+plus deterministic song/user embeddings. The header links anonymous preferences and grants no
+authentication privileges. Run `python -m app.domain.evaluation` from `services/api` for the
+versioned offline report; see `docs/phase3-evaluation.md`.
+
+`/v1/recommendations` 接受可选的 `X-Device-Id`，返回统一曲目、总分、分项得分、推荐理由、来源与
+单个来源的错误。`/v1/feedback` 使用该设备标识保存 like/dislike；同一设备对同一歌曲以最后一次反馈
+为准。运行 `python -m app.domain.evaluation` 可重复计算固定样本的相关性、个性化效果、多样性与覆盖率。
 
 `GET /v1/providers` lists each adapter and its capability/stability metadata.
 `GET /v1/providers/health` reports `unknown`, `available`, or `degraded` from the last operation;
 it makes no upstream request. `GET /v1/tracks/search?q=Blue%20Window&limit=5` returns canonical
 tracks and per-source results/errors. Inputs and responses are bounded; a failed source does not
 discard healthy source results. Set `ENABLE_QQ_PROVIDER=true` to opt into the QQ adapter.
-Provider search is independent of the fixture recommendation endpoint and does not rank or merge
-matching tracks yet.
+Provider search remains an unranked search API; the recommendation endpoint now ranks and merges
+its candidates.
 
 `GET /v1/providers` 返回来源能力和稳定性元数据；`GET /v1/providers/health` 返回最近一次调用状态，
 初次调用前为 `unknown`，不会主动联网。`GET /v1/tracks/search?q=...&limit=5` 返回统一曲目结构、
 各来源结果与结构化错误。单个来源失败时其他来源仍可返回。设置 `ENABLE_QQ_PROVIDER=true` 可启用
-QQ 适配器。本阶段搜索不做最终去重或推荐排序，也不改变 fixture 推荐接口。
+QQ 适配器。搜索接口保持原始候选语义；推荐接口负责去重和排序。
 
 Apple [iTunes Search API](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/UnderstandingSearchResults.html)
 has published result fields. NetEase and QQ use undocumented public web endpoints inherited from
@@ -68,10 +84,10 @@ Apple iTunes Search API 有公开字段文档。网易云和 QQ 沿用旧版的�
 QQ 默认关闭。Spotify 与 YouTube Music 目前仅属于旧版演示。自动测试只使用 fixture 和 mock，
 不依赖外网。2026-09-29 的单独手动联网检查中，iTunes 和网易云各返回 1 首；这不保证后续可用性。
 
-当前主机没有 Docker 命令，因此尚未执行容器启动或真实 PostgreSQL 迁移。已验证 Compose 四服务结构、
-API 测试及 Alembic 离线生成的建表 SQL。/ Docker is absent on this host, so live container
-startup and PostgreSQL migration have not been run; topology, API tests, and offline migration
-SQL were checked.
+当前主机没有 Docker 命令，因此尚未执行容器启动、真实 PostgreSQL 迁移或 pgvector 相似度查询。
+已验证 Compose 四服务结构、SQLite API 测试及 Alembic 离线 SQL。/ Docker is absent on this host,
+so live container startup, PostgreSQL migrations and pgvector queries remain unverified;
+topology, SQLite API tests and offline migration SQL were checked.
 
 ## 功能特点
 

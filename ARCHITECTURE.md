@@ -153,6 +153,14 @@ weighted artist, genre, tag, and language affinity maps. Recommendations with a 
 load this profile and penalize disliked track keys. Migration `0002_feedback_profiles` creates
 both tables; SQLite is used only for offline API/repository tests.
 
+Migration `0003_embeddings` adds pgvector `vector(16)` columns to profile snapshots and the
+`song_embeddings` table. A local SHA-256 feature hash creates deterministic song and preference
+vectors; feedback writes both in the same transaction. `similar_songs` uses pgvector cosine
+distance in PostgreSQL and a bounded in-process calculation in SQLite tests. Embeddings are a
+minimal similarity capability and do not alter the deterministic recommendation score. The
+versioned `evaluation_v1.json` fixture drives `python -m app.domain.evaluation`, reporting
+precision at the case limit, rank lift, attribute diversity, and catalog coverage.
+
 | Area | Responsibility | Must not do |
 | --- | --- | --- |
 | Web | Present UI, persist anonymous device ID, consume REST/SSE | Rank songs or store secrets |

@@ -8,7 +8,12 @@ from app.domain.music import SearchResult
 from app.infrastructure.database import get_session
 from app.main import app
 from app.providers.registry import get_provider_registry
-from app.repository.models import Base, TrackFeedback, UserPreferenceProfile
+from app.repository.models import (
+    Base,
+    SongEmbedding,
+    TrackFeedback,
+    UserPreferenceProfile,
+)
 
 
 class EmptyRegistry:
@@ -33,11 +38,14 @@ def test_feedback_upsert_persists_profile_and_changes_later_recommendations(tmp_
             target = next(item["track"] for item in before.json()["items"] if item["title"] == "Night Signal")
             liked = client.post("/v1/feedback", json={"track": target, "value": "like"}, headers=headers)
             after_like = client.post("/v1/recommendations", json={"seed": "unknown", "limit": 3}, headers=headers)
+            other_device = client.post("/v1/recommendations", json={"seed": "unknown", "limit": 3},
+                                       headers={"X-Device-Id": "device_9876543210"})
             disliked = client.post("/v1/feedback", json={"track": target, "value": "dislike"}, headers=headers)
             after_dislike = client.post("/v1/recommendations", json={"seed": "unknown", "limit": 3}, headers=headers)
         assert liked.status_code == disliked.status_code == 200
         assert before.status_code == after_like.status_code == after_dislike.status_code == 200
         assert after_like.json()["items"][0]["title"] == "Night Signal"
+        assert other_device.json()["items"][0]["title"] == before.json()["items"][0]["title"]
         assert after_dislike.json()["items"][-1]["title"] == "Night Signal"
         with Session(engine) as session:
             feedback = session.scalars(select(TrackFeedback)).all()
@@ -46,6 +54,8 @@ def test_feedback_upsert_persists_profile_and_changes_later_recommendations(tmp_
             assert feedback[0].value == "dislike"
             assert profile is not None
             assert profile.artist_affinity["example artist"] < 0
+            assert len(profile.embedding) == 16
+            assert len(session.scalars(select(SongEmbedding)).all()) == 1
     finally:
         app.dependency_overrides.clear()
         engine.dispose()
@@ -56,5 +66,11 @@ def test_feedback_validates_header_and_payload() -> None:
         missing = client.post("/v1/feedback", json={"value": "like"})
         bad = client.post("/v1/feedback", headers={"X-Device-Id": "device_1234567890"},
                           json={"value": "love", "track": {}})
+        blank_source = client.post("/v1/feedback", headers={"X-Device-Id": "device_1234567890"},
+                                   json={"value": "like", "track": {
+                                       "title": "Song", "artist": {"name": "Artist"},
+                                       "source": {"provider": "itunes", "provider_track_id": "  "},
+                                       "canonical_key": "song::artist"}})
     assert missing.status_code == bad.status_code == 422
+    assert blank_source.status_code == 422
     assert missing.json()["error"]["code"] == "validation_error"

@@ -197,3 +197,22 @@ when ranking. The device header links preferences but grants no authentication p
 Feedback changes later recommendations without Redis or an LLM. A client may supply metadata
 for its own anonymous profile; input sizes are bounded. The profile uses the latest 200 ratings
 with explicit recency decay, so very old ratings are not represented in the snapshot.
+
+## ADR-012: Small deterministic embeddings and versioned offline evaluation
+
+**Status:** Accepted
+**Date:** 2026-09-29
+
+### Decision
+
+Use a 16-dimensional local SHA-256 feature hash for song and preference vectors. Persist vectors
+in pgvector and expose a bounded repository cosine search; SQLite uses a local fallback for
+offline tests. Embeddings do not silently modify ranking. Evaluate a committed five-song,
+two-case fixture with relevance, personalization rank lift, attribute diversity, and coverage.
+
+### Consequences
+
+No paid API, model download, or training job is required. Hash collisions and tiny fixture size
+limit retrieval and metric generalization; evaluation measures regression on fixed cases, not
+real-user recommendation quality. Live pgvector migration/query verification awaits a PostgreSQL
+runtime on a Docker-capable host.

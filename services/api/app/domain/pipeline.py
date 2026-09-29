@@ -10,11 +10,12 @@ _VERSION = re.compile(
     r"(?:\s*[\[(]\s*|\s*[-–—]\s*)(?:feat\.?|featuring|ft\.?|live|remaster(?:ed)?(?:\s+\d{4})?|explicit)\b.*$",
     re.IGNORECASE,
 )
+_FEATURED = re.compile(r"\s+(?:feat\.?|featuring|ft\.?)\s+.*$", re.IGNORECASE)
 
 
 def dedup_key(track: Track) -> str:
-    title = _VERSION.sub("", unicodedata.normalize("NFKC", track.title)).strip()
-    artist = _VERSION.sub("", unicodedata.normalize("NFKC", track.artist.name)).strip()
+    title = _FEATURED.sub("", _VERSION.sub("", unicodedata.normalize("NFKC", track.title))).strip()
+    artist = _FEATURED.sub("", _VERSION.sub("", unicodedata.normalize("NFKC", track.artist.name))).strip()
     return f"{normalize_text(title)}::{normalize_text(artist)}"
 
 
@@ -91,6 +92,9 @@ def explain(features: dict[str, float]) -> str:
         reasons.append("matches a preferred language")
     if features["disliked_track"] > 0:
         reasons.append("previously disliked")
+    if any(features[name] < 0 for name in ("artist_affinity", "genre_affinity",
+                                            "tag_affinity", "language_affinity")):
+        reasons.append("less aligned with past feedback")
     return "; ".join(reasons) if reasons else "Available from the catalog."
 
 
@@ -99,7 +103,8 @@ def rank(candidates: list[Candidate], seed: str, profile: PreferenceProfile,
     output = []
     for candidate in candidates:
         features = extract_features(candidate.track, seed, profile, candidate.provenance, policy)
-        breakdown = {name: round(value * getattr(policy, name), 6) for name, value in features.items()}
+        breakdown = {name: round(value * getattr(policy, name), 6) if value else 0.0
+                     for name, value in features.items()}
         output.append(RankedTrack(candidate.key, candidate.track, candidate.provenance,
                                   round(sum(breakdown.values()), 6), breakdown, explain(features)))
     return sorted(output, key=lambda item: (-item.score, item.key))

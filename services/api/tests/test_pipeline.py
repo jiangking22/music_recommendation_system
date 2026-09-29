@@ -1,5 +1,11 @@
 from app.domain.music import Artist, ProviderSource, Track
-from app.domain.pipeline import deduplicate, extract_features, rank, rerank_diverse
+from app.domain.pipeline import (
+    dedup_key,
+    deduplicate,
+    extract_features,
+    rank,
+    rerank_diverse,
+)
 from app.domain.profile import PreferenceProfile
 
 
@@ -17,6 +23,13 @@ def test_cross_provider_dedup_normalizes_versions_and_preserves_sources() -> Non
     merged = deduplicate(songs)
     assert len(merged) == 2
     assert {source.provider for source in merged[0].provenance} == {"itunes", "netease"}
+
+
+def test_common_version_suffixes_share_one_canonical_key() -> None:
+    base = dedup_key(track("Song", "A", "itunes"))
+    for title in ("Song feat. B", "Song (featuring B)", "Song - Live", "Song [Remaster]",
+                  "Song - Remastered 2020", "Song (Explicit)"):
+        assert dedup_key(track(title, "A", "netease")) == base
 
 
 def test_features_scoring_explanation_and_determinism() -> None:
@@ -40,6 +53,14 @@ def test_like_and_dislike_change_order() -> None:
     disliked = PreferenceProfile(disliked_tracks={songs[1].key})
     assert rank(songs, "unknown", liked)[0].track.title == "Two"
     assert rank(songs, "unknown", disliked)[-1].track.title == "Two"
+
+
+def test_negative_preference_is_explained() -> None:
+    songs = deduplicate([track("One", "A", "itunes", genres=("jazz",))])
+    profile = PreferenceProfile(artist_affinity={"a": -1.0})
+    result = rank(songs, "unknown", profile)[0]
+    assert result.score_breakdown["artist_affinity"] < 0
+    assert "less aligned" in result.explanation
 
 
 def test_diversity_avoids_adjacent_artist_provider_and_genre() -> None:

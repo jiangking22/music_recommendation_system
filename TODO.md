@@ -28,11 +28,11 @@
   last-operation health, registry, and three canonical search/discovery APIs.
 - [x] Run a separate manual iTunes/NetEase smoke search on 2026-09-29; both returned one track.
 
-## Phase 3 — Recommendation and profile (not started)
+## Phase 3 — Recommendation and profile (implemented; live PostgreSQL unverified on this host)
 
 - [x] Extract recall, normalization, ranking, diversity, and explanation domain services.
 - [x] Persist anonymous user preference and feedback in PostgreSQL.
-- [ ] Add song/preference embeddings and offline evaluator fixtures.
+- [x] Add song/preference embeddings and offline evaluator fixtures.
 
 ## Phase 4 — Client (not started)
 

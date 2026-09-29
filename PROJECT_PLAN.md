@@ -50,10 +50,18 @@ future availability. The Phase 1 fixture recommendation path remains unchanged.
 
 **Exit criteria:** a provider outage yields partial results, never an opaque full failure.
 
-## Phase 3 — Recommendation core and durable personalization
+## Phase 3 — Recommendation core and durable personalization (implemented; offline verified)
 
 Move multi-source recall, canonical deduplication, profile features, song/user embeddings,
 reranking, explanations, feedback persistence, and offline evaluation into testable domain code.
+
+The API now recalls from Provider Registry and a local fallback catalog, merges variants across
+providers, scores with a deterministic policy, reranks for diversity, and returns factor-based
+explanations. Device feedback and affinity snapshots persist in PostgreSQL tables; the latest
+rating per track wins. Local 16-dimensional song/user embeddings use pgvector storage and a
+minimal similarity query. The versioned offline evaluator reports all four exit metrics. SQLite
+tests and PostgreSQL migration SQL were verified without Docker; live PostgreSQL execution
+remains unverified on this host. Phase 4 has not begun.
 
 **Exit criteria:** relevance, personalization lift, diversity, and coverage are reproducibly
 reported from versioned fixtures; feedback changes a later result.
