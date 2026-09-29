@@ -11,7 +11,7 @@
 
 ## Phase 1 — Foundation (in progress)
 
-- [ ] Agree exact package versions and supported local runtime.
+- [x] Agree exact package versions and supported local runtime (Python 3.12, Node 24, API pins in `pyproject.toml`; web pins in its scaffold).
 - [x] Add an isolated FastAPI health/device-contract foundation with focused tests.
 - [ ] Scaffold `apps/web`, `services/api`, and `infra` without deleting legacy files.
 - [ ] Add Compose, config templates, PostgreSQL/pgvector, Redis, health checks, and migration tooling.

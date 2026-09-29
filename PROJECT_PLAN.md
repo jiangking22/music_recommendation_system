@@ -27,6 +27,9 @@ Introduce the target directory scaffold, FastAPI service, Next.js TypeScript cli
 PostgreSQL/pgvector, Redis, configuration validation, health checks, migrations, and test/lint
 commands. Deliver one small, end-to-end recommendation response using fixture data.
 
+Supported local runtime for this phase: Python 3.12 and Node.js 24. API dependencies are
+exactly pinned in `services/api/pyproject.toml`; the web scaffold will commit an npm lockfile.
+
 **Exit criteria:** a clean clone starts with Docker Compose and one API integration test passes.
 
 ## Phase 2 — Canonical catalog and provider adapters
