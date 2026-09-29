@@ -7,7 +7,7 @@
 - [x] Create shared context files: `AGENTS.md`, `PROJECT_PLAN.md`, `ARCHITECTURE.md`,
   `DECISIONS.md`, and `TODO.md`.
 - [x] Preserve the legacy source files without a large migration.
-- [ ] Verify the legacy runtime with `python server.py --help` before closing Phase 0.
+- [x] Verify the legacy runtime with `python server.py --help` and an isolated HTTP 200 homepage check.
 
 ## Phase 1 — Foundation (not started)
 
