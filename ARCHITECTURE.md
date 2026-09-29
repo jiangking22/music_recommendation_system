@@ -6,6 +6,51 @@ Music Recommendation Platform is a portfolio-grade, maintainable web application
 Its recommendation engine remains deterministic and measurable; the Agent interprets
 requests, selects tools, and explains results rather than replacing the recommender.
 
+## Current-state audit / 当前状态审查
+
+```mermaid
+flowchart LR
+  UI[index.html + styles.css] --> JS[app.js: UI + orchestration + ranking + profile]
+  JS -->|same-origin fetch| Proxy[server.py: static server + API router]
+  Proxy --> QQ[QQ Music]
+  Proxy --> NE[NetEase]
+  Proxy --> IT[iTunes]
+  Proxy --> YT[YouTube Music / web fallback]
+  Proxy --> SP[Spotify]
+  JS --> LS[Browser localStorage]
+```
+
+- `app.js` is a 3,858-line single module. It starts a recommendation from input/language/private
+  radio, resolves an original artist (including modal confirmation), creates provider search plans,
+  fetches and normalizes results, scores/deduplicates/diversifies them, persists browser data, and
+  renders/animates cards.
+- `server.py` is a 1,034-line standard-library static server and HTTP proxy. It exposes six GET
+  endpoints, maps provider-specific payloads, discovers YouTube web keys, optionally obtains a
+  Spotify token from environment variables, scrapes web-search fallbacks, and holds a process-local
+  TTL cache (600 seconds, maximum 256 entries).
+- The front-end profile is a weighted map of language/type/tag/artist/provider plus liked/blocked
+  song keys. Mood, novelty, popularity, online song pool, recent other-artist history, runtime
+  artist names, and display metrics are all localStorage state.
+
+### Reusable legacy logic
+
+Canonical song field mapping, safe URL/HTML handling, provider failure degradation, title/artist
+matching, genre/language inference, deduplication, diversity constraints, feedback weight updates,
+and explanation composition should be migrated as independently tested domain functions.
+
+### Coupling and engineering risks
+
+1. Provider protocol knowledge, recommendation policy, local persistence, and DOM rendering share
+   one JavaScript module, making behaviour difficult to test or reuse server-side.
+2. Provider priority and domain policy are embedded in constants and heuristic branches; there is
+   no versioned configuration or offline evaluation harness.
+3. Static serving, API routing, cache, third-party IO, HTML scraping, and error transport are
+   coupled in one Python class/function module. Current error text can expose upstream details.
+4. Browser-only identity/profile state cannot survive devices or support durable evaluation.
+5. Provider reliability is sensitive to undocumented/public endpoints and HTML parsing. Spotify's
+   public-web-token fallback should not be a target-provider guarantee.
+6. No typed contracts, migrations, tests, trace IDs, or structured observability exist yet.
+
 ## Target topology / 目标拓扑
 
 ```text
@@ -19,6 +64,40 @@ FastAPI API (services/api)
         |-- Agent: intent -> approved tool calls -> streamed response
         |-- MCP server: a small, read-oriented façade over music tools
         `-- Observability: structured logs, traces, metrics events
+```
+
+```mermaid
+flowchart TB
+  Web[Next.js + TypeScript] -->|REST / SSE| API[FastAPI]
+  API --> Rec[Recommendation domain\nrecall → features → rerank]
+  API --> Agent[One Agent\nallow-listed tools]
+  API --> Providers[Provider adapters]
+  Rec --> PG[(PostgreSQL + pgvector)]
+  API --> PG
+  API --> Redis[(Redis: cache/session)]
+  Agent --> Tools[Search · Recommend · Feedback · Knowledge]
+  Tools --> Rec
+  Tools --> Knowledge[RAG knowledge store]
+  MCP[Minimal MCP server] --> Tools
+  Providers --> Sources[Verified music providers]
+  API --> Obs[Structured logs · traces · metrics]
+```
+
+## Future directory structure / 目标目录
+
+```text
+apps/web/                    Next.js client
+services/api/app/
+  api/                       FastAPI routes and schemas
+  domain/                    recommendation, profile, evaluation policy
+  providers/                 source adapters and canonical mappers
+  agent/                     single-Agent orchestration and tool registry
+  rag/                       knowledge ingestion and retrieval
+  observability/             logging, trace, metric adapters
+services/api/tests/          unit, API integration, Agent tests
+infra/                       docker, database migrations, local configuration
+docs/                        specs, evaluation notes, runbooks
+legacy/                      optional later home for preserved demo files
 ```
 
 `index.html`, `app.js`, `styles.css`, and `server.py` are the legacy demo. They stay

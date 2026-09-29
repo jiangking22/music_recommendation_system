@@ -70,3 +70,32 @@ Use Redis only for sessions, cache, and rate-limit state.
 - One durable database supports relational recommendation data and vector retrieval.
 - Docker Compose must enable the pgvector extension via migration.
 - Redis data can be discarded without losing users' durable preferences.
+
+## ADR-005: Preserve and mine the legacy demo before migration
+
+**Status:** Accepted
+
+### Decision
+
+Do not rewrite `app.js` or `server.py` in Phase 0. Treat the current user-visible behaviour as
+an executable reference and migrate reusable logic only behind tests and canonical contracts.
+
+### Consequences
+
+- The legacy demo remains the only supported runtime during Phase 0.
+- Existing provider mappings and rank heuristics become migration inputs, not target architecture.
+
+## ADR-006: Limit target providers to verified adapters
+
+**Status:** Accepted
+
+### Decision
+
+The target runtime will retain only two or three providers after an adapter verification spike.
+Sources based on unstable public endpoints, scraped pages, or undocumented tokens remain optional
+and never determine core availability.
+
+### Consequences
+
+- Provider capability and health are explicit.
+- Multi-source recall remains a product feature without promising every legacy source indefinitely.
