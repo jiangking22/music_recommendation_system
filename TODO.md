@@ -17,7 +17,7 @@
 - [x] Add Compose, config templates, PostgreSQL/pgvector, Redis, health checks, and migration tooling.
 - [x] Add API container, Compose data-service topology, `.env.example`, and pgvector extension initialization.
 - [x] Check Compose topology statically; `docker compose up --build` remains unexecuted because Docker is unavailable on this host.
-- [ ] Add a fixture-backed vertical recommendation API and tests.
+- [x] Add a fixture-backed vertical recommendation API, minimal web consumer, and tests.
 
 ## Phase 2 — Providers (not started)
 

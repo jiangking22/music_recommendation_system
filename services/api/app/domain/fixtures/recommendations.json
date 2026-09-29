@@ -1,0 +1,5 @@
+[
+  {"id": "fixture-blue-window", "title": "Blue Window", "artist": "Demo Quartet", "tags": ["jazz", "calm"]},
+  {"id": "fixture-amber-train", "title": "Amber Train", "artist": "Sample Ensemble", "tags": ["jazz", "travel"]},
+  {"id": "fixture-night-signal", "title": "Night Signal", "artist": "Example Artist", "tags": ["electronic", "night"]}
+]

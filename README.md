@@ -13,12 +13,13 @@
 The original `python server.py` demo remains available. The separate target runtime currently
 has a minimal Next.js 16 / TypeScript page, FastAPI health and persistent anonymous device
 endpoint, PostgreSQL/pgvector migration, Redis readiness check, and four-service Compose topology.
-Fixture recommendations are being added in this phase. Provider migration, personalization,
+The fixture recommendation endpoint and minimal web form now show bundled example tracks through
+the Web → API → domain chain. Provider migration, personalization,
 Agent, RAG, and MCP are planned for later phases.
 
 旧版 `python server.py` 演示仍可运行。独立的新工程目前提供最小 Next.js 页面、FastAPI 健康检查和
 匿名设备持久化接口、PostgreSQL/pgvector 迁移、Redis 就绪检查及四服务 Compose 拓扑。
-fixture 推荐接口仍在本阶段实现中；真实音乐源迁移、个性化、Agent、RAG 和 MCP 属于后续阶段。
+最小网页通过 API 展示内置 fixture 示例歌曲；真实音乐源迁移、个性化、Agent、RAG 和 MCP 属于后续阶段。
 
 Local requirements / 本地要求：Python 3.12、Node.js 24、npm 11；容器运行需要 Docker Compose。
 
@@ -37,6 +38,9 @@ $env:REDIS_URL='redis://localhost:6379/0'
 The API container applies `alembic upgrade head` before starting. `/health` checks the process;
 `/health/ready` checks PostgreSQL and Redis. `GET /v1/device` requires a 16–128 character
 `X-Device-Id` and creates or retrieves a durable device row; it is not authentication.
+`POST /v1/recommendations` accepts `{ "seed": "jazz", "limit": 3 }` and returns fixture songs
+with `request_id`, `items`, and explanations. The web page calls this endpoint at request time.
+Its simple tag match is only a fixture selector, not the planned recommendation algorithm.
 
 当前主机没有 Docker 命令，因此尚未执行容器启动或真实 PostgreSQL 迁移。已验证 Compose 四服务结构、
 API 测试及 Alembic 离线生成的建表 SQL。/ Docker is absent on this host, so live container

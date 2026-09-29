@@ -110,7 +110,9 @@ delegate device creation to a service and SQLAlchemy repository. Configuration v
 database and Redis URLs. PostgreSQL stores `device_users`; Alembic revision `0001_device_users`
 creates that table and enables pgvector. Redis is connected by a bounded client and checked by
 `GET /health/ready`; no cache behaviour exists yet. Compose defines web, API, PostgreSQL/pgvector,
-and Redis with health dependencies. The recommendation fixture chain is still pending. Docker is
+and Redis with health dependencies. `POST /v1/recommendations` validates a seed and bounded limit,
+then selects canonical songs from a small bundled fixture through the service and domain layers.
+The Next.js page calls this endpoint at request time and renders the returned examples. Docker is
 not installed on the current host, so Compose startup and a live PostgreSQL migration remain
 unverified; the four-service topology and offline migration SQL were checked statically.
 

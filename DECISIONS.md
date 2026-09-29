@@ -118,3 +118,19 @@ The API container runs migrations before serving requests. `GET /health` is a li
 - Tests prove repository behaviour without Docker; live PostgreSQL migration still needs a
   Docker-capable environment.
 - Redis is a connected ephemeral dependency, not a source of durable device identity.
+
+## ADR-008: Fixture recommendation chain for Phase 1
+
+**Status:** Accepted
+**Date:** 2026-09-29
+
+### Decision
+
+Expose `POST /v1/recommendations` with a bounded seed and limit. A service asks a small domain
+function to select canonical songs from a committed JSON fixture; it moves tag matches first
+and otherwise preserves fixture order. The Next.js shell fetches this response on request.
+
+### Consequences
+
+- The Web → API → domain path is executable without music providers or a catalog import.
+- The fixture selector is not a production recall or ranking policy and is replaced in Phase 3.

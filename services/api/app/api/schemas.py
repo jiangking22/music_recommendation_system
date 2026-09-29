@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class HealthResponse(BaseModel):
@@ -12,3 +12,25 @@ class ReadyResponse(BaseModel):
 
 class DeviceResponse(BaseModel):
     deviceId: str
+
+
+class RecommendationRequest(BaseModel):
+    seed: str = Field(min_length=1, max_length=120)
+    limit: int = Field(default=3, ge=1, le=10)
+
+    @field_validator("seed", mode="before")
+    @classmethod
+    def strip_seed(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class RecommendationItem(BaseModel):
+    id: str
+    title: str
+    artist: str
+    explanation: str
+
+
+class RecommendationResponse(BaseModel):
+    request_id: str
+    items: list[RecommendationItem]
