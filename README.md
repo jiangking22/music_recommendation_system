@@ -8,18 +8,20 @@
 
 - GitHub: <https://github.com/jiangking22/music_recommendation_system>
 
-## Phase 1 target runtime / 第一阶段目标运行环境
+## Target runtime through Phase 2 / 新工程截至第二阶段
 
 The original `python server.py` demo remains available. The separate target runtime currently
 has a minimal Next.js 16 / TypeScript page, FastAPI health and persistent anonymous device
 endpoint, PostgreSQL/pgvector migration, Redis readiness check, and four-service Compose topology.
-The fixture recommendation endpoint and minimal web form now show bundled example tracks through
-the Web → API → domain chain. Provider migration, personalization,
-Agent, RAG, and MCP are planned for later phases.
+The fixture recommendation endpoint and minimal web form show bundled example tracks through
+the Web → API → domain chain. A separate canonical track search API now uses independent iTunes
+and NetEase adapters; QQ is optional. Personalization, real recommendation ranking, Agent, RAG,
+and MCP are planned for later phases.
 
 旧版 `python server.py` 演示仍可运行。独立的新工程目前提供最小 Next.js 页面、FastAPI 健康检查和
 匿名设备持久化接口、PostgreSQL/pgvector 迁移、Redis 就绪检查及四服务 Compose 拓扑。
-最小网页通过 API 展示内置 fixture 示例歌曲；真实音乐源迁移、个性化、Agent、RAG 和 MCP 属于后续阶段。
+最小网页通过 API 展示内置 fixture 示例歌曲。新的统一曲目搜索 API 接入独立的 iTunes 与网易云适配器；
+QQ 可选。个性化、正式推荐排序、Agent、RAG 和 MCP 属于后续阶段。
 
 Local requirements / 本地要求：Python 3.12、Node.js 24、npm 11；容器运行需要 Docker Compose。
 
@@ -41,6 +43,30 @@ The API container applies `alembic upgrade head` before starting. `/health` chec
 `POST /v1/recommendations` accepts `{ "seed": "jazz", "limit": 3 }` and returns fixture songs
 with `request_id`, `items`, and explanations. The web page calls this endpoint at request time.
 Its simple tag match is only a fixture selector, not the planned recommendation algorithm.
+
+`GET /v1/providers` lists each adapter and its capability/stability metadata.
+`GET /v1/providers/health` reports `unknown`, `available`, or `degraded` from the last operation;
+it makes no upstream request. `GET /v1/tracks/search?q=Blue%20Window&limit=5` returns canonical
+tracks and per-source results/errors. Inputs and responses are bounded; a failed source does not
+discard healthy source results. Set `ENABLE_QQ_PROVIDER=true` to opt into the QQ adapter.
+Provider search is independent of the fixture recommendation endpoint and does not rank or merge
+matching tracks yet.
+
+`GET /v1/providers` 返回来源能力和稳定性元数据；`GET /v1/providers/health` 返回最近一次调用状态，
+初次调用前为 `unknown`，不会主动联网。`GET /v1/tracks/search?q=...&limit=5` 返回统一曲目结构、
+各来源结果与结构化错误。单个来源失败时其他来源仍可返回。设置 `ENABLE_QQ_PROVIDER=true` 可启用
+QQ 适配器。本阶段搜索不做最终去重或推荐排序，也不改变 fixture 推荐接口。
+
+Apple [iTunes Search API](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/UnderstandingSearchResults.html)
+has published result fields. NetEase and QQ use undocumented public web endpoints inherited from
+the legacy demo, so their capability metadata says `unverified`; QQ is disabled by default.
+Spotify and YouTube Music remain legacy-only and are not verified target adapters. Automatic
+tests use fixtures and mocked HTTP, never a live provider. A separate manual smoke search on
+2026-09-29 returned one track each from iTunes and NetEase; future availability is not guaranteed.
+
+Apple iTunes Search API 有公开字段文档。网易云和 QQ 沿用旧版的非官方公开网页接口，稳定性未验证；
+QQ 默认关闭。Spotify 与 YouTube Music 目前仅属于旧版演示。自动测试只使用 fixture 和 mock，
+不依赖外网。2026-09-29 的单独手动联网检查中，iTunes 和网易云各返回 1 首；这不保证后续可用性。
 
 当前主机没有 Docker 命令，因此尚未执行容器启动或真实 PostgreSQL 迁移。已验证 Compose 四服务结构、
 API 测试及 Alembic 离线生成的建表 SQL。/ Docker is absent on this host, so live container

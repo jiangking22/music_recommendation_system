@@ -116,6 +116,25 @@ The Next.js page calls this endpoint at request time and renders the returned ex
 not installed on the current host, so Compose startup and a live PostgreSQL migration remain
 unverified; the four-service topology and offline migration SQL were checked statically.
 
+### Phase 2 implementation status
+
+`app/domain/music.py` defines Track, Artist, optional Album, ProviderSource, provider
+capabilities, structured errors, health and search results. `app/providers/` contains the
+MusicProvider Protocol, bounded HTTP transport, iTunes and NetEase default adapters, optional
+QQ adapter, and registry. Mapping occurs inside each adapter. A normalized title/artist
+`canonical_key` is returned for future deduplication; Phase 2 neither deduplicates nor ranks.
+Each search invokes sources sequentially with a four-second HTTP timeout, a 1 MB response cap,
+and at most 25 results per source. Failures produce a per-source error and structured log event.
+
+The API now exposes `GET /v1/providers`, `GET /v1/providers/health`, and
+`GET /v1/tracks/search?q=...&limit=...`. Health reports the last adapter operation or `unknown`
+before first use; it does not probe the network. The fixture recommendation endpoint is still
+separate from live search. iTunes uses Apple's documented Search API. NetEase and QQ use
+undocumented legacy web endpoints and are marked `unverified`; QQ is disabled by default.
+Spotify and YouTube Music are not target-runtime adapters. Fixture tests prove parsing and
+degradation without external network. A separate manual smoke search on 2026-09-29 returned one
+track from each default provider; future availability remains unverified.
+
 ## Service boundaries / 服务边界
 
 | Area | Responsibility | Must not do |

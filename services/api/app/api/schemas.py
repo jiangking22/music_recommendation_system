@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field, field_validator
 
+from app.domain.music import ProviderCapabilities, ProviderHealth, SearchResult
+
 
 class HealthResponse(BaseModel):
     status: str
@@ -34,3 +36,15 @@ class RecommendationItem(BaseModel):
 class RecommendationResponse(BaseModel):
     request_id: str
     items: list[RecommendationItem]
+
+
+class ProvidersResponse(BaseModel):
+    providers: list[ProviderCapabilities]
+
+
+class ProvidersHealthResponse(BaseModel):
+    providers: dict[str, ProviderHealth]
+
+
+class TrackSearchResponse(SearchResult):
+    pass

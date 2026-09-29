@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     database_url: str = Field(min_length=1)
     redis_url: str = Field(min_length=1)
     allowed_origins: str = "http://localhost:3000"
+    enable_qq_provider: bool = False
 
     @field_validator("database_url")
     @classmethod

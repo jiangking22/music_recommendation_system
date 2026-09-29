@@ -134,3 +134,30 @@ and otherwise preserves fixture order. The Next.js shell fetches this response o
 
 - The Web → API → domain path is executable without music providers or a catalog import.
 - The fixture selector is not a production recall or ranking policy and is replaced in Phase 3.
+
+## ADR-009: Canonical tracks and bounded provider registry
+
+**Status:** Accepted
+**Date:** 2026-09-29
+
+### Decision
+
+Represent external songs as a canonical Track with Artist, optional Album, ProviderSource,
+duration, artwork, URL, language, genres/tags, popularity and a normalized title/artist key.
+Keep source payload parsing inside adapters. Expose a MusicProvider Protocol and registry that
+returns per-source ProviderResult errors alongside canonical tracks. Calls are sequential
+(upstream concurrency one), limited to 25 results/source, use four-second HTTP timeouts, have
+no retries, and cap response bodies at 1 MB. Health is last-operation status, not an active
+network probe. The key prepares for later deduplication but Phase 2 does not merge or rank songs.
+
+iTunes Search API is the documented default source. NetEase is a default best-effort adapter
+to preserve the second legacy source, with `unverified` capability metadata; QQ is opt-in via
+`ENABLE_QQ_PROVIDER`. Both NetEase and QQ depend on undocumented public web endpoints and may
+fail independently. Spotify and YouTube Music remain legacy-only and unverified for the target
+runtime.
+
+### Consequences
+
+- API and future recommendation code consume one schema and never inspect provider payloads.
+- A source outage appears in `sources` without discarding healthy source results.
+- Automatic tests use fixtures and mocked HTTP; they cannot certify live upstream availability.

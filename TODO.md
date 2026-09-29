@@ -19,11 +19,14 @@
 - [x] Check Compose topology statically; `docker compose up --build` remains unexecuted because Docker is unavailable on this host.
 - [x] Add a fixture-backed vertical recommendation API, minimal web consumer, and tests.
 
-## Phase 2 — Providers (not started)
+## Phase 2 — Providers (complete)
 
-- [ ] Define canonical song/provider interfaces and provider capability metadata.
-- [ ] Verify and retain 2–3 stable providers; mark unverified sources optional.
-- [ ] Extract provider mappings with fixtures, timeouts, error isolation, and health telemetry.
+- [x] Define canonical music/provider interfaces and capability metadata.
+- [x] Migrate iTunes and NetEase as default adapters; keep QQ opt-in and label undocumented
+  public web endpoints unverified.
+- [x] Extract provider mappings with offline fixtures, bounded requests, source error isolation,
+  last-operation health, registry, and three canonical search/discovery APIs.
+- [x] Run a separate manual iTunes/NetEase smoke search on 2026-09-29; both returned one track.
 
 ## Phase 3 — Recommendation and profile (not started)
 

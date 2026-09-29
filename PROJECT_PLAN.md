@@ -7,7 +7,7 @@ foundation, deterministic recommendation is the core business capability, and on
 tool-calling Agent is the differentiator. The plan deliberately avoids microservices,
 Kubernetes, complex DDD, account registration, and multi-Agent orchestration.
 
-## Current baseline
+## Legacy baseline
 
 The legacy application is a browser-side orchestration layer backed by a Python standard-library
 proxy. It already demonstrates multi-source recall, artist disambiguation, heuristic ranking,
@@ -34,11 +34,19 @@ exactly pinned in `services/api/pyproject.toml`; the web scaffold will commit an
 API integration test passes. On a host without Docker, validate Compose topology and generated
 migration SQL statically, and record that live container startup was not executed.
 
-## Phase 2 — Canonical catalog and provider adapters
+## Phase 2 — Canonical catalog and provider adapters (implemented; offline verified)
 
-Create a canonical song/provider contract; migrate only 2–3 verified providers into independent
-adapters; retain the rest as optional. Add provider health, timeouts, response validation, and
-fixture-based adapter tests.
+Canonical Track, Artist, Album, ProviderSource and capability/result contracts now separate
+provider payloads from the API. iTunes and NetEase adapters are enabled by default; QQ is an
+opt-in adapter. iTunes Search API is documented by Apple. NetEase and QQ use legacy public web
+endpoints without provider stability guarantees and remain explicitly unverified. All three have
+offline fixture mapping tests. The provider registry uses bounded sequential calls with per-call
+timeouts and returns partial results plus source errors. `/v1/providers`,
+`/v1/providers/health`, and `/v1/tracks/search` expose the canonical contract.
+
+Live upstream availability is intentionally not inferred from fixture tests. A separate manual
+smoke test on 2026-09-29 returned one track from each default provider; this does not guarantee
+future availability. The Phase 1 fixture recommendation path remains unchanged.
 
 **Exit criteria:** a provider outage yields partial results, never an opaque full failure.
 
