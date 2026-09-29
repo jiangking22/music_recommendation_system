@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 from app.domain.music import (
@@ -48,6 +50,28 @@ class RecommendationResponse(BaseModel):
     request_id: str
     items: list[RecommendationItem]
     sources: dict[str, ProviderResult]
+
+
+class FeedbackRequest(BaseModel):
+    track: Track
+    value: Literal["like", "dislike"]
+
+    @field_validator("track")
+    @classmethod
+    def bound_track(cls, track: Track) -> Track:
+        if (len(track.title) > 200 or len(track.artist.name) > 200
+                or len(track.source.provider) > 100 or len(track.source.provider_track_id) > 200
+                or len(track.canonical_key) > 512 or len(track.language or "") > 32
+                or len(track.genres) > 20 or len(track.tags) > 20
+                or any(len(value) > 64 for value in track.genres + track.tags)
+                or len(track.source.external_url or "") > 2048 or len(track.artwork_url or "") > 2048):
+            raise ValueError("Track metadata exceeds limits.")
+        return track
+
+
+class FeedbackResponse(BaseModel):
+    track_key: str
+    value: Literal["like", "dislike"]
 
 
 class ProvidersResponse(BaseModel):

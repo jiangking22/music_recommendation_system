@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.api.schemas import (
     DeviceResponse,
+    FeedbackRequest,
+    FeedbackResponse,
     HealthResponse,
     ProvidersHealthResponse,
     ProvidersResponse,
@@ -20,6 +22,7 @@ from app.domain.device import DEVICE_ID_PATTERN
 from app.infrastructure.cache import get_redis
 from app.infrastructure.database import get_session
 from app.providers.registry import ProviderRegistry, get_provider_registry
+from app.repository.feedback import load_profile, save_feedback
 from app.services.device import resolve_device
 from app.services.recommendation import recommend
 
@@ -54,8 +57,12 @@ def get_device(
 def recommendations(
     request: RecommendationRequest,
     registry: Annotated[ProviderRegistry, Depends(get_provider_registry)],
+    session: Annotated[Session, Depends(get_session)],
+    x_device_id: Annotated[str | None, Header(alias="X-Device-Id", min_length=16, max_length=128,
+                                              pattern=DEVICE_ID_PATTERN)] = None,
 ) -> RecommendationResponse:
-    songs, search = recommend(request.seed, request.limit, registry)
+    profile = load_profile(session, x_device_id) if x_device_id else None
+    songs, search = recommend(request.seed, request.limit, registry, profile)
     items = [
         RecommendationItem(
             id=song.key,
@@ -70,6 +77,17 @@ def recommendations(
         for song in songs
     ]
     return RecommendationResponse(request_id=str(uuid4()), items=items, sources=search.sources)
+
+
+@router.post("/v1/feedback", response_model=FeedbackResponse)
+def feedback(
+    request: FeedbackRequest,
+    session: Annotated[Session, Depends(get_session)],
+    x_device_id: Annotated[str, Header(alias="X-Device-Id", min_length=16, max_length=128,
+                                       pattern=DEVICE_ID_PATTERN)],
+) -> FeedbackResponse:
+    key = save_feedback(session, x_device_id, request.track, request.value)
+    return FeedbackResponse(track_key=key, value=request.value)
 
 
 @router.get("/v1/providers", response_model=ProvidersResponse)

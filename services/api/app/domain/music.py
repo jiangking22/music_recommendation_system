@@ -5,6 +5,12 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+def normalize_text(value: str) -> str:
+    value = unicodedata.normalize("NFKC", value).casefold()
+    value = re.sub(r"[^\w\s]", " ", value, flags=re.UNICODE)
+    return " ".join(value.split())
+
+
 def canonical_key(title: str, artist: str) -> str:
     def normalize(value: str) -> str:
         value = unicodedata.normalize("NFKC", value).casefold()

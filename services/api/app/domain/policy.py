@@ -17,6 +17,8 @@ class RecommendationPolicy:
     documented_source_confidence: float = 1.0
     unverified_source_confidence: float = 0.6
     local_source_confidence: float = 0.4
+    recent_feedback_limit: int = 200
+    recent_feedback_decay: float = 0.98
 
 
 POLICY = RecommendationPolicy()

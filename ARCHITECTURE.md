@@ -146,6 +146,13 @@ diversity penalties, and produces factor-based explanations. `POST /v1/recommend
 pipeline and returns canonical tracks, provenance, scores, breakdowns and per-source errors.
 The local catalog supplies results when upstream providers fail. The core never calls an LLM.
 
+`POST /v1/feedback` validates `X-Device-Id`, canonical track metadata, and like/dislike. The
+PostgreSQL `track_feedback` primary key is `(device_id, track_key)`; an atomic upsert means the
+latest rating replaces the earlier one. `user_preference_profiles` stores bounded, recency
+weighted artist, genre, tag, and language affinity maps. Recommendations with a device header
+load this profile and penalize disliked track keys. Migration `0002_feedback_profiles` creates
+both tables; SQLite is used only for offline API/repository tests.
+
 | Area | Responsibility | Must not do |
 | --- | --- | --- |
 | Web | Present UI, persist anonymous device ID, consume REST/SSE | Rank songs or store secrets |

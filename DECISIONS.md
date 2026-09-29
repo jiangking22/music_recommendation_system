@@ -179,3 +179,21 @@ penalties, and construct explanations from measured factors. Return scores and s
 An upstream outage leaves catalog recommendations available. Future Agent tooling may invoke
 this recommender but cannot replace its recall, rank, or explanation policy. Provider metadata
 quality and the small fallback catalog limit relevance until a larger verified catalog exists.
+
+## ADR-011: Latest feedback wins and profiles are durable snapshots
+
+**Status:** Accepted
+**Date:** 2026-09-29
+
+### Decision
+
+Store one rating per anonymous device and canonical track key. Atomic PostgreSQL upsert replaces
+earlier feedback; recompute a bounded recent profile in the same transaction. Store normalized
+artist, genre, tag, and language affinities as JSON, and consult current disliked track keys
+when ranking. The device header links preferences but grants no authentication privileges.
+
+### Consequences
+
+Feedback changes later recommendations without Redis or an LLM. A client may supply metadata
+for its own anonymous profile; input sizes are bounded. The profile uses the latest 200 ratings
+with explicit recency decay, so very old ratings are not represented in the snapshot.

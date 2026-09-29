@@ -2,16 +2,9 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
-from app.domain.music import ProviderSource, Track
+from app.domain.music import ProviderSource, Track, normalize_text
 from app.domain.policy import POLICY, RecommendationPolicy
 from app.domain.profile import PreferenceProfile
-
-
-def normalize_text(value: str) -> str:
-    value = unicodedata.normalize("NFKC", value).casefold()
-    value = re.sub(r"[^\w\s]", " ", value, flags=re.UNICODE)
-    return " ".join(value.split())
-
 
 _VERSION = re.compile(
     r"(?:\s*[\[(]\s*|\s*[-–—]\s*)(?:feat\.?|featuring|ft\.?|live|remaster(?:ed)?(?:\s+\d{4})?|explicit)\b.*$",
