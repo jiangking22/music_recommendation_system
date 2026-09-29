@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import os
 from typing import Annotated
 
 from fastapi import FastAPI, Header, HTTPException
@@ -9,10 +10,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 DEVICE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
 
+allowed_origins = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",") if origin.strip()]
+
 app = FastAPI(title="Music Recommendation API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=allowed_origins,
     allow_methods=["GET"],
     allow_headers=["X-Device-Id"],
 )
