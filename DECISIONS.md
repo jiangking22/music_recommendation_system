@@ -2,7 +2,7 @@
 
 ## ADR-001: Incremental strangler migration from the legacy demo
 
-**Status:** Accepted  
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ### Context
@@ -24,7 +24,7 @@ unchanged until a replacement vertical slice is verified and documented.
 
 ## ADR-002: One Agent with allow-listed tools
 
-**Status:** Accepted  
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ### Decision
@@ -41,7 +41,7 @@ quality and ordering.
 
 ## ADR-003: Anonymous device identity, not account authentication
 
-**Status:** Accepted  
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ### Decision
@@ -57,7 +57,7 @@ Persist preference profile and conversation linkage against that identifier.
 
 ## ADR-004: PostgreSQL with pgvector; Redis only for ephemeral data
 
-**Status:** Accepted  
+**Status:** Accepted
 **Date:** 2026-09-29
 
 ### Decision
