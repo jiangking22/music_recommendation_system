@@ -1,0 +1,30 @@
+[
+  {
+    "document_id": "music-v1-jay-chou",
+    "title": "周杰伦 / Jay Chou",
+    "category": "artist",
+    "content": "周杰伦是台湾歌手、词曲作者。他的作品常融合流行、R&B、嘻哈与中国风元素；2000 年发行首张专辑《Jay》。本条为人工编写的演示知识摘要。",
+    "keywords": ["周杰伦", "jay chou", "歌手", "artist"]
+  },
+  {
+    "document_id": "music-v1-jazz",
+    "title": "爵士乐 / Jazz",
+    "category": "genre",
+    "content": "爵士乐常以即兴演奏、切分节奏和丰富的和声为特色。不同分支的速度、编制与能量差异较大，并非所有爵士乐都适合安静学习。本条提供流派背景，不判断具体歌曲。",
+    "keywords": ["爵士", "爵士乐", "jazz", "流派", "genre"]
+  },
+  {
+    "document_id": "music-v1-ye-hui-mei",
+    "title": "叶惠美 / Ye Hui Mei",
+    "category": "album",
+    "content": "《叶惠美》是周杰伦于 2003 年发行的专辑，以母亲的名字命名。专辑收录《晴天》《东风破》等作品，展示流行、说唱与中国风的融合。本条为专辑背景演示摘要，不提供完整唱片目录。",
+    "keywords": ["叶惠美", "ye hui mei", "专辑", "album"]
+  },
+  {
+    "document_id": "music-v1-study",
+    "title": "学习场景的聆听建议 / Study listening",
+    "category": "explanation",
+    "content": "学习时可以尝试节奏平稳、能量较低的音乐，例如 calm jazz；人声是否影响注意力因人而异。这是一般聆听建议，不是对某首曲目的研究结论。推荐器仍根据曲目标签与已有偏好排序，知识片段只辅助解释。",
+    "keywords": ["学习", "专注", "study", "focus", "calm", "jazz", "推荐理由"]
+  }
+]

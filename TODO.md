@@ -39,11 +39,17 @@
 - [x] Build Next.js recommendation, feedback, preference, and explanation UI.
 - [x] Add browser-facing tests and accessible loading/error states.
 
-## Phase 5 — Agent/RAG/MCP (not started)
+## Phase 5 — Agent/RAG/MCP (complete; offline and browser verified)
 
-- [ ] Add one bounded Agent with SSE, current-session memory, and long-term preference summary.
-- [ ] Add music knowledge RAG and a minimal read-only MCP tool surface.
-- [ ] Add Agent tool-selection and trace tests.
+- [x] Add one bounded Agent with SSE, current-session memory, and long-term preference summary.
+- [x] Add music knowledge RAG and a minimal read-only MCP tool surface.
+- [x] Add Agent tool-selection and trace tests.
+
+Acceptance 2026-09-30: 63 API tests and 12 frontend tests pass; ruff, Python compile,
+web lint/typecheck/build pass. Offline PostgreSQL upgrade/downgrade SQL includes seeded knowledge
+and pgvector. Browser recommendation/artist Q&A, SSE/tool status, and 320/768/1024/1440px layouts
+verified. Legacy help and isolated HTTP homepage 200 verified; legacy files and ranking unchanged.
+Live Docker/PostgreSQL and real LLM execution remain unverified. Phase 6 is not started.
 
 ## Phase 6 — Quality and release (not started)
 

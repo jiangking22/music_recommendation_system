@@ -133,7 +133,7 @@ export default function ProductClient() {
           <span className="brand-icon">◉</span> sonora
           <span className="brand-dot">.</span>
         </Link>
-        <span className="header-note">A listening space, just for you</span>
+        <Link href="/agent" className="agent-nav">Music assistant ↗</Link>
       </header>
       <main>
         <section className="hero" aria-labelledby="hero-title">

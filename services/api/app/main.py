@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
+from app.api.agent import router as agent_router
+from app.api.mcp import router as mcp_router
 from app.api.routes import router
 from app.infrastructure.config import get_settings
 
@@ -21,6 +23,8 @@ app.add_middleware(
     allow_headers=["X-Device-Id", "Content-Type"],
 )
 app.include_router(router)
+app.include_router(agent_router)
+app.include_router(mcp_router)
 
 
 @app.exception_handler(RequestValidationError)

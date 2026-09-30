@@ -8,7 +8,7 @@
 
 - GitHub: <https://github.com/jiangking22/music_recommendation_system>
 
-## Target runtime through Phase 4 / 新工程截至第四阶段
+## Target runtime through Phase 5 / 新工程截至第五阶段
 
 The original `python server.py` demo remains available. The separate target runtime has a
 usable Next.js 16 / TypeScript product client, FastAPI service, PostgreSQL/pgvector migrations, Redis
@@ -19,14 +19,16 @@ Anonymous feedback and preference profiles persist in PostgreSQL and change late
 Results include score breakdowns, provenance and deterministic explanations. Small local
 embeddings and a fixed offline evaluation are included. The Sonora client creates a stable
 anonymous browser ID, displays real recommendations and partial-source status, saves like/dislike
-feedback, and shows a durable preference profile. Agent, RAG and MCP remain planned for Phase 5.
+feedback, and shows a durable preference profile. A bounded music Agent, PostgreSQL memory,
+small knowledge RAG, JSON/SSE chat, `/agent` client and independent MCP-style tools are implemented.
 
 旧版 `python server.py` 演示仍可运行。独立的新工程目前提供可使用的 Next.js 产品客户端、FastAPI 健康检查和
 匿名设备持久化接口、PostgreSQL/pgvector 迁移、Redis 就绪检查及四服务 Compose 拓扑。
 新版网页自动保存匿名设备标识，可提交参考歌曲、展示真实推荐、来源降级提示与推荐理由，并可提交喜欢/不喜欢反馈及查看持久化听歌画像。统一曲目搜索 API 接入独立的 iTunes 与网易云适配器，QQ 可选。
 推荐接口现已使用多源召回、本地曲库降级、跨来源去重、确定性打分与多样性重排。匿名设备的喜欢/不喜欢反馈
 和偏好画像持久化在 PostgreSQL，后续排序会随反馈变化；每首结果包含分数拆解、来源和确定性理由。
-本地轻量向量和固定离线评估已实现。Agent、RAG、MCP 属于后续 Phase 5，当前未实现。
+本地轻量向量和固定离线评估已实现。第五阶段增加受控音乐 Agent、PostgreSQL 会话与偏好摘要、
+小型知识 RAG、JSON/SSE 对话、新版 `/agent` 页面和独立 MCP 风格工具接口。
 
 Local requirements / 本地要求：Python 3.12、Node.js 24、npm 11；容器运行需要 Docker Compose。
 
@@ -54,6 +56,91 @@ web origin through `ALLOWED_ORIGINS`; the local API default is `http://localhost
 
 The legacy UI is still available with `python server.py`; Next.js is the target product client.
 旧版 UI 仍通过 `python server.py` 运行；新版 Next.js 是目标产品客户端。
+
+### Music assistant / 音乐助手
+
+Open `http://localhost:3000/agent` or follow **Music assistant** from the homepage. Try
+**推荐适合学习的歌**, then **再来几首**, or **介绍周杰伦**. The page shows the current conversation,
+public progress, canonical recommended tracks and knowledge references. The Agent interprets
+intent, calls tools and composes answers; the existing recommender owns recall, scoring and order.
+The Agent cannot change ranking, save feedback or call tools outside its allowlist.
+
+打开 `/agent` 或首页的 **Music assistant**，尝试“推荐适合学习的歌”“再来几首”或“介绍周杰伦”。
+页面显示当前对话、公开阶段状态、推荐曲目和参考资料。Agent 负责理解、工具调用和回答解释；
+推荐器负责召回与排序。Agent 不修改排序、不写反馈，也不能调用白名单之外的业务能力。
+
+The independent `app/agent/` package contains core, tools, memory, prompts, schemas and provider
+adapters. The four tools are `get_user_profile`, `recommend_tracks`, `search_music_knowledge`,
+and `explain_recommendation`. One plan executes at most four distinct calls sequentially.
+Default deadline: 30 seconds; at most four active Agent requests and four synchronous jobs per
+event loop. Invalid plans/answers fail with structured errors. No autonomous replanning loop.
+
+独立 `app/agent/` 模块包含 core、tools、memory、prompts、schemas 和 provider。四个工具分别读取
+偏好、调用原推荐 pipeline、检索音乐知识、解释已有推荐。每轮只执行一次经过校验的计划，
+最多顺序调用四个不同工具；默认总时限 30 秒，每个事件循环最多四个活跃请求及四个同步任务。
+无效输出返回结构化错误，不执行无限自主规划。
+
+`LLM_PROVIDER=local` is the default: a deterministic bilingual router and fixture-grounded
+answer composer, explicitly not a real model. `LLM_PROVIDER=openai_compatible` enables the
+optional adapter when `LLM_API_KEY` is nonempty; no Key uses the local fallback. Set
+`LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`, and `AGENT_TIMEOUT_SECONDS` through environment
+variables (`.env.example` contains placeholders). Keys stay server-side. The adapter uses
+[Chat Completions JSON output](https://developers.openai.com/api/reference/resources/chat),
+ten-second HTTP calls, no retries/redirects and a 64 KiB response cap. Tests mock its transport.
+An unavailable configured model returns an error, rather than silently claiming a model answer.
+
+默认本地 provider 使用有限的中英文意图规则，明确标注“本地助手”，无需 Key 或外网模型。
+选择 `openai_compatible` 并通过环境变量配置地址、模型和非空 Key 后可替换 provider；没有 Key
+时使用本地降级。真实模型可用性和生成质量尚未验证；自动测试使用 mock transport。
+
+PostgreSQL migration `0004_agent_memory` persists the last six turns and last seed for each
+server-issued conversation UUID, plus top-five preference summaries derived from Phase 3
+feedback. Supplying `conversation_id` resumes that context. IDs link anonymous preferences,
+not authenticated accounts. Version checks reject stale concurrent writes. The webpage keeps
+the conversation ID only until reload; no history-listing/deletion UI or retention sweep exists.
+Chat text is stored in bounded context, never written to application logs. When a configured
+external LLM is used, the current message, bounded history/summary and tool evidence are sent to it.
+
+PostgreSQL 保存每个会话最近六轮对话、上次推荐 seed，以及从已有反馈计算的音乐偏好摘要。
+API 可凭 `conversation_id` 恢复上下文，网页刷新后开始新会话。设备标识不是认证凭据，不提供账号、
+跨设备同步、会话列表/删除或定时清理。对话内容只进入有长度上限的持久化上下文，不进入应用日志。
+配置外部 LLM 时，当前消息、有限历史/摘要和工具资料会发送给该 provider。
+
+Migration `0005_music_knowledge` seeds four authored demonstration documents: artist, genre,
+album background and study-listening guidance. Chunks use local 16-dimensional text hashes and
+pgvector cosine retrieval, with lexical evidence guarding collisions. Results include document
+and chunk IDs, text, category and score. This knowledge supports Q&A/explanations and never
+changes recommendation ranking. Fixtures are tiny; unrelated questions can return no knowledge.
+
+四份小型演示资料覆盖歌手、流派、专辑背景和学习场景解释辅助；迁移自动写入文档、chunk 和
+`vector(16)`。本地文本哈希无需模型下载，pgvector 余弦检索配合词面匹配减少碰撞误答。
+资料返回可追溯的文档/片段标识，仅辅助问答与解释，不参与推荐排序；不相关问题可能无资料。
+
+`POST /v1/agent/chat` accepts `{ "message": "介绍周杰伦", "device_id": "device_1234567890",
+"conversation_id": null }` and returns `conversation_id`, `answer`, `recommended_tracks`,
+`used_tools`, `explanation`, `citations`, `sources`, and `provider`. The same body works at
+`POST /v1/agent/chat/stream`: `status` events show 分析需求 / 查询偏好 / 调用工具 / 返回结果,
+`tool_result` confirms a tool, `done` carries the complete response, and `error` carries the
+usual `{ "error": { "code", "message" } }` envelope. No internal reasoning is exposed.
+
+对话 API 使用上面的同一输入合约，普通接口返回完整 JSON，`/stream` 返回 SSE 公开状态和最终结果。
+客户端支持分段 UTF-8、结构化错误和流中断。HTTP 输入限制消息 2,000 字符、有效设备 ID 及可选 UUID。
+
+The independent read-only MCP-style façade provides `GET /v1/mcp/tools` and
+`POST /v1/mcp/tools/call`, e.g. `{ "name": "music_search", "arguments": { "query": "jazz",
+"limit": 5 } }`. It advertises input/output JSON schemas and returns text plus canonical
+`structuredContent`; music search has a local fallback and does not rank. It follows the
+[MCP tools shape](https://modelcontextprotocol.io/specification/2025-11-25/server/tools),
+but is not a full MCP server/transport (no JSON-RPC initialize, stdio or session protocol).
+
+独立 MCP 风格接口提供 schema 列表与 `music_search` 调用，输入/输出明确，结果使用统一曲目模型，
+无需 Agent 或模型。它是本阶段的最小 HTTP 工具接口，尚不实现完整 MCP 客户端互操作传输。
+
+Limits / 限制：small fixtures, rule-based local routing, hash-vector semantics, unverified real
+model and live PostgreSQL execution. Timed-out synchronous I/O can finish in the background,
+including an in-flight context commit, while retaining its concurrency slot. Phase 6 has not begun.
+知识库与本地规则覆盖有限；真实模型和本机 PostgreSQL 尚未实跑。超时后的同步任务可能继续完成，
+包括正在提交的上下文事务，但执行期间仍占用并发名额。Phase 6 未开始。
 
 ```powershell
 Copy-Item .env.example .env

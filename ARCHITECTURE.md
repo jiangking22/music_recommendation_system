@@ -75,10 +75,10 @@ flowchart TB
   Rec --> PG[(PostgreSQL + pgvector)]
   API --> PG
   API --> Redis[(Redis: cache/session)]
-  Agent --> Tools[Search · Recommend · Feedback · Knowledge]
+  Agent --> Tools[Recommend · Profile · Knowledge · Explain]
   Tools --> Rec
   Tools --> Knowledge[RAG knowledge store]
-  MCP[Minimal MCP server] --> Tools
+  MCP[MCP-style search façade] --> Providers
   Providers --> Sources[Verified music providers]
   API --> Obs[Structured logs · traces · metrics]
 ```
@@ -177,6 +177,75 @@ not rank or transform provider payloads. `GET /v1/profile` reads existing affini
 latest five feedback rows, returning up to five positive artists, genres, tags, and languages.
 No migration or recommendation policy change was needed.
 
+### Phase 5 controlled Agent (implemented; offline and browser verified)
+
+`app/agent/` separates `core.py`, `tools.py`, `memory.py`, `prompts.py`, `schemas.py`, and
+`providers.py`. API routes only validate and transport chat. `LLMProvider` is a replaceable
+planning/answer interface. The local provider is a deterministic bilingual intent router, not
+a model; the OpenAI-compatible adapter uses bounded Chat Completions JSON requests, validates
+payloads and then validates the plan/answer schemas. No Key defaults to the local provider.
+Real model quality/compatibility is not inferred from mocked transport tests.
+
+```mermaid
+flowchart LR
+  Page[Next.js /agent] -->|POST JSON or SSE| Routes[Thin Agent API]
+  Routes --> Core[Single bounded Agent]
+  Core --> LLM[Local or OpenAI-compatible LLMProvider]
+  Core --> Memory[(PostgreSQL conversation + preference summary)]
+  Core --> Tools[Allowlisted typed tools]
+  Tools --> Rec[Existing Phase 3 recommender]
+  Tools --> Profile[Existing preference repository]
+  Tools --> RAG[Knowledge retrieval]
+  RAG --> PG[(PostgreSQL documents/chunks + pgvector)]
+  MCP[MCP-style HTTP schema/call façade] --> Search[Provider Registry + local fallback]
+```
+
+| Tool | Input | Output and boundary |
+| --- | --- | --- |
+| `get_user_profile` | empty object | top-five positive artist/genre/tag/language summary for the request's device |
+| `recommend_tracks` | seed ≤120 chars, limit 1–10 | canonical pipeline items in their original order; no ranking override |
+| `search_music_knowledge` | query ≤120 chars, limit 1–5 | cited knowledge chunks with document ID, category, text and retrieval score |
+| `explain_recommendation` | empty object, after recommend | measured recommendation factors plus separately marked general listening guidance |
+
+One validated plan has 1–4 distinct calls, executed sequentially; there is no replanning loop.
+The default whole-turn deadline is 30 seconds (configurable 1–60), with at most four active
+Agent requests per event loop. Excess requests receive `agent_busy`. Synchronous jobs also
+have four slots retained until completion after cancellation; provider adapters retain their
+existing four-second timeouts and result caps. LLM HTTP uses ten seconds, no retries/redirects,
+a 64 KiB response cap and 1,200 output tokens. Agent database transactions set PostgreSQL
+statement/lock timeouts of three/one seconds. Cancellation bounds the waiting request;
+already-running synchronous work can finish, including an in-flight memory commit.
+
+`0004_agent_memory` adds `agent_conversations` and `agent_preference_summaries`. Conversation
+IDs are server-generated UUIDs bound to a device, retain the last 12 messages (six turns) and
+the last recommendation seed. Version-checked updates reject simultaneous stale writes with
+`conversation_conflict`. Preference summaries derive from Phase 3 feedback, not LLM guesses,
+and refresh when `get_user_profile` runs. These rows survive process restarts; Redis is not
+required for Agent context. Device identifiers provide linkage, not authenticated isolation.
+There is no account system, conversation listing/deletion UI or automatic retention sweep.
+
+`app/rag/` holds a versioned four-document fixture: artist, genre, album, explanation aid.
+`0005_music_knowledge` seeds documents/chunks and `vector(16)`. A local SHA-256 text/bigram
+encoder requires no model download or network. PostgreSQL uses cosine `<=>` retrieval with
+at most 50 candidate chunks; lexical overlap guards hash collisions before final top-five
+selection. SQLite uses the same score calculation for offline tests. Retrieval only grounds
+answers/explanations; it never enters recommendation rank. This tiny bilingual fixture and
+hash encoder are demonstration coverage, not a large semantic knowledge service.
+
+`app/mcp/tools.py` has no Agent/LLM dependency. `GET /v1/mcp/tools` advertises `music_search`
+with input/output JSON schemas and read-only annotations; `POST /v1/mcp/tools/call` returns
+text content and canonical `structuredContent`. Search is unranked, limit 1–25, with a 15-second
+route deadline and local fallback. This is an MCP-style HTTP façade inspired by the tools
+contract, not a full interoperable MCP server: no JSON-RPC initialize, stdio or session transport.
+
+`/agent` presents an input, the current page's last 12 chat entries, canonical recommendation
+results, citations and public tool status. The browser sends the stable device ID in the body,
+reuses returned conversation IDs within the page, and cancels streaming on unmount. The server
+persists context; refreshing the page starts a new conversation because no history loader was
+added. The SSE client handles fragmented UTF-8 frames, errors and interrupted streams.
+320/768/1024/1440px layouts and recommendation/artist flows were checked in a real browser.
+Live Docker/PostgreSQL execution remains unverified on this host.
+
 | Area | Responsibility | Must not do |
 | --- | --- | --- |
 | Web | Present UI, persist anonymous device ID, consume REST/SSE | Rank songs or store secrets |
@@ -188,9 +257,9 @@ No migration or recommendation policy change was needed.
 
 ## Data ownership / 数据归属
 
-- PostgreSQL is the system of record for songs, user profiles, feedback, recommendation
-  events, knowledge documents, and embedding vectors.
-- Redis holds only expirable session, cache, and rate-limit data; it is safe to clear.
+- PostgreSQL stores device users, feedback/profiles, song vectors, Agent conversations,
+  preference summaries and knowledge documents/chunks/vectors. Recommendation events are planned.
+- Redis currently has a readiness check; future cache/rate-limit data is discardable.
 - The browser retains a random anonymous device identifier. It is sent as `X-Device-Id`
   and is not an authentication credential.
 - API keys are environment variables only. `.env` is never committed.
@@ -202,17 +271,19 @@ No migration or recommendation policy change was needed.
 1. The client sends a seed, filters, and anonymous device ID to `POST /v1/recommendations`.
 2. The API resolves the user preference profile and asks provider plugins plus local catalog
    for candidates.
-3. The recommender deduplicates candidates, applies feature scores and diversity reranking,
-   then records an evaluation-friendly recommendation event.
+3. The recommender deduplicates candidates, applies feature scores and diversity reranking.
 4. The API returns songs, score factors, provider provenance, and an explanation.
 
 ### Agent chat
 
-1. The client opens `POST /v1/agent/chat/stream` with a device ID and message.
+1. The client sends `message`, `device_id` and optional `conversation_id` to
+   `POST /v1/agent/chat` (JSON) or `/v1/agent/chat/stream` (SSE).
 2. The Agent loads the current session plus durable preference summary.
-3. It calls an allow-listed tool (search, recommend, save feedback, music knowledge) when
-   needed. Tool calls are traced.
-4. The API streams typed SSE events: `message`, `tool_call`, `tool_result`, `done`, `error`.
+3. It validates one bounded plan, then invokes approved profile/recommend/knowledge/explain
+   tools. Tool traces contain names and statuses; logs contain no chat content or credentials.
+4. SSE sends `status` (分析需求 / 查询偏好 / 调用工具 / 返回结果), `tool_result`,
+   `done` (the complete chat response), or `error` (the consistent error envelope).
+   Internal reasoning is never streamed.
 
 ## Reliability and security / 可靠性与安全
 
@@ -226,7 +297,8 @@ No migration or recommendation policy change was needed.
 
 - Unit tests cover provider mapping, scoring, reranking, profile updates, and Agent tool
   selection.
-- API integration tests use a disposable PostgreSQL/Redis environment.
+- API integration tests use disposable SQLite databases and mocked providers/LLM transport.
+  PostgreSQL migration SQL is verified offline; live database checks need a capable host.
 - Offline evaluation reports relevance, personalization lift, diversity, coverage, and tool
   selection accuracy from versioned fixtures.
 - Docker Compose is the authoritative local end-to-end environment.

@@ -29,8 +29,8 @@ unchanged until a replacement vertical slice is verified and documented.
 
 ### Decision
 
-Use one orchestration Agent with a small tool registry: catalog search, recommendation,
-feedback/profile update, and music knowledge retrieval. Traditional ranking owns candidate
+Use one orchestration Agent with a small tool registry: recommendation, read-only profile,
+music knowledge retrieval and explanation (Phase 5 refinement in ADR-014). Traditional ranking owns candidate
 quality and ordering.
 
 ### Consequences
@@ -236,3 +236,65 @@ The browser can show durable feedback and partial provider failures without an a
 Deployments must set `NEXT_PUBLIC_API_BASE_URL` to a browser-reachable API URL and allow the web
 origin in `ALLOWED_ORIGINS`. The profile is tied to one browser identifier with no account
 recovery or cross-device sync.
+
+## ADR-014: One validated plan with replaceable LLM adapters
+
+**Status:** Accepted
+**Date:** 2026-09-30
+
+### Decision
+
+Separate Agent core/tools/memory/prompts/schemas/provider adapters. A local deterministic intent
+router is the default and fallback when no Key exists. An optional OpenAI-compatible JSON adapter
+implements the same `LLMProvider` contract. Validate a single plan before executing 1–4 distinct,
+allowlisted calls, then validate a prose-only answer. No retries, autonomous replanning, feedback
+writes, ranking mutation or multiple Agents. Canonical recommended items come exclusively from
+the Phase 3 pipeline. SSE exposes public statuses, tool names and final output, never reasoning.
+
+### Consequences
+
+Mock transport and local routing make tests independent of keys/network. The local provider has
+limited bilingual patterns; real model answers can still be inaccurate despite grounding prompts.
+Schema checks protect structure, not factual truth. Four active requests and four worker slots per
+event loop plus bounded I/O prevent unlimited concurrency; timeouts cannot terminate an already
+running synchronous operation. Live model compatibility is unverified.
+
+## ADR-015: PostgreSQL conversation context and derived preference summaries
+
+**Status:** Accepted
+**Date:** 2026-09-30
+
+### Decision
+
+Persist the last six turns and last seed per server-issued conversation UUID in PostgreSQL.
+Bind each conversation to its validated anonymous device ID. Reject stale simultaneous writes
+with a version check. Store a top-five affinity summary derived by the profile tool from existing
+feedback. Use no accounts and no LLM-authored durable preference facts. Redis remains optional
+for future ephemeral caching rather than required for Agent memory.
+
+### Consequences
+
+Context survives restarts and can be resumed by conversation ID. Device IDs remain identifiers
+with no authentication guarantee. The frontend retains the conversation ID within its current
+page only; history listing, deletion, TTL cleanup and cross-device sync are outside Phase 5.
+Chat text is stored in bounded context rows but excluded from structured logs.
+
+## ADR-016: Small lexical-guarded RAG and independent MCP-style search
+
+**Status:** Accepted
+**Date:** 2026-09-30
+
+### Decision
+
+Seed four versioned knowledge documents/chunks with local 16-dimensional text hash vectors.
+Use PostgreSQL pgvector cosine candidates followed by lexical-overlap guarding and bounded
+retrieval ranking. Knowledge aids Q&A and explanations only. Expose independent `music_search`
+through an HTTP MCP-style schema/call façade using canonical input/output models and no LLM.
+
+### Consequences
+
+All fixtures and retrieval tests run offline. Hash collisions and sparse aliases limit semantics;
+no relevant lexical evidence produces no answer material. The minimal MCP tools contract is not
+a complete MCP transport or JSON-RPC server. No new dependency or large dataset is introduced.
+SQLite verifies persistence/retrieval semantics, and offline Alembic SQL verifies PostgreSQL
+DDL/fixture seeding; live pgvector execution remains unverified on this host.

@@ -78,14 +78,24 @@ visually checked on this host.
 
 **Exit criteria:** browser and API integration tests cover the primary recommendation flow.
 
-## Phase 5 — Single Agent, memory, RAG, and MCP
+## Phase 5 — Single Agent, memory, RAG, and MCP (complete; offline and browser verified)
 
-Add one allow-listed-tool Agent with current-session memory and durable preference summaries;
-stream chat through SSE. Add music knowledge RAG for Q&A/explanation enhancement and expose a
-minimal read-oriented MCP server.
+One bounded Agent now plans up to four approved profile/recommend/knowledge/explanation calls
+and composes a validated answer. An optional OpenAI-compatible adapter and default local router
+share one provider contract. PostgreSQL migrations add six-turn conversation context, derived
+preference summaries and a four-document pgvector knowledge fixture. JSON/SSE chat endpoints
+feed the simple `/agent` Next.js page. Independent read-only MCP-style HTTP search exposes schemas
+and canonical outputs; full MCP transport is intentionally outside this minimum interface.
 
-**Exit criteria:** deterministic tests prove tool selection and trace each call; an absent LLM key
-uses a documented local fallback.
+**Exit criteria:** offline tests prove provider replacement, tool selection/trace, limits,
+persistence, RAG, MCP schemas, chat/SSE and frontend flow. An absent Key uses a documented local
+fallback. Tests/lint/build and legacy smoke pass before one focused commit and push on
+`codex/phase1-foundation-review`; stop here without beginning Phase 6. Live PostgreSQL/pgvector
+and real-model availability remain explicitly unverified on this host.
+
+Acceptance on 2026-09-30: 63 API tests, 12 web tests, API ruff/compile check, web lint/typecheck/build,
+offline PostgreSQL upgrade/downgrade SQL, real-browser recommendation/artist flows and responsive
+layouts, plus legacy help/HTTP 200. Phase 6 remains not started.
 
 ## Phase 6 — Observability and release quality
 

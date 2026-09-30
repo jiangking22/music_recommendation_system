@@ -1,0 +1,66 @@
+.agent-shell {
+  --orange: #c72a46;
+  --paper: #fafafa;
+  --ink: #1d1d1f;
+  --muted: #66666b;
+  --line: #e6e6e8;
+  background: var(--paper);
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.agent-nav { color: var(--orange, #c72a46); font-size: 13px; text-decoration: none; }
+.agent-main { max-width: 1080px; margin: auto; padding: 32px 32px 64px; }
+.agent-intro { padding: 24px 0 40px; }
+.agent-intro h1 { font-size: clamp(30px, 4vw, 48px); letter-spacing: -0.04em; margin: 16px 0; }
+.agent-intro p { color: var(--muted); line-height: 1.6; font-size: 14px; }
+.agent-columns { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 32px; }
+.agent-conversation, .agent-progress { border-top: 1px solid var(--line); padding-top: 24px; min-width: 0; }
+.agent-main h2 { font-size: 21px; letter-spacing: -0.02em; margin: 0 0 24px; }
+.agent-welcome { padding: 32px 0; }
+.agent-welcome > span { font-size: 36px; color: var(--orange); }
+.agent-welcome p { color: var(--muted); font-size: 14px; }
+.agent-suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.agent-suggestions button { background: white; border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 12px; color: var(--ink); }
+.agent-suggestions button:hover { border-color: var(--orange); }
+.agent-history article { border-bottom: 1px solid var(--line); padding: 16px 0; }
+.agent-history article > span { color: var(--orange); font-size: 11px; font-weight: 700; }
+.agent-history p { font-size: 14px; line-height: 1.8; margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.agent-user p { color: var(--muted); }
+.agent-form { padding: 24px 0; }
+.agent-form label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+.agent-form > div { display: flex; gap: 8px; }
+.agent-form input { width: 100%; min-width: 0; border: 1px solid #c5c5ca; padding: 14px; border-radius: 8px; background: white; font-size: 14px; }
+.agent-form .primary-button { border-radius: 8px; min-width: 88px; justify-content: center; }
+.agent-shell .primary-button:hover:not(:disabled) { background: #a51c35; }
+.agent-progress { color: var(--muted); font-size: 12px; line-height: 1.8; }
+.agent-progress h2 { color: var(--ink); }
+.agent-progress ol { padding-left: 20px; }
+.agent-progress li { padding-bottom: 8px; }
+.agent-mode { display: inline-block; background: #fceef1; color: #9d1930; padding: 4px 12px; border-radius: 4px; margin-top: 8px; }
+.agent-tools { padding: 16px 0; list-style: none; border-bottom: 1px solid var(--line); }
+.agent-footnote { margin-top: 24px; }
+.agent-mix, .agent-citations { margin-top: 40px; }
+.agent-mix .section-heading h2 { margin: 0; }
+.agent-track { display: grid; grid-template-columns: 24px 80px minmax(0, 1fr) auto; align-items: center; gap: 16px; border-top: 1px solid var(--line); padding: 20px 0; }
+.agent-track-number { color: var(--muted); font-size: 12px; }
+.agent-artwork { width: 80px; height: 80px; border-radius: 8px; background: #f2e3e8; color: var(--orange); display: grid; place-items: center; font-size: 32px; overflow: hidden; }
+.agent-artwork img { width: 100%; height: 100%; object-fit: cover; }
+.agent-track h3 { margin: 0; font-size: 16px; }
+.agent-track p { margin: 5px 0; font-size: 13px; color: var(--muted); }
+.agent-track .agent-track-reason { font-size: 12px; line-height: 1.6; }
+.agent-track .providers { margin-top: 8px; }
+.agent-explanation { border-top: 1px solid var(--line); padding-top: 16px; font-size: 12px; color: var(--muted); }
+.agent-explanation summary { cursor: pointer; }
+.agent-explanation p { white-space: pre-wrap; line-height: 1.8; }
+.agent-citations { border-top: 1px solid var(--line); padding-top: 24px; }
+.agent-citations p { font-size: 12px; line-height: 1.8; color: var(--muted); }
+@media (max-width: 720px) {
+  .agent-main { padding: 16px 20px 40px; }
+  .agent-columns { grid-template-columns: 1fr; gap: 16px; }
+  .agent-progress { padding-top: 16px; }
+  .agent-progress ol { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+  .agent-track { grid-template-columns: 56px minmax(0, 1fr); gap: 12px; }
+  .agent-track-number { display: none; }
+  .agent-artwork { width: 56px; height: 56px; }
+  .agent-track .open-link { grid-column: 2; }
+}

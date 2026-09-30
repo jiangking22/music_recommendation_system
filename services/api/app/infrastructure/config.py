@@ -1,7 +1,8 @@
 from functools import lru_cache
+from typing import Literal
 from urllib.parse import urlparse
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -13,6 +14,21 @@ class Settings(BaseSettings):
     redis_url: str = Field(min_length=1)
     allowed_origins: str = "http://localhost:3000"
     enable_qq_provider: bool = False
+    llm_provider: Literal["local", "openai_compatible"] = "local"
+    llm_base_url: str = "https://api.openai.com/v1"
+    llm_api_key: SecretStr | None = None
+    llm_model: str = Field(default="gpt-4.1-mini", min_length=1, max_length=100)
+    agent_timeout_seconds: float = Field(default=30, ge=1, le=60)
+
+    @field_validator("llm_base_url")
+    @classmethod
+    def valid_llm_url(cls, value: str) -> str:
+        url = urlparse(value)
+        if (url.scheme not in ("https", "http") or not url.hostname or url.username
+                or url.password or url.query or url.fragment
+                or (url.scheme == "http" and url.hostname not in ("localhost", "127.0.0.1"))):
+            raise ValueError("LLM_BASE_URL requires HTTPS (HTTP only on loopback)")
+        return value
 
     @field_validator("database_url")
     @classmethod
