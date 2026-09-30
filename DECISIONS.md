@@ -19,7 +19,7 @@ unchanged until a replacement vertical slice is verified and documented.
 ### Consequences
 
 - The demo remains runnable during the migration.
-- New code avoids coupling to a 150k-line front-end script.
+- New code avoids coupling to the large legacy front-end script.
 - A temporary dual-runtime period is intentional and must be called out in the README.
 
 ## ADR-002: One Agent with allow-listed tools
@@ -298,3 +298,63 @@ no relevant lexical evidence produces no answer material. The minimal MCP tools 
 a complete MCP transport or JSON-RPC server. No new dependency or large dataset is introduced.
 SQLite verifies persistence/retrieval semantics, and offline Alembic SQL verifies PostgreSQL
 DDL/fixture seeding; live pgvector execution remains unverified on this host.
+
+## ADR-017: Correlated content-free JSON telemetry
+
+**Status:** Accepted
+**Date:** 2026-09-30
+
+### Decision
+
+Use a small ContextVar-based ASGI boundary and JSON event allowlist rather than a monitoring stack.
+Carry request/trace IDs through HTTP, SSE, worker threads and outbound adapter headers. Log duration,
+status, counts, model/provider and optional validated usage. Preserve the recommendation response's
+request_id field but align it with the response header. Disable raw HTTP client/access logging in
+the documented runtime. Never record request/chat/provider/LLM payloads or exception messages.
+
+### Consequences
+
+No collector or dashboard is required. Logs provide samples for later aggregation, not a complete
+OTel trace or built-in histogram/alert service. SSE errors require event-level inspection after HTTP
+200. A central body limit and generic unexpected-error envelope prevent unbounded JSON input and
+sensitive exception disclosure. Anonymous device linkage still is not authentication.
+
+## ADR-018: Add standard MCP stdio alongside the existing HTTP façade
+
+**Status:** Accepted; supersedes ADR-016 only for the transport scope
+**Date:** 2026-09-30
+
+### Decision
+
+Install official Python MCP SDK 1.30.0 as an optional exact-pinned extra. Use its supported v1
+stdio API to expose read-only music_search and recommend_tracks, reusing MusicTools and the
+recommendation service. Verify initialize/list/call with an actual SDK client subprocess. Preserve
+Phase 5 HTTP routes and name them MCP-style façade. No remote MCP auth/HTTP endpoint in this phase.
+
+### Consequences
+
+Compatible local clients can actually invoke music tools without another service or an LLM. Stdio
+stdout is reserved for protocol messages and logs use stderr. Recommendations are unpersonalized;
+no private device data is exposed. SDK v1 remains maintained for security/critical fixes; a future
+v2 migration must be deliberate. RAG and deterministic ranking decisions in ADR-016 remain intact.
+
+## ADR-019: Offline release gates and explicit clean-start evidence
+
+**Status:** Accepted
+**Date:** 2026-09-30
+
+### Decision
+
+GitHub Actions runs API and web quality gates plus a disposable Compose project. Generate a unique
+CI-only database credential at runtime; disable music providers and use the local Agent. Verify
+migrations, pgvector query, Redis, readiness, web, recommendation, feedback/profile and local Agent
+with the existing business layer. Ship typed package discovery, wheel fixtures and non-root
+containers. Keep author-host verification distinct from CI-host verification.
+
+### Consequences
+
+Quality gates need dependency/image downloads but no real music/LLM API or Key. Author Windows has
+no Docker, so local clean start is explicitly unexecuted; never infer success from static YAML/SQL.
+The next Docker-capable run provides live evidence. Transitive Python packages and container tags
+remain unlocked, which limits bit-for-bit reproducibility. No public deployment or main merge is
+performed as part of the final engineering phase.

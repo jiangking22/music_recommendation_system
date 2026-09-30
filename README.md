@@ -1,380 +1,296 @@
-# 多源音乐推荐系统
+# Sonora · Explainable Music Recommendation / 可解释音乐推荐
 
-一个本地运行的多源音乐推荐 Web 应用。用户可以输入一首或多首参考歌曲，系统会从 QQ 音乐、网易云音乐、Apple Music / iTunes、YouTube Music、Spotify 等公开来源检索候选歌曲，并生成最多 10 首带推荐理由的结果。
+[![Release quality](https://github.com/jiangking22/music_recommendation_system/actions/workflows/ci.yml/badge.svg?branch=codex%2Fphase1-foundation-review)](https://github.com/jiangking22/music_recommendation_system/actions/workflows/ci.yml)
 
-最新版本在原有“按类型推荐”的基础上加入了个性化听歌画像：用户可以对推荐卡片标记“喜欢 / 不喜欢”，系统会把语言、风格、标签和歌手偏好保存在浏览器本地，并用于后续的“私人电台”推荐。
+A portfolio project combining a deterministic multi-source recommender with one bounded music
+Agent. It demonstrates typed service boundaries, durable anonymous feedback, offline evaluation,
+small RAG, standard MCP tools, and reproducible quality gates. The recommender owns every score
+and ordering decision; the Agent selects tools and explains their results.
 
-## 项目地址
+求职作品：以确定性多源推荐为核心，结合一个受控音乐 Agent，展示类型化接口、持久化匿名反馈、
+离线评估、小型 RAG、标准 MCP 工具和工程质量门禁。所有推荐分数与顺序由推荐器决定，Agent 负责工具选择和解释。
+这是可运行的工程演示，不是商业音乐服务或经过真实用户验证的推荐产品。
 
-- GitHub: <https://github.com/jiangking22/music_recommendation_system>
+## Preview / 展示
 
-## Target runtime through Phase 5 / 新工程截至第五阶段
+The Next.js homepage offers seed input, recommendation cards, explanations, provenance,
+like/dislike and preferences. `/agent` presents chat, tool status and knowledge citations.
 
-The original `python server.py` demo remains available. The separate target runtime has a
-usable Next.js 16 / TypeScript product client, FastAPI service, PostgreSQL/pgvector migrations, Redis
-readiness check, and four-service Compose topology. iTunes and NetEase adapters provide canonical
-tracks; QQ is optional. Recommendations now use bounded multi-source recall with local catalog
-fallback, cross-provider deduplication, deterministic feature scoring and diversity reranking.
-Anonymous feedback and preference profiles persist in PostgreSQL and change later rankings.
-Results include score breakdowns, provenance and deterministic explanations. Small local
-embeddings and a fixed offline evaluation are included. The Sonora client creates a stable
-anonymous browser ID, displays real recommendations and partial-source status, saves like/dislike
-feedback, and shows a durable preference profile. A bounded music Agent, PostgreSQL memory,
-small knowledge RAG, JSON/SSE chat, `/agent` client and independent MCP-style tools are implemented.
+新版首页提供参考输入、推荐卡片、理由、来源、喜欢/不喜欢与画像；`/agent` 提供对话、工具状态和知识引用。
+截图暂未提交；预留路径与拍摄说明见 [screenshots/README](docs/screenshots/README.md)。
+Follow the five-minute [demo flow / 演示流程](docs/DEMO.md) for a reproducible walkthrough.
 
-旧版 `python server.py` 演示仍可运行。独立的新工程目前提供可使用的 Next.js 产品客户端、FastAPI 健康检查和
-匿名设备持久化接口、PostgreSQL/pgvector 迁移、Redis 就绪检查及四服务 Compose 拓扑。
-新版网页自动保存匿名设备标识，可提交参考歌曲、展示真实推荐、来源降级提示与推荐理由，并可提交喜欢/不喜欢反馈及查看持久化听歌画像。统一曲目搜索 API 接入独立的 iTunes 与网易云适配器，QQ 可选。
-推荐接口现已使用多源召回、本地曲库降级、跨来源去重、确定性打分与多样性重排。匿名设备的喜欢/不喜欢反馈
-和偏好画像持久化在 PostgreSQL，后续排序会随反馈变化；每首结果包含分数拆解、来源和确定性理由。
-本地轻量向量和固定离线评估已实现。第五阶段增加受控音乐 Agent、PostgreSQL 会话与偏好摘要、
-小型知识 RAG、JSON/SSE 对话、新版 `/agent` 页面和独立 MCP 风格工具接口。
+## Architecture / 架构
 
-Local requirements / 本地要求：Python 3.12、Node.js 24、npm 11；容器运行需要 Docker Compose。
-
-### Product client / 新版产品客户端
-
-With Docker Compose running, open `http://localhost:3000`. Enter a song, artist, or mood, choose
-3, 5, or 10 tracks, and select **Find music**. Cards show artwork, artist/album, source,
-explanation, raw ranking score, like/dislike, and a provider link when available. A failed
-provider appears as a small notice while available results remain visible. Feedback refreshes
-the preference panel; choose **Refresh recommendations** to see the new ranking.
-
-运行 Docker Compose 后打开 `http://localhost:3000`，输入歌曲、歌手或心情并选择推荐数量。
-结果卡片显示封面、歌手/专辑、来源、推荐理由、原始排序分值、反馈按钮和可用的外部链接。
-单个来源失败时仍显示可用推荐。反馈后画像会刷新，点击 **Refresh recommendations** 查看新排序。
-
-The browser stores one random anonymous device ID and sends it as `X-Device-Id` on every API
-request. It links preferences, not privileges. `GET /v1/profile` exposes up to five positive
-artist, genre, tag, and language affinities and five recent ratings. For a remote deployment,
-set `NEXT_PUBLIC_API_BASE_URL` to the browser-reachable API URL at web build time and allow the
-web origin through `ALLOWED_ORIGINS`; the local API default is `http://localhost:8000`.
-
-浏览器首次使用生成随机设备标识并随每次请求发送；它仅关联偏好，不用于认证。
-`GET /v1/profile` 提供基础偏好及最近五次反馈。远程部署需在网页构建时设置浏览器可访问的
-`NEXT_PUBLIC_API_BASE_URL`，并在 API 的 `ALLOWED_ORIGINS` 中允许网页来源。
-
-The legacy UI is still available with `python server.py`; Next.js is the target product client.
-旧版 UI 仍通过 `python server.py` 运行；新版 Next.js 是目标产品客户端。
-
-### Music assistant / 音乐助手
-
-Open `http://localhost:3000/agent` or follow **Music assistant** from the homepage. Try
-**推荐适合学习的歌**, then **再来几首**, or **介绍周杰伦**. The page shows the current conversation,
-public progress, canonical recommended tracks and knowledge references. The Agent interprets
-intent, calls tools and composes answers; the existing recommender owns recall, scoring and order.
-The Agent cannot change ranking, save feedback or call tools outside its allowlist.
-
-打开 `/agent` 或首页的 **Music assistant**，尝试“推荐适合学习的歌”“再来几首”或“介绍周杰伦”。
-页面显示当前对话、公开阶段状态、推荐曲目和参考资料。Agent 负责理解、工具调用和回答解释；
-推荐器负责召回与排序。Agent 不修改排序、不写反馈，也不能调用白名单之外的业务能力。
-
-The independent `app/agent/` package contains core, tools, memory, prompts, schemas and provider
-adapters. The four tools are `get_user_profile`, `recommend_tracks`, `search_music_knowledge`,
-and `explain_recommendation`. One plan executes at most four distinct calls sequentially.
-Default deadline: 30 seconds; at most four active Agent requests and four synchronous jobs per
-event loop. Invalid plans/answers fail with structured errors. No autonomous replanning loop.
-
-独立 `app/agent/` 模块包含 core、tools、memory、prompts、schemas 和 provider。四个工具分别读取
-偏好、调用原推荐 pipeline、检索音乐知识、解释已有推荐。每轮只执行一次经过校验的计划，
-最多顺序调用四个不同工具；默认总时限 30 秒，每个事件循环最多四个活跃请求及四个同步任务。
-无效输出返回结构化错误，不执行无限自主规划。
-
-`LLM_PROVIDER=local` is the default: a deterministic bilingual router and fixture-grounded
-answer composer, explicitly not a real model. `LLM_PROVIDER=openai_compatible` enables the
-optional adapter when `LLM_API_KEY` is nonempty; no Key uses the local fallback. Set
-`LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`, and `AGENT_TIMEOUT_SECONDS` through environment
-variables (`.env.example` contains placeholders). Keys stay server-side. The adapter uses
-[Chat Completions JSON output](https://developers.openai.com/api/reference/resources/chat),
-ten-second HTTP calls, no retries/redirects and a 64 KiB response cap. Tests mock its transport.
-An unavailable configured model returns an error, rather than silently claiming a model answer.
-
-默认本地 provider 使用有限的中英文意图规则，明确标注“本地助手”，无需 Key 或外网模型。
-选择 `openai_compatible` 并通过环境变量配置地址、模型和非空 Key 后可替换 provider；没有 Key
-时使用本地降级。真实模型可用性和生成质量尚未验证；自动测试使用 mock transport。
-
-PostgreSQL migration `0004_agent_memory` persists the last six turns and last seed for each
-server-issued conversation UUID, plus top-five preference summaries derived from Phase 3
-feedback. Supplying `conversation_id` resumes that context. IDs link anonymous preferences,
-not authenticated accounts. Version checks reject stale concurrent writes. The webpage keeps
-the conversation ID only until reload; no history-listing/deletion UI or retention sweep exists.
-Chat text is stored in bounded context, never written to application logs. When a configured
-external LLM is used, the current message, bounded history/summary and tool evidence are sent to it.
-
-PostgreSQL 保存每个会话最近六轮对话、上次推荐 seed，以及从已有反馈计算的音乐偏好摘要。
-API 可凭 `conversation_id` 恢复上下文，网页刷新后开始新会话。设备标识不是认证凭据，不提供账号、
-跨设备同步、会话列表/删除或定时清理。对话内容只进入有长度上限的持久化上下文，不进入应用日志。
-配置外部 LLM 时，当前消息、有限历史/摘要和工具资料会发送给该 provider。
-
-Migration `0005_music_knowledge` seeds four authored demonstration documents: artist, genre,
-album background and study-listening guidance. Chunks use local 16-dimensional text hashes and
-pgvector cosine retrieval, with lexical evidence guarding collisions. Results include document
-and chunk IDs, text, category and score. This knowledge supports Q&A/explanations and never
-changes recommendation ranking. Fixtures are tiny; unrelated questions can return no knowledge.
-
-四份小型演示资料覆盖歌手、流派、专辑背景和学习场景解释辅助；迁移自动写入文档、chunk 和
-`vector(16)`。本地文本哈希无需模型下载，pgvector 余弦检索配合词面匹配减少碰撞误答。
-资料返回可追溯的文档/片段标识，仅辅助问答与解释，不参与推荐排序；不相关问题可能无资料。
-
-`POST /v1/agent/chat` accepts `{ "message": "介绍周杰伦", "device_id": "device_1234567890",
-"conversation_id": null }` and returns `conversation_id`, `answer`, `recommended_tracks`,
-`used_tools`, `explanation`, `citations`, `sources`, and `provider`. The same body works at
-`POST /v1/agent/chat/stream`: `status` events show 分析需求 / 查询偏好 / 调用工具 / 返回结果,
-`tool_result` confirms a tool, `done` carries the complete response, and `error` carries the
-usual `{ "error": { "code", "message" } }` envelope. No internal reasoning is exposed.
-
-对话 API 使用上面的同一输入合约，普通接口返回完整 JSON，`/stream` 返回 SSE 公开状态和最终结果。
-客户端支持分段 UTF-8、结构化错误和流中断。HTTP 输入限制消息 2,000 字符、有效设备 ID 及可选 UUID。
-
-The independent read-only MCP-style façade provides `GET /v1/mcp/tools` and
-`POST /v1/mcp/tools/call`, e.g. `{ "name": "music_search", "arguments": { "query": "jazz",
-"limit": 5 } }`. It advertises input/output JSON schemas and returns text plus canonical
-`structuredContent`; music search has a local fallback and does not rank. It follows the
-[MCP tools shape](https://modelcontextprotocol.io/specification/2025-11-25/server/tools),
-but is not a full MCP server/transport (no JSON-RPC initialize, stdio or session protocol).
-
-独立 MCP 风格接口提供 schema 列表与 `music_search` 调用，输入/输出明确，结果使用统一曲目模型，
-无需 Agent 或模型。它是本阶段的最小 HTTP 工具接口，尚不实现完整 MCP 客户端互操作传输。
-
-Limits / 限制：small fixtures, rule-based local routing, hash-vector semantics, unverified real
-model and live PostgreSQL execution. Timed-out synchronous I/O can finish in the background,
-including an in-flight context commit, while retaining its concurrency slot. Phase 6 has not begun.
-知识库与本地规则覆盖有限；真实模型和本机 PostgreSQL 尚未实跑。超时后的同步任务可能继续完成，
-包括正在提交的上下文事务，但执行期间仍占用并发名额。Phase 6 未开始。
-
-```powershell
-Copy-Item .env.example .env
-docker compose up --build
-
-# New client / 新版客户端: http://localhost:3000
-# API tests without containers / 不启动容器的 API 测试
-cd services/api
-python -m venv .venv
-.\.venv\Scripts\python -m pip install -e '.[dev]'
-$env:DATABASE_URL='sqlite+pysqlite:///:memory:'
-$env:REDIS_URL='redis://localhost:6379/0'
-.\.venv\Scripts\python -m pytest -q
-
-# Frontend checks / 前端检查 (from the repository root)
-cd ..\..\apps\web
-npm ci
-npm test
-npm run lint
-npm run typecheck
-npm run build
+```mermaid
+flowchart TB
+  Web[Next.js / TypeScript] -->|REST + SSE| API[FastAPI / typed schemas]
+  API --> Rec[Deterministic recommender]
+  API --> Agent[One bounded Agent]
+  Agent --> Tools[Profile / Recommend / Knowledge / Explain]
+  Tools --> Rec
+  Tools --> RAG[Small lexical-guarded RAG]
+  Rec --> Registry[Canonical Provider Registry + local catalog]
+  Registry --> Sources[iTunes / NetEase / optional QQ]
+  API --> PG[(PostgreSQL + pgvector)]
+  RAG --> PG
+  API --> Redis[(Redis readiness)]
+  MCP[Standard MCP stdio tools] --> Rec
+  MCP --> Registry
+  API --> Logs[Correlated JSON events to stderr]
 ```
 
-The API container applies `alembic upgrade head` before starting. `/health` checks the process;
-`/health/ready` checks PostgreSQL and Redis. `GET /v1/device` requires a 16–128 character
-`X-Device-Id` and creates or retrieves a durable device row; it is not authentication.
-`POST /v1/recommendations` accepts `{ "seed": "jazz", "limit": 3 }` and optional validated
-`X-Device-Id`. It returns `request_id`, canonical `track`, `score`, `score_breakdown`,
-`explanation`, `provenance`, and per-source results/errors. The local catalog is always available
-when external providers fail. The Sonora client displays the pipeline's ranked results.
+Web consumes canonical API models; provider payloads stay inside adapters. PostgreSQL owns
+feedback, profiles, vectors, conversations and knowledge. Redis currently participates in
+readiness only; caching/rate limiting is future work. [Architecture](ARCHITECTURE.md) / [ADRs](DECISIONS.md).
 
-`POST /v1/feedback` requires `X-Device-Id` and accepts `{ "track": <canonical track>,
-"value": "like" | "dislike" }`. The latest rating for the same device and canonical song
-replaces the previous rating. It updates persisted artist, genre/tag and language affinities,
-plus deterministic song/user embeddings. The header links anonymous preferences and grants no
-authentication privileges. Run `python -m app.domain.evaluation` from `services/api` for the
-versioned offline report; see `docs/phase3-evaluation.md`.
+网页只消费统一模型，来源协议封装在适配器内部。PostgreSQL 持久化反馈、画像、向量、会话和知识。
+Redis 当前只参与就绪检查，尚未实现缓存或限流。
 
-`/v1/recommendations` 接受可选的 `X-Device-Id`，返回统一曲目、总分、分项得分、推荐理由、来源与
-单个来源的错误。`/v1/feedback` 使用该设备标识保存 like/dislike；同一设备对同一歌曲以最后一次反馈
-为准。运行 `python -m app.domain.evaluation` 可重复计算固定样本的相关性、个性化效果、多样性与覆盖率。
+## Feature overview / 功能与技术栈
 
-`GET /v1/providers` lists each adapter and its capability/stability metadata.
-`GET /v1/providers/health` reports `unknown`, `available`, or `degraded` from the last operation;
-it makes no upstream request. `GET /v1/tracks/search?q=Blue%20Window&limit=5` returns canonical
-tracks and per-source results/errors. Inputs and responses are bounded; a failed source does not
-discard healthy source results. Set `ENABLE_QQ_PROVIDER=true` to opt into the QQ adapter.
-Provider search remains an unranked search API; the recommendation endpoint now ranks and merges
-its candidates.
+| Area / 模块 | Implemented / 已实现 |
+| --- | --- |
+| Web | Next.js 16, React 19, TypeScript; accessible request/empty/error states, responsive cards / 响应式产品页面 |
+| API | Python 3.12, FastAPI, Pydantic, SQLAlchemy 2, Alembic; versioned contracts and error envelopes / 版本化类型接口 |
+| Catalog | iTunes + NetEase defaults, QQ opt-in; timeouts, caps, partial failures, local fallback / 多源降级 |
+| Recommendation | Canonical deduplication, explicit scoring, diversity rerank, factor explanations / 确定性排序与解释 |
+| Personalization | Latest rating wins, durable bounded affinity snapshot, disliked-track penalties / 持久化偏好 |
+| Embeddings | Local 16D SHA-256 feature hashes, pgvector storage/cosine retrieval / 无模型下载的演示向量 |
+| Agent / RAG | Local router or optional OpenAI-compatible adapter; four tools, six-turn memory, four-document knowledge fixture / 受控助手 |
+| MCP | Official Python SDK stdio server with two read-only tools; legacy HTTP façade retained / 标准 stdio + 兼容保留接口 |
+| Quality | pytest, Ruff, compile check, Vitest, ESLint, tsc, Next build, GitHub Actions, Compose / 自动质量门禁 |
+| Observability | request/trace IDs, route, duration/status, provider/recommendation/tool/model/token/error events / 轻量结构化日志 |
 
-`GET /v1/providers` 返回来源能力和稳定性元数据；`GET /v1/providers/health` 返回最近一次调用状态，
-初次调用前为 `unknown`，不会主动联网。`GET /v1/tracks/search?q=...&limit=5` 返回统一曲目结构、
-各来源结果与结构化错误。单个来源失败时其他来源仍可返回。设置 `ENABLE_QQ_PROVIDER=true` 可启用
-QQ 适配器。搜索接口保持原始候选语义；推荐接口负责去重和排序。
+NetEase and QQ use undocumented public endpoints and carry `unverified` metadata. iTunes uses
+Apple's documented search API. No live provider availability is guaranteed. / 网易云、QQ 接口无稳定承诺；
+测试使用固定 payload，不代表真实服务永远可用。
 
-Apple [iTunes Search API](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/UnderstandingSearchResults.html)
-has published result fields. NetEase and QQ use undocumented public web endpoints inherited from
-the legacy demo, so their capability metadata says `unverified`; QQ is disabled by default.
-Spotify and YouTube Music remain legacy-only and are not verified target adapters. Automatic
-tests use fixtures and mocked HTTP, never a live provider. A separate manual smoke search on
-2026-09-29 returned one track each from iTunes and NetEase; future availability is not guaranteed.
+## Recommendation pipeline / 推荐流程
 
-Apple iTunes Search API 有公开字段文档。网易云和 QQ 沿用旧版的非官方公开网页接口，稳定性未验证；
-QQ 默认关闭。Spotify 与 YouTube Music 目前仅属于旧版演示。自动测试只使用 fixture 和 mock，
-不依赖外网。2026-09-29 的单独手动联网检查中，iTunes 和网易云各返回 1 首；这不保证后续可用性。
+1. Recall up to 25 candidates per provider and include the committed local catalog. / 有界多源召回，加本地曲库降级。
+2. Normalize and merge canonical title/artist variants, retaining provenance. / 归一化去重，保留来源。
+3. Score seed similarity, attributes and optional preference signals using [explicit policy](services/api/app/domain/policy.py). / 显式权重打分。
+4. Apply deterministic diversity penalties and generate measured factor explanations. / 多样性重排与因素解释。
+5. Save feedback and recompute the latest 200-rating profile; the next request uses it. / 反馈更新画像，影响下次结果。
 
-当前主机没有 Docker 命令，因此尚未执行容器启动、真实 PostgreSQL 迁移或 pgvector 相似度查询。
-已验证 Compose 四服务结构、SQLite API 测试及 Alembic 离线 SQL。/ Docker is absent on this host,
-so live container startup, PostgreSQL migrations and pgvector queries remain unverified;
-topology, SQLite API tests and offline migration SQL were checked.
+Embeddings and RAG do not silently enter ranking. No LLM ranks songs. / 向量与 RAG 不隐式参与排序，LLM 不排序。
 
-## 旧版演示功能特点 / Legacy demo features
+## Agent, memory, RAG and MCP / 助手与工具协议
 
-- 多平台检索：支持 QQ 音乐、网易云音乐、Apple Music / iTunes、YouTube Music、Spotify 等来源。
-- 输入歌曲推荐：输入参考歌曲后，系统会检索相关歌曲、识别原唱歌手，并按语言、类型、热度、标签和歌手相关性排序。
-- 语言歌单推荐：不输入歌曲时，可直接选择“不限、华语、英语、日语、韩语、纯音乐”等语言方向生成推荐。
-- 原唱歌手确认：当系统发现多个可能歌手时，会弹窗让用户选择或手动填写，减少同名歌曲和翻唱版本造成的误判。
-- 结果分栏展示：有明确原唱歌手时，结果会分为“原唱歌手的歌”和“其他歌手的歌”，兼顾相关性与发现感。
-- 私人电台：根据历史喜欢/不喜欢反馈、当前语言、心情、新鲜度和热度偏好生成个性化推荐。
-- 听歌画像：在本地记录偏好的语言、风格、标签和歌手，可一键重置。
-- 心情预设：支持自动、专注学习、通勤路上、夜晚放松、运动高能、发现新歌等模式。
-- 推荐卡片交互：推荐结果支持滚轮和方向键切换，卡片展示封面、来源、类型、语言、热度依据、链接和推荐理由。
-- 本地缓存：前端会将部分在线检索结果与偏好画像保存在浏览器 `localStorage` 中，提高重复查询体验。
+The Agent validates one plan of 1–4 distinct allowlisted tools. A 30-second default deadline,
+four active requests and four worker slots bound work. Tools cannot save feedback, execute shell,
+fetch arbitrary URLs or modify rank policy. JSON and SSE expose public status and canonical
+results. PostgreSQL retains six turns and a derived preference summary per conversation.
 
-## 旧版演示技术栈 / Legacy demo stack
+Agent 验证一次计划，只能执行 1–4 个不同的白名单工具；默认 30 秒期限、四个并发请求和四个工作槽。
+工具不写反馈、不执行命令、不抓取任意 URL、不修改排序。会话保存最近六轮与来自反馈的偏好摘要。
+缺少 Key 时使用确定性本地路由，它不是语言模型；真实模型兼容性与效果尚未实测。
 
-- 前端：HTML、CSS、JavaScript
-- 动画：GSAP CDN
-- 后端：Python 3 标准库
-- 服务：`http.server` + `ThreadingHTTPServer`
-- 数据来源：公开音乐接口、公开网页搜索结果与平台返回的音乐元数据
+RAG uses four versioned bilingual documents, local hash vectors, pgvector candidates and a lexical
+guard. It grounds answers and never supplies new ranking policy. / RAG 使用四篇固定资料与词汇重合校验，仅辅助解释。
 
-## 目录结构
+The separate **standard MCP stdio server** supports initialize, tools/list and tools/call through
+[the official SDK v1 API](https://py.sdk.modelcontextprotocol.io/v1/). A real SDK client subprocess test
+calls `music_search` and `recommend_tracks`. Install the optional dependency and run from `services/api`:
 
-```text
-music_recommendation_system/
-├── index.html          # 页面结构
-├── styles.css          # 页面样式、卡片堆叠、听歌画像与响应式布局
-├── app.js              # 前端交互、检索调度、推荐排序、偏好学习
-├── server.py           # 本地静态服务与音乐平台代理接口
-├── requirements.txt    # Python 依赖说明
-├── README.md           # 项目说明文档
-└── .gitignore          # Git 忽略规则
+```bash
+python -m pip install -e '.[dev,mcp]'
+python -m app.mcp.server --offline
 ```
 
-## 环境要求
+Configure a compatible client with an absolute Python executable, `args: ["-m", "app.mcp.server",
+"--offline"]`, and `cwd` set to the absolute `services/api` directory. No database or Key is needed
+in offline stdio mode. Remove `--offline` and supply server configuration to enable provider search.
+Logs go to stderr; stdout is exclusively MCP JSON-RPC. Recommendations here are read-only and
+unpersonalized, with the same scoring service. No remote MCP HTTP transport or OAuth is shipped.
 
-- Python 3.10 或更高版本
-- 现代浏览器：Chrome、Edge、Firefox 均可
-- 可访问外部音乐平台或搜索服务的网络环境
+兼容客户端启动上述命令即可调用两个只读工具；离线模式不需要数据库或 Key。标准服务仅提供 stdio，
+不提供远程 MCP HTTP/OAuth。`GET /v1/mcp/tools` 与 `POST /v1/mcp/tools/call` 仍是 **MCP-style HTTP façade**，
+不可当作标准 MCP HTTP endpoint。
 
-项目后端只使用 Python 标准库，不需要安装第三方 Python 包。`requirements.txt` 中也说明了这一点。
+## Quick Start / 快速开始
 
-前端页面通过 CDN 加载 GSAP：
-
-```html
-https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js
-```
-
-GSAP 用于页面和卡片动画，推荐逻辑本身不依赖该动画库。
-
-## 快速开始
-
-克隆项目：
+Requirements / 环境：Git, Python 3.12, Node.js 24/npm 11. Full target runtime needs PostgreSQL 16
+with pgvector and Redis 7; Docker Compose is the recommended local setup.
 
 ```bash
 git clone https://github.com/jiangking22/music_recommendation_system.git
 cd music_recommendation_system
+git switch codex/phase1-foundation-review
 ```
 
-启动本地服务：
+For a zero-dependency legacy preview / 零第三方依赖旧版预览：
 
 ```bash
 python server.py
 ```
 
-macOS 或 Linux 环境也可以使用：
+Open the printed loopback URL (preferred port 8010). This is the legacy browser-ranking demo.
+For the target product use Docker below. / 按终端地址打开旧版；新版产品按下方 Compose 启动。
+
+## Docker Start / 完整新版启动
 
 ```bash
-python3 server.py
+cp .env.example .env
+# PowerShell: Copy-Item .env.example .env
+# Edit POSTGRES_PASSWORD and the matching password in DATABASE_URL.
+# 设置数据库密码并同步 DATABASE_URL；展示用可设置 ENABLE_MUSIC_PROVIDERS=false。
+docker compose config --quiet
+docker compose up --build --wait --wait-timeout 180
 ```
 
-启动成功后，终端会显示访问地址。默认从 `8010` 端口开始寻找可用端口：
+Open [web](http://localhost:3000), [assistant](http://localhost:3000/agent),
+[API docs](http://localhost:8000/docs), and [readiness](http://localhost:8000/health/ready).
+API startup applies Alembic migrations before serving. Only loopback web/API ports are exposed;
+data-service ports stay internal. No LLM Key is required.
+
+API 启动前运行迁移；仅网页和 API 的回环端口对外可见。无需真实音乐源或 LLM Key 即可演示固定曲库与本地助手。
+**Author's Windows host has no Docker: container clean-start was not executed locally / 本机未实机执行。**
+CI includes a disposable clean-start job; inspect its actual run before claiming container success.
+See [deployment/runbook](docs/DEPLOYMENT.md) for manual services, verification and cleanup.
+
+## Tests and release gates / 测试
+
+Run API checks without database services, music providers, or LLM credentials:
+
+```bash
+cd services/api
+python -m venv .venv
+# Bash: source .venv/bin/activate
+# PowerShell: .\.venv\Scripts\Activate.ps1
+python -m pip install -e '.[dev,mcp]'
+python -m pytest -q
+python -m ruff check app tests scripts
+python -m compileall -q app migrations scripts
+python -m app.domain.evaluation
+```
+
+Then, from the repository root / 返回项目根目录：
+
+```bash
+cd apps/web
+npm ci
+npm test
+npm run lint
+npm run typecheck
+npm run build
+npm audit --audit-level=high
+cd ../..
+python scripts/legacy_smoke.py
+```
+
+Local Phase 6 verification: **72 API tests, 12 web tests**, all listed lint/type/build checks,
+editable install/wheel fixture checks, full offline PostgreSQL upgrade/downgrade SQL, legacy HTTP
+smoke and evaluation passed. Tests forbid real HTTP at provider/model boundaries. CI has API,
+web and clean-start jobs with bounded timeouts and read-only repository permissions.
+
+本机通过上述测试与检查；PostgreSQL 的完整升降级 SQL 静态验证通过。测试禁止真实业务 HTTP；
+离线检查不能替代实机容器、PostgreSQL 或真实模型验证。[Observability/runbook](docs/OBSERVABILITY.md)。
+
+## Offline evaluation / 离线评估
+
+`python -m app.domain.evaluation` runs the committed five-song/two-case `evaluation_v1` fixture.
+
+| Metric / 指标 | Result / 结果 |
+| --- | ---: |
+| Mean precision@2 / 相关性 | 1.0 |
+| Mean preferred-song rank lift / 个性化名次提升 | 1.0 |
+| Attribute diversity / 属性多样性 | 0.8333 |
+| Catalog coverage / 曲库覆盖率 | 0.8 |
+
+These are regression signals, **not real-user benchmarks**. No throughput/accuracy claims are
+made for live music or LLMs. Definitions and reproducible command: [evaluation report](docs/phase3-evaluation.md).
+
+## API overview / 接口概览
+
+| Method + route | Purpose / 用途 |
+| --- | --- |
+| `GET /health`, `/health/ready` | Liveness; DB + Redis readiness / 存活与依赖就绪 |
+| `GET /v1/device` | Resolve anonymous device / 设备关联 |
+| `GET /v1/providers`, `/v1/providers/health` | Capabilities; last-operation state / 来源能力与最近状态 |
+| `GET /v1/tracks/search?q=jazz&limit=5` | Canonical search / 统一检索 |
+| `POST /v1/recommendations` | `{seed, limit}` → items, request_id, sources / 推荐 |
+| `POST /v1/feedback` | `{track, value: like or dislike}` / 保存反馈 |
+| `GET /v1/profile` | Top affinities and five recent ratings / 画像 |
+| `POST /v1/agent/chat`, `/v1/agent/chat/stream` | `{message, device_id, conversation_id?}` / JSON 或 SSE 对话 |
+| `GET /v1/mcp/tools`, `POST /v1/mcp/tools/call` | Legacy MCP-style HTTP search façade / 保留接口 |
+
+Personalized REST requests use bounded `X-Device-Id`; chat uses a body device ID. IDs link data,
+not authentication or privilege. HTTP errors use `{"error":{"code":"...","message":"..."}}`;
+SSE reports errors as terminal events after HTTP 200. Requests return `X-Request-Id`/`X-Trace-Id`.
+
+匿名 ID 不提供安全身份隔离。请求体上限 64 KiB，输入与结果数量有界，默认 CORS 仅允许本地网页来源。
+
+## Project structure / 目录
 
 ```text
-Music Recommendation System: http://127.0.0.1:8010/
-Press Ctrl+C to stop.
+apps/web/                   Next.js product, /agent, client tests
+services/api/app/
+  api/                      typed REST/SSE routes
+  domain/                   scoring, profiles, embeddings, evaluator/fixtures
+  providers/                canonical adapters and registry
+  services/                 recommendation/device use cases
+  repository/               durable persistence and pgvector queries
+  agent/                    bounded orchestration, tools, memory, LLM adapters
+  rag/                      fixture ingestion and retrieval
+  mcp/                      standard stdio server + HTTP façade business tools
+  observability/            content-free JSON events and correlation
+services/api/migrations/    five Alembic revisions
+services/api/tests/         offline unit/integration and real MCP transport test
+services/api/scripts/       container and wheel acceptance scripts
+infra/postgres/             extension initialization
+docs/                       deployment, demo, logs, evaluation, specs
+.github/workflows/          API/web/clean-start quality gates
+index.html / app.js / styles.css / server.py    preserved legacy demo
 ```
 
-如果 `8010` 被占用，程序会自动尝试 `8011`、`8012` 等相邻端口。
+## Design decisions / 设计取舍
 
-也可以手动指定端口：
+[ADRs](DECISIONS.md) explain incremental migration, anonymous linkage, deterministic ranking,
+small local embeddings, one validated Agent plan, bounded memory, stdio MCP and JSON telemetry.
+Avoiding a distributed monitoring stack and remote MCP auth keeps this final engineering phase
+focused on maintainability and reproducible evidence.
 
-```bash
-python server.py --port 8020
-```
+取舍：业务层拥有确定性策略，Provider 与 LLM 可替换；小样本演示降低外部依赖，明确其泛化限制。
+完整决策见 ADR；[plan](PROJECT_PLAN.md) 与 [TODO](TODO.md) 区分实现和验证状态。
 
-## 使用说明
+## Known Limitations / 已知限制
 
-1. 在“参考歌曲”输入框中输入一首或多首歌曲，例如 `晴天 - 周杰伦`、`七里香`、`Love Story - Taylor Swift`。
-2. 多首歌曲可用换行、逗号或分号分隔。
-3. 选择推荐语言：不限、华语、英语、日语、韩语或纯音乐。
-4. 点击“按类型推荐 10 首”，系统会联网检索并生成推荐。
-5. 如果弹出原唱歌手确认框，选择正确歌手，或手动填写歌手名。
-6. 在推荐卡片上点击“喜欢”或“不喜欢”，系统会更新本地听歌画像。
-7. 在“当前心情”中选择场景，并调整“新鲜度”和“热度”滑杆。
-8. 点击顶部“私人电台”，系统会基于偏好画像直接生成个性化推荐。
-9. 推荐结果可使用鼠标滚轮或方向键切换卡片。
+- Docker/PostgreSQL/pgvector not executed on the author's local host; offline SQL and SQLite tests
+  are different evidence. / 本机无 Docker，实机状态以 CI 或部署机器结果为准。
+- Real-model quality and compatibility are unverified; local routing has limited bilingual patterns.
+  / 真实 LLM 未实测；本地助手只能识别有限规则。
+- Tiny catalog, two-case evaluation and 16D hash collisions limit relevance and RAG semantics.
+  / 小曲库、小评估和哈希冲突不支持线上质量推断。
+- Anonymous identifiers are not authentication. Chat is stored in bounded rows, but there is no
+  retention sweep, history/deletion UI, cross-device recovery or distributed rate limiter.
+  / 不适合存放敏感个人信息；公开部署需要认证、保留策略和入口限流。
+- External music interfaces may fail or change. There is no licensed playback or full streaming.
+  / 来源可能变化，不提供授权音乐播放服务。
+- A timed-out synchronous job can finish and commit; four worker slots bound it rather than kill it.
+  / 超时不能强制终止已运行的同步任务。
+- MCP is local stdio only; HTTP routes are a façade. No remote OAuth/Streamable HTTP is implemented.
+  / 不宣称完整远程 MCP 服务。
+- Direct API dependencies and build backend are pinned; transitive Python packages and container
+  image tags are not digest-locked. / 尚非完全 hermetic 构建。
 
-## 推荐流程
+## Roadmap / 后续方向
 
-```mermaid
-flowchart TD
-    A["输入参考歌曲或选择语言"] --> B["读取语言、心情、热度、新鲜度和历史偏好"]
-    B --> C["多平台检索候选歌曲"]
-    C --> D["识别并确认原唱歌手"]
-    D --> E["召回原唱歌手作品和其他相关歌曲"]
-    E --> F["去重、过滤、标签清洗和加权评分"]
-    F --> G["结合喜欢/不喜欢反馈调整排序"]
-    G --> H["按原唱歌手 / 其他歌手分栏或卡片堆叠展示"]
-    H --> I["用户反馈继续更新听歌画像"]
-```
+Engineering phases 0–6 are delivered. Future work is deliberately unimplemented: verified larger
+catalog and real-user evaluation, authenticated deployment and retention controls, useful Redis
+caching/rate limits, optional remote MCP authorization, and broader live-provider/model testing.
 
-## 评分因素
+工程阶段 0–6 已交付；后续方向不自动启动：更可靠曲库与真实用户评估、认证与保留策略、Redis 缓存/限流、
+远程 MCP 授权及真实来源/模型测试。No Kubernetes, microservice split or multiple Agents is planned.
 
-- 歌曲热度：参考播放量、收藏量、搜索排序、榜单位置、平台热度等信号。
-- 语言匹配：判断歌曲是否符合用户选择的推荐语言。
-- 类型匹配：根据歌曲画像、平台标签和参考歌曲特征判断风格相似度。
-- 标签匹配：关注流行、民谣、电子、情歌、高能、学习、纯音乐等标签。
-- 歌手权重：确认原唱歌手后，其作品会获得更高推荐权重。
-- 个人偏好：喜欢的语言、类型、标签和歌手会加分，不喜欢的歌曲会在后续推荐中降权。
-- 心情偏好：不同场景会偏向不同标签和类型，例如专注、通勤、夜晚、运动或新歌发现。
-- 多样性控制：避免结果过度集中在单一平台、单一歌手或单一风格。
+## Legacy versus target / 旧版与新版
 
-## 本地接口
+| Runtime | Role / 定位 | Start / 启动 |
+| --- | --- | --- |
+| Legacy | Browser orchestration/ranking + stdlib proxy; localStorage preferences; more best-effort sources / 原始课程演示 | `python server.py` |
+| Target | Next.js + typed FastAPI + durable profiles + bounded Agent + MCP; separate business layers / 求职展示工程 | `docker compose up --build --wait` |
 
-`server.py` 同时提供静态文件服务和本地代理接口：
-
-| 接口 | 说明 |
-| --- | --- |
-| `/api/search/domestic` | QQ 音乐、网易云音乐搜索 |
-| `/api/search/itunes` | Apple Music / iTunes 搜索 |
-| `/api/chart/itunes` | Apple Music / iTunes 榜单 |
-| `/api/search/artist-songs` | 指定歌手歌曲检索 |
-| `/api/search/streaming` | YouTube Music、Spotify 搜索 |
-| `/api/search/web-artist` | 网页搜索辅助识别歌手 |
-
-这些接口主要服务于本地演示场景，用于统一前端访问和跨平台检索。
-
-## Spotify 授权配置
-
-Spotify 搜索可以使用官方 Client Credentials 授权。未配置时，系统会尝试使用公开 Web Token 作为降级方案，但稳定性可能受地区和网络环境影响。
-
-PowerShell 示例：
-
-```powershell
-$env:SPOTIFY_CLIENT_ID="你的 Spotify Client ID"
-$env:SPOTIFY_CLIENT_SECRET="你的 Spotify Client Secret"
-python .\server.py
-```
-
-凭据通过环境变量读取，项目不会内置真实 API 密钥。`.gitignore` 已忽略 `.env` 和 `.env.*`。
-
-## 数据与隐私
-
-- 项目无需用户登录音乐平台账号。
-- 代码中未内置真实 API 密钥。
-- Spotify 凭据通过环境变量读取。
-- 听歌画像、在线检索缓存和反馈记录保存在浏览器本地 `localStorage`。
-- 可通过页面中的重置按钮清空听歌画像。
-- 系统基于公开网络信息进行检索和推荐，外部平台接口可用性可能随网络环境变化。
-
-## 设计说明
-
-本项目围绕“多源召回 + 原唱确认 + 可解释推荐 + 个性化反馈”实现完整推荐流程。前端负责用户交互、偏好学习、推荐排序和结果展示；后端负责静态资源托管，以及对多个音乐平台的本地代理检索。
-
-相比只依赖单一平台或固定歌单的推荐方式，本系统强调跨平台数据融合和结果可解释性。最新版本进一步加入私人电台和听歌画像，让推荐可以随着用户反馈逐步贴近个人口味，同时仍保持一定的新歌发现能力。
+Legacy sources include QQ, NetEase, iTunes, YouTube and Spotify fallbacks; they are not guarantees
+of target-runtime support. The four legacy files remain unchanged and runnable.
+旧版来源更多，但不代表新版全部支持；四个旧版文件保持原状。

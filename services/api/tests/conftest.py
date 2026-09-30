@@ -1,3 +1,4 @@
+import logging
 import os
 
 import httpx
@@ -5,6 +6,16 @@ import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+
+
+@pytest.fixture(autouse=True)
+def capture_application_events(caplog):
+    logger = logging.getLogger("music_api")
+    logger.addHandler(caplog.handler)
+    try:
+        yield
+    finally:
+        logger.removeHandler(caplog.handler)
 
 
 @pytest.fixture(autouse=True)

@@ -1,4 +1,6 @@
 import json
+import logging
+from time import perf_counter
 from typing import Protocol
 
 import httpx
@@ -6,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.agent.prompts import ANSWER_PROMPT, PLAN_PROMPT
 from app.infrastructure.config import get_settings
+from app.observability.events import correlation_headers, emit
 
 
 class LLMProvider(Protocol):
@@ -62,6 +65,7 @@ class CompletionChoice(BaseModel):
 
 class CompletionPayload(BaseModel):
     choices: list[CompletionChoice] = Field(min_length=1, max_length=1)
+    usage: dict | None = None
 
 
 class OpenAICompatibleProvider:
@@ -73,11 +77,25 @@ class OpenAICompatibleProvider:
         self.transport = transport
 
     async def _complete(self, prompt: str, data: dict) -> dict:
+        started = perf_counter()
+        usage = {}
+        status = "error"
+        try:
+            result = await self._request(prompt, data, usage)
+            status = "ok"
+            return result
+        finally:
+            emit("llm_call", provider=self.name, model=self.model,
+                 operation="plan" if "tools" in data else "answer", status=status,
+                 latency_ms=round((perf_counter() - started) * 1000, 3), **usage,
+                 level=logging.INFO if status == "ok" else logging.WARNING)
+
+    async def _request(self, prompt: str, data: dict, usage: dict) -> dict:
         async with (
             httpx.AsyncClient(timeout=10, transport=self.transport, follow_redirects=False,
                               trust_env=False) as client,
             client.stream("POST", f"{self.base_url}/chat/completions",
-                          headers={"Authorization": f"Bearer {self.api_key}"}, json={
+                          headers={"Authorization": f"Bearer {self.api_key}", **correlation_headers()}, json={
                               "model": self.model, "max_tokens": 1200,
                               "response_format": {"type": "json_object"},
                               "messages": [{"role": "system", "content": prompt},
@@ -91,6 +109,11 @@ class OpenAICompatibleProvider:
                 if len(body) > 65536:
                     raise ValueError("LLM response exceeds limit")
         payload = CompletionPayload.model_validate_json(body)
+        # Optional usage is telemetry only; malformed metadata must not break an answer.
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+            value = (payload.usage or {}).get(key)
+            if type(value) is int and 0 <= value <= 1_000_000_000:
+                usage[key] = value
         value = json.loads(payload.choices[0].message.content)
         if not isinstance(value, dict):
             raise TypeError("Expected structured LLM output")

@@ -6,7 +6,7 @@ Music Recommendation Platform is a portfolio-grade, maintainable web application
 Its recommendation engine remains deterministic and measurable; the Agent interprets
 requests, selects tools, and explains results rather than replacing the recommender.
 
-## Current-state audit / 当前状态审查
+## Legacy baseline audit (before Phase 1) / 旧版基线审查
 
 ```mermaid
 flowchart LR
@@ -78,8 +78,9 @@ flowchart TB
   Agent --> Tools[Recommend · Profile · Knowledge · Explain]
   Tools --> Rec
   Tools --> Knowledge[RAG knowledge store]
-  MCP[MCP-style search façade] --> Providers
-  Providers --> Sources[Verified music providers]
+  MCP[Standard MCP stdio + HTTP search façade] --> Providers
+  MCP --> Rec
+  Providers --> Sources[iTunes / best-effort NetEase / optional QQ]
   API --> Obs[Structured logs · traces · metrics]
 ```
 
@@ -246,6 +247,53 @@ added. The SSE client handles fragmented UTF-8 frames, errors and interrupted st
 320/768/1024/1440px layouts and recommendation/artist flows were checked in a real browser.
 Live Docker/PostgreSQL execution remains unverified on this host.
 
+### Phase 6 observability and release quality / 第六阶段
+
+`app/observability/events.py` emits allowlisted JSON events to stderr. Pure ASGI middleware
+generates/validates request IDs and W3C v00 trace IDs, returns correlation headers, and records
+route templates, status and full-response duration including SSE. ContextVars survive async
+and worker-thread boundaries. Provider/model HTTP requests forward correlation headers.
+Registry events record every provider call and bounded result count; recommendation events
+record candidate/result/source/failure counts and personalization, without logging seed or songs.
+Agent events record tool/model/status/duration and stable error codes. OpenAI-compatible responses
+may supply validated integer token counts; local routing reports no invented usage.
+
+Logs never contain bodies, prompts/answers, device/conversation IDs, query URLs, sensitive headers,
+credentials or exception messages. HTTP client logs are suppressed; the documented Uvicorn command
+disables raw access logs. There is no collector, telemetry DB, histogram endpoint or alerting service.
+The JSON duration/status samples support offline rate/error/percentile analysis. SSE can report a
+terminal error after HTTP 200; observe `agent_error` as well as the HTTP status.
+
+HTTP POST bodies are capped at 64 KiB with a ten-second receive deadline. Unexpected exceptions
+return a generic `internal_error` envelope. Provider display URLs reject embedded credentials,
+unsafe schemes and literal local/private IPs; the server only fetches fixed adapter URLs and the
+operator-configured LLM endpoint, never a request-supplied URL. HTTPS DNS destinations still depend
+on operator/network trust; this is not a universal DNS-rebinding defense. CORS remains explicit and
+now exposes correlation headers. `ENABLE_MUSIC_PROVIDERS=false` uses an empty registry and the
+existing local catalog, enabling business-network-free container and MCP verification.
+
+`app/mcp/server.py` adds an official SDK v1.30.0 **standard stdio MCP server**, installed as the
+optional `mcp` extra. It implements protocol lifecycle and discovery/calls through the SDK and
+exposes `music_search` and unpersonalized `recommend_tracks`, with typed structured output and
+read-only annotations. Search delegates to `MusicTools`; recommendation delegates to the same
+deterministic recommendation service as REST/Agent. Fifteen-second tool deadlines and the existing
+four-slot worker pool bound execution. MCP logs go to stderr with per-call correlation. A real
+official client launches the subprocess, initializes, discovers and calls both tools in tests.
+The Phase 5 `/v1/mcp` routes remain an MCP-style HTTP façade; no remote standard MCP HTTP/OAuth
+transport is implemented. MCP has no Agent/LLM dependency or device-private profile access.
+
+Compose runs web/API as non-root, binds only loopback web/API ports, orders readiness dependencies
+and applies migrations before serving. API package discovery includes only `app` and explicitly
+ships its fixture JSON. Web uses a build stage and a runtime with production dependencies. Environment
+templates hold placeholders; Docker contexts exclude env/cache/build inputs. Five Alembic revisions
+remain unchanged. CI runs pytest/Ruff/compile/migration SQL/evaluation/legacy/wheel checks, web tests,
+lint/typecheck/build/audit and a disposable offline Compose clean start with real pgvector queries.
+
+Author Windows host (2026-09-30) has no Docker: local container clean start is **not executed**;
+static topology/Dockerfile/environment checks and full offline PostgreSQL upgrade/downgrade SQL
+are separate evidence. See actual CI runs for remote runtime status. Real LLM compatibility remains
+unverified. [Deployment](docs/DEPLOYMENT.md), [Demo](docs/DEMO.md), [Logs](docs/OBSERVABILITY.md).
+
 | Area | Responsibility | Must not do |
 | --- | --- | --- |
 | Web | Present UI, persist anonymous device ID, consume REST/SSE | Rank songs or store secrets |
@@ -299,6 +347,6 @@ Live Docker/PostgreSQL execution remains unverified on this host.
   selection.
 - API integration tests use disposable SQLite databases and mocked providers/LLM transport.
   PostgreSQL migration SQL is verified offline; live database checks need a capable host.
-- Offline evaluation reports relevance, personalization lift, diversity, coverage, and tool
-  selection accuracy from versioned fixtures.
+- Offline recommendation evaluation reports relevance, personalization lift, diversity and coverage
+  from versioned fixtures. Separate Agent tests assert tool selection; no accuracy benchmark is claimed.
 - Docker Compose is the authoritative local end-to-end environment.

@@ -1,6 +1,7 @@
 import json
 import re
 from collections.abc import Callable, Mapping
+from ipaddress import ip_address
 from typing import Protocol
 from urllib.parse import urlparse
 
@@ -14,6 +15,7 @@ from app.domain.music import (
     ProviderResult,
     Track,
 )
+from app.observability.events import correlation_headers
 
 MAX_RESULTS = 25
 MAX_RESPONSE_BYTES = 1_000_000
@@ -62,21 +64,33 @@ def safe_https_url(value: object) -> str | None:
     url = nonempty(value)
     if url is None:
         return None
-    parsed = urlparse(url)
-    return url if parsed.scheme == "https" and parsed.hostname else None
+    try:
+        parsed = urlparse(url)
+        if (len(url) > 2048 or parsed.scheme != "https" or not parsed.hostname
+                or parsed.username or parsed.password or parsed.hostname.rstrip(".") == "localhost"):
+            return None
+        try:
+            if not ip_address(parsed.hostname).is_global:
+                return None
+        except ValueError:  # hostname: these display URLs are never fetched by the server.
+            pass
+        return url
+    except ValueError:
+        return None
 
 
 class HTTPMusicProvider:
     name: str
 
     def __init__(self, client: httpx.Client | None = None) -> None:
-        self.client = client or httpx.Client()
+        self.client = client or httpx.Client(follow_redirects=False, trust_env=False)
         self._health = ProviderHealth(status="unknown")
 
     def health(self) -> ProviderHealth:
         return self._health.model_copy(deep=True)
 
     def _request(self, method: str, url: str, *, jsonp: bool = False, **kwargs: object) -> Mapping[str, object]:
+        kwargs["headers"] = {**kwargs.get("headers", {}), **correlation_headers()}
         with self.client.stream(method, url, timeout=REQUEST_TIMEOUT, **kwargs) as response:
             response.raise_for_status()
             chunks = bytearray()

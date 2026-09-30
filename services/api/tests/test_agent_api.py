@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -70,7 +71,8 @@ def test_artist_question_is_grounded_in_rag_and_mcp_surface_is_independent(clien
     assert bad.status_code == 422
 
 
-def test_sse_has_public_statuses_and_one_terminal_result(client):
+def test_sse_has_public_statuses_and_one_terminal_result(client, caplog):
+    caplog.set_level(logging.INFO, logger="music_api")
     response = client.post("/v1/agent/chat/stream", json=BODY)
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
@@ -82,6 +84,12 @@ def test_sse_has_public_statuses_and_one_terminal_result(client):
     assert [name for name, data in events].count("done") == 1
     assert events[-1][1]["recommended_tracks"]
     assert "reasoning" not in response.text
+    logs = [json.loads(record.message) for record in caplog.records if record.name.startswith("music_api")]
+    assert {log["event"] for log in logs} >= {"http_request", "agent_tool", "llm_call", "recommendation"}
+    assert all(log["request_id"] == response.headers["x-request-id"] for log in logs)
+    assert all(log["trace_id"] == response.headers["x-trace-id"] for log in logs)
+    assert all(log["route"] == "/v1/agent/chat/stream" for log in logs)
+    assert BODY["message"] not in caplog.text and BODY["device_id"] not in caplog.text
 
 
 @pytest.mark.parametrize("changes", [
@@ -120,3 +128,22 @@ def test_unexpected_provider_failure_does_not_log_private_content(client, caplog
     assert result.json()["error"]["code"] == "agent_unavailable"
     assert "private-chat-marker" not in result.text + caplog.text
     assert "mock-secret-marker" not in result.text + caplog.text
+
+
+def test_tool_latency_measures_each_call_independently(client, caplog, monkeypatch):
+    from app.agent import core
+
+    clock = [0.0]
+    original = core.invoke_tool
+
+    def measured(call, context):
+        output = original(call, context)
+        clock[0] += 1.0  # controlled duration for each business call, without wall-clock flakiness
+        return output
+
+    monkeypatch.setattr(core, "perf_counter", lambda: clock[0])
+    monkeypatch.setattr(core, "invoke_tool", measured)
+    caplog.set_level(logging.INFO, logger="music_api")
+    assert client.post("/v1/agent/chat", json=BODY).status_code == 200
+    logs = [json.loads(record.message) for record in caplog.records if record.name.startswith("music_api")]
+    assert [log["latency_ms"] for log in logs if log["event"] == "agent_tool"] == [1000.0] * 4

@@ -1,5 +1,4 @@
 from typing import Annotated
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import text
@@ -24,6 +23,7 @@ from app.api.schemas import (
 from app.domain.device import DEVICE_ID_PATTERN
 from app.infrastructure.cache import get_redis
 from app.infrastructure.database import get_session
+from app.observability.events import request_id
 from app.providers.registry import ProviderRegistry, get_provider_registry
 from app.repository.feedback import load_profile, recent_feedback, save_feedback
 from app.services.device import resolve_device
@@ -79,7 +79,7 @@ def recommendations(
         )
         for song in songs
     ]
-    return RecommendationResponse(request_id=str(uuid4()), items=items, sources=search.sources)
+    return RecommendationResponse(request_id=request_id(), items=items, sources=search.sources)
 
 
 @router.post("/v1/feedback", response_model=FeedbackResponse)

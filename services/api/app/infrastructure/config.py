@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     redis_url: str = Field(min_length=1)
     allowed_origins: str = "http://localhost:3000"
     enable_qq_provider: bool = False
+    enable_music_providers: bool = True
     llm_provider: Literal["local", "openai_compatible"] = "local"
     llm_base_url: str = "https://api.openai.com/v1"
     llm_api_key: SecretStr | None = None

@@ -32,3 +32,8 @@ Thumbs.db
 node_modules/
 .next/
 *.tsbuildinfo
+build/
+dist/
+*.whl
+*.pem
+*.key

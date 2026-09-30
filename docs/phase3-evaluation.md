@@ -18,3 +18,9 @@ No provider network or paid API is used. All ties have stable ordering.
 
 These numbers are regression signals for this small fixture; they do not estimate production
 quality. / 这些数字仅供固定小样本回归，不代表线上效果。
+
+Phase 6 release rerun, 2026-09-30: the same `evaluation_v1` output was reproduced; neither the
+fixture nor ranking weights were changed. CI runs `python -m app.domain.evaluation` on every push/PR.
+The evaluator's regression test checks all four metrics; separate Agent tests cover tool selection,
+not a claimed tool-accuracy benchmark. No live latency/throughput or model-quality measurements
+are included. / 第六阶段复测结果一致，不改算法或样本，不加入虚构线上指标。

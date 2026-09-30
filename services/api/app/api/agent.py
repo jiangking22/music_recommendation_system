@@ -11,6 +11,7 @@ from app.agent.providers import LLMProvider, get_llm_provider
 from app.agent.schemas import ChatRequest, ChatResponse
 from app.infrastructure.config import get_settings
 from app.infrastructure.database import get_session
+from app.observability.events import emit
 from app.providers.registry import ProviderRegistry, get_provider_registry
 
 router = APIRouter(prefix="/v1/agent", tags=["agent"])
@@ -23,6 +24,7 @@ def get_agent(session: Annotated[Session, Depends(get_session)],
 
 
 def error_envelope(error: AgentError) -> dict:
+    emit("agent_error", code=error.code, status=error.status)
     messages = {"conversation_not_found": "Conversation unavailable for this device.",
                 "agent_busy": "Music assistant is busy. Please try again.",
                 "conversation_conflict": "Conversation changed; retry the message.",

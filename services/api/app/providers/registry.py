@@ -1,6 +1,6 @@
-import json
 import logging
 from functools import lru_cache
+from time import perf_counter
 
 from app.domain.music import (
     ProviderCapabilities,
@@ -10,12 +10,11 @@ from app.domain.music import (
     SearchResult,
 )
 from app.infrastructure.config import get_settings
+from app.observability.events import emit
 from app.providers.base import MAX_RESULTS, MusicProvider
 from app.providers.itunes import ITunesProvider
 from app.providers.netease import NetEaseProvider
 from app.providers.qq import QQProvider
-
-logger = logging.getLogger("music_api.providers")
 
 
 class ProviderRegistry:
@@ -38,6 +37,7 @@ class ProviderRegistry:
         tracks = []
         # Sequential calls bound upstream concurrency to one. Every adapter has its own timeout.
         for name, provider in self._providers.items():
+            started = perf_counter()
             try:
                 result = provider.search_tracks(query, limit)
             except Exception:  # noqa: BLE001 - isolate a broken third-party adapter.
@@ -45,14 +45,17 @@ class ProviderRegistry:
                 result = ProviderResult(provider=name, error=error)
             sources[name] = result
             tracks.extend(result.tracks[:limit])
-            if result.error:
-                logger.warning(json.dumps({"event": "provider_search_failed", "provider": name,
-                                           "code": result.error.code}))
+            emit("provider_call", provider=name, operation="search_tracks",
+                 status="error" if result.error else "ok", code=result.error.code if result.error else None,
+                 result_count=len(result.tracks[:limit]), latency_ms=round((perf_counter() - started) * 1000, 3),
+                 level=logging.WARNING if result.error else logging.INFO)
         return SearchResult(tracks=tracks, sources=sources)
 
 
 @lru_cache
 def get_provider_registry() -> ProviderRegistry:
+    if not get_settings().enable_music_providers:
+        return ProviderRegistry([])
     providers: list[MusicProvider] = [ITunesProvider(), NetEaseProvider()]
     if get_settings().enable_qq_provider:
         providers.append(QQProvider())

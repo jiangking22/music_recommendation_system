@@ -95,12 +95,23 @@ and real-model availability remain explicitly unverified on this host.
 
 Acceptance on 2026-09-30: 63 API tests, 12 web tests, API ruff/compile check, web lint/typecheck/build,
 offline PostgreSQL upgrade/downgrade SQL, real-browser recommendation/artist flows and responsive
-layouts, plus legacy help/HTTP 200. Phase 6 remains not started.
+layouts, plus legacy help/HTTP 200. Phase 6 had not started at that acceptance point.
 
-## Phase 6 — Observability and release quality
+## Phase 6 — Observability and release quality (complete; local Docker unexecuted)
 
 Add structured logs, traces, latency/status/model/token/error metrics, CI quality gates, bilingual
 README, evaluation report, demo fixtures, and clean-start verification.
+
+Implementation: content-free correlated JSON events through SSE/worker threads; two standard
+read-only MCP stdio tools using the official SDK; optional offline Provider Registry mode; bounded
+request bodies and safe unexpected-error responses; non-root containers and explicit package
+discovery/fixture packaging. GitHub Actions checks API, web and a disposable offline Compose stack.
+Bilingual README and deployment/demo/observability guides distinguish implemented and verified work.
+
+Local evidence on 2026-09-30: 72 API / 12 web tests, Ruff/compile, ESLint/typecheck/build, npm audit,
+editable install and wheel fixtures, full PostgreSQL upgrade/downgrade SQL, legacy help/HTTP 200,
+and fixed offline evaluation. Docker CLI is absent: local clean start is **not executed**. Live
+container evidence must come from a Docker host/actual CI run; real-model execution is unverified.
 
 **Exit criteria:** documented commands pass from a clean checkout and the README accurately
 explains architecture, limitations, and interview talking points.

@@ -1,9 +1,9 @@
 import asyncio
-import json
 import logging
 from collections.abc import AsyncIterator
 from contextlib import aclosing
 from functools import partial
+from time import perf_counter
 from weakref import WeakKeyDictionary
 
 import httpx
@@ -16,9 +16,9 @@ from app.agent.providers import LLMProvider
 from app.agent.schemas import Answer, ChatRequest, ChatResponse, Plan, ToolTrace
 from app.agent.tools import TOOL_INPUTS, ToolContext, invoke_tool, tool_schemas
 from app.infrastructure.workers import run_blocking
+from app.observability.events import emit
 from app.providers.registry import ProviderRegistry
 
-logger = logging.getLogger("music_api.agent")
 _agent_slots = WeakKeyDictionary()
 
 
@@ -47,7 +47,11 @@ class Agent:
                 context = {"message": request.message, "history": conversation.messages,
                            "last_seed": conversation.last_seed,
                            "preference_summary": conversation.preference_summary}
+                started = perf_counter()
                 plan = Plan.model_validate(await self.provider.plan(context, tool_schemas()))
+                if self.provider.name == "local":
+                    emit("llm_call", provider="local", model="rule-router", operation="plan", status="ok",
+                         latency_ms=round((perf_counter() - started) * 1000, 3))
                 # Validate the entire plan before any business tool is executed.
                 for call in plan.calls:
                     TOOL_INPUTS[call.name].model_validate(call.arguments)
@@ -60,6 +64,7 @@ class Agent:
                 tools = ToolContext(self.engine, self.registry, request.device_id, conversation)
                 results = []
                 for call in plan.calls:
+                    started = perf_counter()
                     yield {"event": "status", "data": {
                         "stage": "preferences" if call.name == "get_user_profile" else "tool",
                         "label": "查询偏好" if call.name == "get_user_profile" else "调用工具",
@@ -68,13 +73,19 @@ class Agent:
                         output = await run_blocking(partial(invoke_tool, call, tools))
                     except Exception:
                         traces.append(ToolTrace(name=call.name, status="error"))
-                        logger.warning(json.dumps({"event": "agent_tool", "tool": call.name, "status": "error"}))
+                        emit("agent_tool", tool=call.name, status="error", level=logging.WARNING,
+                             latency_ms=round((perf_counter() - started) * 1000, 3))
                         raise
                     traces.append(ToolTrace(name=call.name, status="ok"))
-                    logger.info(json.dumps({"event": "agent_tool", "tool": call.name, "status": "ok"}))
+                    emit("agent_tool", tool=call.name, status="ok",
+                         latency_ms=round((perf_counter() - started) * 1000, 3))
                     results.append({"name": call.name, "output": output})
                     yield {"event": "tool_result", "data": {"tool": call.name, "status": "ok"}}
+                started = perf_counter()
                 answer = Answer.model_validate(await self.provider.answer(context, results))
+                if self.provider.name == "local":
+                    emit("llm_call", provider="local", model="rule-router", operation="answer", status="ok",
+                         latency_ms=round((perf_counter() - started) * 1000, 3))
                 response = ChatResponse(conversation_id=conversation.id, answer=answer.answer,
                                         recommended_tracks=tools.items, used_tools=traces,
                                         explanation=tools.explanation, citations=tools.citations,
@@ -95,7 +106,7 @@ class Agent:
         except AgentError:
             raise
         except Exception as exc:
-            logger.error(json.dumps({"event": "agent_failed", "code": "agent_unavailable"}))
+            emit("agent_failed", code="agent_unavailable", level=logging.ERROR)
             raise AgentError("agent_unavailable", 503) from exc
 
     async def chat(self, request: ChatRequest) -> ChatResponse:

@@ -15,18 +15,19 @@ can run the full stack locally without external paid services.
 - Runtime: Docker Compose.
 - Tests: pytest for API/domain tests; Vitest/Testing Library for web tests.
 
-## Commands (target)
+## Commands (implemented runtime)
 
 ```bash
-docker compose up --build
-docker compose down -v
-docker compose exec api pytest
-docker compose exec web npm run lint
-docker compose exec web npm run test
+docker compose up --build --wait --wait-timeout 180
+# In offline provider/local Agent mode:
+docker compose exec -T api python scripts/docker_smoke.py
+docker compose down
 ```
 
-Until the target Compose stack exists, the legacy demo remains runnable with
-`python server.py`.
+Quality tests run in developer/CI environments rather than production containers (which exclude
+dev dependencies). See README for pytest, lint/type/build and evaluation commands, and
+docs/DEPLOYMENT.md for configuration/clean-start status. The legacy demo remains runnable with
+`python server.py`; Docker is absent on the author's Windows host and was not run locally.
 
 ## Project structure (target)
 
@@ -75,7 +76,8 @@ DECISIONS.md              durable architectural rationale
 
 ## Open questions
 
-- External LLM provider remains optional; Phase 4 must offer a deterministic local fallback
-  so the platform runs without an API key.
-- Stable provider selection will be finalized after Phase 1 adapter spike verifies current
-  public endpoints and licensing/terms constraints.
+- External LLM provider is optional; Phase 5 provides a deterministic local fallback without a Key.
+  Real model compatibility remains unverified.
+- iTunes and NetEase are default target adapters; QQ is opt-in. NetEase/QQ use undocumented
+  endpoints, so fixture mapping tests do not establish stability or licensing guarantees.
+- Phase 6 adds standard read-only MCP stdio; existing HTTP routes remain MCP-style façade.

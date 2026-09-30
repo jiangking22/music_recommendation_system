@@ -5,10 +5,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir .
 COPY app ./app
+RUN pip install --no-cache-dir . && useradd --create-home --uid 10001 music
 COPY alembic.ini ./
 COPY migrations ./migrations
+COPY scripts ./scripts
 
+USER music
 EXPOSE 8000
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log"]

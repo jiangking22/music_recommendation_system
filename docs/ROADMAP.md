@@ -1,58 +1,23 @@
 # Delivery Roadmap / 交付路线图
 
-This roadmap is intentionally incremental. A phase is complete only when its stated
-verification passes and its documentation status is updated.
+The authoritative checklist is [TODO](../TODO.md); the phase definitions and evidence are in
+[PROJECT_PLAN](../PROJECT_PLAN.md). This index uses the same 0–6 phase numbering.
+权威清单和验证证据分别见 TODO 与 PROJECT_PLAN，阶段编号保持一致。
 
-## Phase 0 — Baseline and architecture
+| Phase | Delivered / 交付 |
+| --- | --- |
+| 0 | Legacy audit, shared context, architecture and ADRs / 旧版审查 |
+| 1 | FastAPI/Next foundation, Compose, typed contracts and migrations / 工程基础 |
+| 2 | Canonical catalog and bounded provider adapters / 统一模型和来源适配 |
+| 3 | Deterministic ranking, feedback/profile, embeddings and fixed evaluation / 推荐与评估 |
+| 4 | Product client and accessible recommendation/feedback states / 产品页面 |
+| 5 | One bounded Agent, memory, RAG, SSE and MCP-style HTTP façade / 助手与知识 |
+| 6 | Correlated JSON telemetry, CI, standard MCP stdio, release docs and startup checks / 最后工程阶段 |
 
-- [x] Inventory the legacy demo and preserve its runtime.
-- [x] Record the target architecture and ADRs.
-- [x] Write the migration specification and phased plan.
-- [ ] Update the README to distinguish legacy and target runtimes.
+Author-host Docker clean start was not executed because Docker is absent. A CI clean-start job
+provides a separate verification path. Real-model quality and broad provider reliability are not
+certified by offline tests. / 本机容器未实机执行，CI 可独立验收；不把离线测试当外部服务效果验证。
 
-**Verify:** `python server.py --help` succeeds; architecture documents describe current and
-target states accurately.
-
-## Phase 1 — Runnable engineering foundation
-
-- [ ] Scaffold Next.js TypeScript and FastAPI services.
-- [ ] Add Compose for web, API, PostgreSQL/pgvector, and Redis.
-- [ ] Add health endpoint, configuration validation, migration skeleton, lint/test commands.
-- [ ] Deliver one vertical slice: anonymous device -> catalog seed -> REST recommendation.
-
-**Verify:** `docker compose up --build`; API integration test returns a validated response.
-
-## Phase 2 — Recommendation core and providers
-
-- [ ] Define canonical song and provider plugin interfaces.
-- [ ] Keep 2–3 verified providers; model other providers as optional adapters.
-- [ ] Implement multi-source recall, profile features, embeddings, reranking, explanations.
-- [ ] Add offline fixtures and relevance/personalization/diversity evaluation.
-
-**Verify:** provider fixture tests and offline evaluator run reproducibly.
-
-## Phase 3 — Product client and durable personalization
-
-- [ ] Build recommendation UI, anonymous-device bootstrap, feedback controls, and profile view.
-- [ ] Persist feedback and long-term preference embeddings.
-- [ ] Add API and browser-facing state tests.
-
-**Verify:** feedback survives a restart and changes a subsequent recommendation response.
-
-## Phase 4 — Agent, memory, RAG, MCP
-
-- [ ] Implement one Agent, session memory, long-term preference summary, and SSE chat.
-- [ ] Add music knowledge RAG and explanation enrichment.
-- [ ] Expose a minimal read-oriented MCP server.
-- [ ] Add deterministic Agent tool-selection tests.
-
-**Verify:** streaming chat calls only allow-listed tools; test trace captures selection.
-
-## Phase 5 — Observability, quality, and portfolio release
-
-- [ ] Trace recommendations and Agent tools: latency, status, model, tokens, errors.
-- [ ] Add unit, API integration, and Agent tool test coverage to CI.
-- [ ] Complete bilingual README, architecture diagrams, evaluation results, and demo data.
-- [ ] Validate clean one-command local startup.
-
-**Verify:** documented quality commands pass from a clean clone.
+Future directions, not started / 未来方向（未实施）：larger verified catalog and real-user evaluation,
+authentication and conversation retention/deletion, useful Redis caching/rate limits, remote MCP
+authorization, and live-model/provider compatibility. No further engineering phase starts automatically.

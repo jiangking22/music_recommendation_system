@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "music-recommendation-api"
 version = "0.1.0"
@@ -16,6 +20,15 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest==9.1.1", "ruff==0.16.9"]
+mcp = ["mcp==1.30.0"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+"app.domain" = ["fixtures/*.json"]
+"app.rag" = ["fixtures/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

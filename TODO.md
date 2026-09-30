@@ -49,8 +49,24 @@ Acceptance 2026-09-30: 63 API tests and 12 frontend tests pass; ruff, Python com
 web lint/typecheck/build pass. Offline PostgreSQL upgrade/downgrade SQL includes seeded knowledge
 and pgvector. Browser recommendation/artist Q&A, SSE/tool status, and 320/768/1024/1440px layouts
 verified. Legacy help and isolated HTTP homepage 200 verified; legacy files and ranking unchanged.
-Live Docker/PostgreSQL and real LLM execution remain unverified. Phase 6 is not started.
+Live Docker/PostgreSQL and real LLM execution remained unverified at the Phase 5 acceptance.
 
-## Phase 6 — Quality and release (not started)
+## Phase 6 — Quality and release (complete; local Docker unexecuted)
 
-- [ ] Add observability, CI, Docker clean-start test, bilingual README, and evaluation report.
+- [x] Add observability, CI, Docker clean-start test, bilingual README, and evaluation report.
+
+
+Acceptance 2026-09-30: 72 API tests and 12 web tests; Ruff/compile, ESLint/typecheck/build,
+npm audit (zero findings), editable install/wheel fixture checks, complete offline PostgreSQL
+upgrade/downgrade SQL, fixed evaluation and legacy help/HTTP 200 pass. A production Next server
+returned HTTP 200 for homepage and /agent. Standard SDK stdio initialize/list/call and both
+read-only music tools were verified using a real subprocess. Correlation/privacy tests cover
+HTTP, Provider, SSE/thread/tool and optional model usage events; high-value body/error/CORS fixes
+are verified. Bilingual README, demo, deployment, observability and screenshot placeholder docs
+reflect implemented capabilities and limitations. GitHub Actions contains API/web/clean-start gates.
+
+Docker CLI is absent on the author's Windows host: **local clean start not executed / 未实机执行**.
+Static Compose/Dockerfile/environment and migration checks cannot prove live container success;
+see the actual CI run for remote evidence. Real-model compatibility/quality remains unverified.
+No ranking algorithm or legacy source was changed. Final phase delivery stays on
+codex/phase1-foundation-review; push without merging main, then stop.
