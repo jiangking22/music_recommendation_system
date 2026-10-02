@@ -6,9 +6,11 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+*.egg-info/
 
 .env
 .env.*
+!.env.example
 
 .venv/
 venv/
@@ -26,3 +28,12 @@ Thumbs.db
 # Local-only captures or temporary exports.
 *.tmp
 *.bak
+
+node_modules/
+.next/
+*.tsbuildinfo
+build/
+dist/
+*.whl
+*.pem
+*.key

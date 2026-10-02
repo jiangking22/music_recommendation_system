@@ -1,0 +1,14 @@
+{
+  "version": "evaluation_v1",
+  "catalog": [
+    {"id": "blue", "title": "Blue Window", "artist": "Demo Quartet", "provider": "itunes", "genres": ["jazz"], "tags": ["calm"], "language": "en"},
+    {"id": "amber", "title": "Amber Train", "artist": "Sample Ensemble", "provider": "netease", "genres": ["jazz"], "tags": ["travel"], "language": "en"},
+    {"id": "night", "title": "Night Signal", "artist": "Example Artist", "provider": "fixture", "genres": ["electronic"], "tags": ["night"], "language": "en"},
+    {"id": "electric", "title": "Electric Dawn", "artist": "Sample Ensemble", "provider": "itunes", "genres": ["electronic"], "tags": ["energetic"], "language": "en"},
+    {"id": "rain", "title": "Soft Rain", "artist": "Calm Artist", "provider": "netease", "genres": ["ambient"], "tags": ["calm"], "language": "en"}
+  ],
+  "cases": [
+    {"seed": "jazz", "relevant": ["blue", "amber"], "preferred": "amber", "liked_artist": "Sample Ensemble", "limit": 2},
+    {"seed": "electronic", "relevant": ["night", "electric"], "preferred": "night", "liked_artist": "Example Artist", "limit": 2}
+  ]
+}

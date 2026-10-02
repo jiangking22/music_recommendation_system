@@ -1,0 +1,14 @@
+import type { ProviderResult, RecommendationItem } from "./music";
+
+export type ToolName = "get_user_profile" | "recommend_tracks" | "search_music_knowledge" | "explain_recommendation";
+export type AgentStatus = { stage: string; label: string; tool?: ToolName; status?: string };
+export type AgentResponse = {
+  conversation_id: string;
+  answer: string;
+  recommended_tracks: RecommendationItem[];
+  used_tools: { name: ToolName; status: "ok" | "error" }[];
+  explanation: string;
+  citations: { document_id: string; title: string; chunk_id: string; text: string; score: number }[];
+  sources: Record<string, ProviderResult>;
+  provider: string;
+};

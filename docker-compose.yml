@@ -1,0 +1,73 @@
+services:
+  web:
+    build:
+      context: ./apps/web
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+
+  api:
+    build:
+      context: ./services/api
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      ENABLE_MUSIC_PROVIDERS: ${ENABLE_MUSIC_PROVIDERS:-true}
+      ENABLE_QQ_PROVIDER: ${ENABLE_QQ_PROVIDER:-false}
+      LLM_PROVIDER: ${LLM_PROVIDER:-local}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4.1-mini}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      AGENT_TIMEOUT_SECONDS: ${AGENT_TIMEOUT_SECONDS:-30}
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-music_recommendation}
+      POSTGRES_USER: ${POSTGRES_USER:-music}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres_data:
+  redis_data:
