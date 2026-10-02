@@ -70,3 +70,16 @@ Static Compose/Dockerfile/environment and migration checks cannot prove live con
 see the actual CI run for remote evidence. Real-model compatibility/quality remains unverified.
 No ranking algorithm or legacy source was changed. Final phase delivery stays on
 codex/phase1-foundation-review; push without merging main, then stop.
+
+## Final public presentation / 公开展示收尾
+
+- [x] Prepare main-facing README and review deployment/demo branch guidance; capture real offline
+  browser screenshots if available, verify existing checks, commit and push the review branch only.
+
+Acceptance 2026-10-02: main CI badge and clone instructions updated; deployment wording corrected,
+DEMO reviewed without changes. Three real browser captures are included in README Preview, using
+the existing production web build, offline FastAPI catalog/local Agent and a temporary SQLite test
+database. No application logic changed. API 72 tests, web 12 tests, Ruff/compile, web lint/typecheck/
+build, fixed evaluation and legacy HTTP smoke passed; browser console had no warnings/errors.
+Pytest emitted one existing Starlette/httpx deprecation warning. Docker/PostgreSQL, live providers
+and real LLMs remain outside this local verification; capture details are in docs/screenshots/README.md.

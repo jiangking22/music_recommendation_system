@@ -85,7 +85,7 @@ For a separate clean project use a distinct `COMPOSE_PROJECT_NAME`, avoiding unr
 
 停止保留数据；删除卷仅用于可丢弃演示环境。CI 使用每次运行独有项目名与随机密码，结束后删除自己的卷。
 数据库回退有 downgrade SQL，但会删除相关表；部署回退优先恢复已备份数据库和匹配的代码版本。
-不自动 merge main 或部署公网。
+上述命令仅启动本地环境，不会部署到公网。
 
 ## Verification status / 验证状态
 

@@ -1,6 +1,6 @@
 # Sonora · Explainable Music Recommendation / 可解释音乐推荐
 
-[![Release quality](https://github.com/jiangking22/music_recommendation_system/actions/workflows/ci.yml/badge.svg?branch=codex%2Fphase1-foundation-review)](https://github.com/jiangking22/music_recommendation_system/actions/workflows/ci.yml)
+[![Release quality](https://github.com/jiangking22/music_recommendation_system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jiangking22/music_recommendation_system/actions/workflows/ci.yml)
 
 A portfolio project combining a deterministic multi-source recommender with one bounded music
 Agent. It demonstrates typed service boundaries, durable anonymous feedback, offline evaluation,
@@ -17,7 +17,23 @@ The Next.js homepage offers seed input, recommendation cards, explanations, prov
 like/dislike and preferences. `/agent` presents chat, tool status and knowledge citations.
 
 新版首页提供参考输入、推荐卡片、理由、来源、喜欢/不喜欢与画像；`/agent` 提供对话、工具状态和知识引用。
-截图暂未提交；预留路径与拍摄说明见 [screenshots/README](docs/screenshots/README.md)。
+Actual browser captures use the offline fixture catalog and local rule-based assistant, with a
+temporary SQLite test database. They do not verify Docker/PostgreSQL or live providers/LLMs.
+截图来自真实运行页面：离线固定曲库、本地规则助手、临时 SQLite 测试库；不代表容器、PostgreSQL 或真实来源/模型验证。
+Capture details / 拍摄说明：[screenshots/README](docs/screenshots/README.md)。
+
+**Recommendations / 推荐与解释**
+
+![Offline recommendations with an empty profile / 空画像离线推荐](docs/screenshots/recommendations.png)
+
+**Preferences / 点赞后的偏好与推荐**
+
+![Saved like, updated preferences and recommendation factors / 点赞后画像和分数因素](docs/screenshots/preferences.png)
+
+**Local assistant / 本地助手、工具状态与引用**
+
+![Local assistant with fixture recommendations, tool status and citations / 本地助手推荐与引用](docs/screenshots/agent.png)
+
 Follow the five-minute [demo flow / 演示流程](docs/DEMO.md) for a reproducible walkthrough.
 
 ## Architecture / 架构
@@ -117,7 +133,6 @@ with pgvector and Redis 7; Docker Compose is the recommended local setup.
 ```bash
 git clone https://github.com/jiangking22/music_recommendation_system.git
 cd music_recommendation_system
-git switch codex/phase1-foundation-review
 ```
 
 For a zero-dependency legacy preview / 零第三方依赖旧版预览：
