@@ -29,3 +29,9 @@ PostgreSQL/pgvector, container startup, live providers and real LLMs were not ve
 
 按照 [DEMO](../DEMO.md) 的推荐、点赞、刷新与助手流程拍摄。图片只包含演示输入与 fixture 结果，
 不含私密聊天、设备 ID、请求头或凭据；原有课程资料不作为本次发布素材。
+
+Release audit on 2026-10-02 visually rechecked all three images against main `4c54239`.
+Product code is unchanged since capture commit `1c76b33`; a fresh local HTTP smoke reproduced
+the 3.16 → 6.16 recommendation scores and local Agent/citations with the same fixture setup.
+No screenshot was modified or recaptured during release preparation.
+发布准备已复核图片、链接与演示状态；本次未修改或重拍截图。

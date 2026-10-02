@@ -58,11 +58,11 @@ Next.js web (apps/web)
         | REST + Server-Sent Events
 FastAPI API (services/api)
         |-- PostgreSQL + pgvector: catalog, anonymous users, feedback, embeddings
-        |-- Redis: short-lived session and response cache
-        |-- Provider plugins: stable music-source adapters
+        |-- Redis: readiness dependency; cache/session use is future work
+        |-- Provider plugins: canonical adapters with partial-failure handling
         |-- Recommender: recall -> feature scoring -> reranking -> explanations
         |-- Agent: intent -> approved tool calls -> streamed response
-        |-- MCP server: a small, read-oriented façade over music tools
+        |-- MCP: standard read-only stdio server plus the retained HTTP façade
         `-- Observability: structured logs, traces, metrics events
 ```
 
@@ -74,7 +74,7 @@ flowchart TB
   API --> Providers[Provider adapters]
   Rec --> PG[(PostgreSQL + pgvector)]
   API --> PG
-  API --> Redis[(Redis: cache/session)]
+  API --> Redis[(Redis: readiness only)]
   Agent --> Tools[Recommend · Profile · Knowledge · Explain]
   Tools --> Rec
   Tools --> Knowledge[RAG knowledge store]
@@ -104,7 +104,7 @@ legacy/                      optional later home for preserved demo files
 `index.html`, `app.js`, `styles.css`, and `server.py` are the legacy demo. They stay
 available during migration and are not dependencies of the target runtime.
 
-### Phase 1 implementation status
+### Phase 1 implementation status (historical snapshot)
 
 The Next.js TypeScript shell and FastAPI service are runnable. API routes use typed schemas and
 delegate device creation to a service and SQLAlchemy repository. Configuration validates the
@@ -117,7 +117,7 @@ The Next.js page calls this endpoint at request time and renders the returned ex
 not installed on the current host, so Compose startup and a live PostgreSQL migration remain
 unverified; the four-service topology and offline migration SQL were checked statically.
 
-### Phase 2 implementation status
+### Phase 2 implementation status (historical snapshot)
 
 `app/domain/music.py` defines Track, Artist, optional Album, ProviderSource, provider
 capabilities, structured errors, health and search results. `app/providers/` contains the
@@ -294,6 +294,11 @@ static topology/Dockerfile/environment checks and full offline PostgreSQL upgrad
 are separate evidence. See actual CI runs for remote runtime status. Real LLM compatibility remains
 unverified. [Deployment](docs/DEPLOYMENT.md), [Demo](docs/DEMO.md), [Logs](docs/OBSERVABILITY.md).
 
+Release audit on 2026-10-02: main `4c54239` passed the actual
+[CI clean-start job](https://github.com/jiangking22/music_recommendation_system/actions/runs/36971477031/job/110726170498),
+including PostgreSQL/pgvector, Redis, migrations and the offline product flow. This adds remote
+runtime evidence without changing the historical local no-Docker status or architecture decisions.
+
 | Area | Responsibility | Must not do |
 | --- | --- | --- |
 | Web | Present UI, persist anonymous device ID, consume REST/SSE | Rank songs or store secrets |
@@ -316,7 +321,7 @@ unverified. [Deployment](docs/DEPLOYMENT.md), [Demo](docs/DEMO.md), [Logs](docs/
 
 ### Recommendation
 
-1. The client sends a seed, filters, and anonymous device ID to `POST /v1/recommendations`.
+1. The client sends `seed`, `limit`, and an anonymous device header to `POST /v1/recommendations`.
 2. The API resolves the user preference profile and asks provider plugins plus local catalog
    for candidates.
 3. The recommender deduplicates candidates, applies feature scores and diversity reranking.
@@ -346,7 +351,7 @@ unverified. [Deployment](docs/DEPLOYMENT.md), [Demo](docs/DEMO.md), [Logs](docs/
 - Unit tests cover provider mapping, scoring, reranking, profile updates, and Agent tool
   selection.
 - API integration tests use disposable SQLite databases and mocked providers/LLM transport.
-  PostgreSQL migration SQL is verified offline; live database checks need a capable host.
+  PostgreSQL migration SQL is verified offline; the CI clean-start job also tests a live database.
 - Offline recommendation evaluation reports relevance, personalization lift, diversity and coverage
   from versioned fixtures. Separate Agent tests assert tool selection; no accuracy benchmark is claimed.
 - Docker Compose is the authoritative local end-to-end environment.

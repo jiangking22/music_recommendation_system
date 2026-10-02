@@ -98,3 +98,8 @@ These do not prove container or PostgreSQL runtime success.
 host. Refer to the actual workflow run and commit SHA for remote runtime evidence; the author's
 local absence of Docker remains a separate fact. Image tags and transitive Python packages are
 not locked by digest/hash, so this setup is reproducible at the command level, not fully hermetic.
+
+Release audit, 2026-10-02: [main CI run 36971477031](https://github.com/jiangking22/music_recommendation_system/actions/runs/36971477031)
+at `4c54239a46d1cc32a813d3f841c3d0ca0d5c7c30` passed API, web and clean-start.
+Compose build/start, the live PostgreSQL/pgvector/Redis smoke and Alembic current/check all passed.
+发布审查已核实该提交的真实容器验收；本机仍未运行 Docker，后续提交需核对各自 CI。

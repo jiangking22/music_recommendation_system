@@ -83,3 +83,22 @@ database. No application logic changed. API 72 tests, web 12 tests, Ruff/compile
 build, fixed evaluation and legacy HTTP smoke passed; browser console had no warnings/errors.
 Pytest emitted one existing Starlette/httpx deprecation warning. Docker/PostgreSQL, live providers
 and real LLMs remain outside this local verification; capture details are in docs/screenshots/README.md.
+
+## v1.0.0 release preparation / 正式发布准备
+
+- [x] Audit merged main and its CI, prepare history-backed CHANGELOG and GitHub
+  release notes, verify documentation/screenshots/Quick Start and existing quality gates.
+  Documentation only; no core changes, license selection, tag or GitHub Release creation.
+
+Acceptance 2026-10-02: main baseline `4c54239` matched origin and passed actual API/web/clean-start
+CI run 36971477031. Local API 72 tests, web 12 tests, Ruff/compile, ESLint/typecheck/build, npm audit
+(zero findings), pip check, wheel fixtures, full offline PostgreSQL migration SQL, fixed evaluation,
+legacy help/HTTP and temporary SQLite/local Agent plus production web HTTP smoke passed.
+All 17 Markdown files were checked: local file targets and 15 history links resolved. Three existing
+screenshots were visually reviewed; no image or application source changed. README/deployment
+now link actual CI evidence; architecture wording reflects Redis readiness and seed/limit input.
+
+[Release audit](docs/releases/v1.0.0-readiness.md) recommends holding the final tag until the owner
+resolves the missing LICENSE and the `0.1.0` component / `v1.0.0` release version relationship.
+The final remote tag candidate still needs its own successful CI. Preparation is complete;
+this single local documentation commit is not pushed. No new development phase is started.

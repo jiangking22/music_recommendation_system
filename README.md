@@ -11,6 +11,15 @@ and ordering decision; the Agent selects tools and explains their results.
 离线评估、小型 RAG、标准 MCP 工具和工程质量门禁。所有推荐分数与顺序由推荐器决定，Agent 负责工具选择和解释。
 这是可运行的工程演示，不是商业音乐服务或经过真实用户验证的推荐产品。
 
+## Release preparation / 发布准备
+
+`v1.0.0` is being prepared; it has not been tagged or published by this preparation.
+See [CHANGELOG](CHANGELOG.md), [release notes draft](docs/releases/v1.0.0.md) and
+[release audit](docs/releases/v1.0.0-readiness.md). The repository has no LICENSE; no license
+was selected during preparation. API/web/OpenAPI metadata still reports `0.1.0`.
+
+`v1.0.0` 发布资料已准备，尚未打标或创建 Release；许可证和组件版本口径仍需明确。
+
 ## Preview / 展示
 
 The Next.js homepage offers seed input, recommendation cards, explanations, provenance,
@@ -162,7 +171,8 @@ data-service ports stay internal. No LLM Key is required.
 
 API 启动前运行迁移；仅网页和 API 的回环端口对外可见。无需真实音乐源或 LLM Key 即可演示固定曲库与本地助手。
 **Author's Windows host has no Docker: container clean-start was not executed locally / 本机未实机执行。**
-CI includes a disposable clean-start job; inspect its actual run before claiming container success.
+Main commit `4c54239` passed the [CI clean-start job on 2026-10-02](https://github.com/jiangking22/music_recommendation_system/actions/runs/36971477031/job/110726170498),
+including real PostgreSQL/pgvector, Redis and the offline product flow. / CI 已通过真实容器验收；与本机验证区分。
 See [deployment/runbook](docs/DEPLOYMENT.md) for manual services, verification and cleanup.
 
 ## Tests and release gates / 测试
@@ -199,6 +209,11 @@ Local Phase 6 verification: **72 API tests, 12 web tests**, all listed lint/type
 editable install/wheel fixture checks, full offline PostgreSQL upgrade/downgrade SQL, legacy HTTP
 smoke and evaluation passed. Tests forbid real HTTP at provider/model boundaries. CI has API,
 web and clean-start jobs with bounded timeouts and read-only repository permissions.
+
+Release preparation on 2026-10-02 reran these local gates successfully. The audited main
+[CI run](https://github.com/jiangking22/music_recommendation_system/actions/runs/36971477031)
+passed all three jobs at `4c54239`; later commits need their own CI result.
+发布准备复验通过；所引 CI 证据对应明确提交，不能代替后续待打标提交的检查。
 
 本机通过上述测试与检查；PostgreSQL 的完整升降级 SQL 静态验证通过。测试禁止真实业务 HTTP；
 离线检查不能替代实机容器、PostgreSQL 或真实模型验证。[Observability/runbook](docs/OBSERVABILITY.md)。
