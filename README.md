@@ -11,14 +11,14 @@ and ordering decision; the Agent selects tools and explains their results.
 离线评估、小型 RAG、标准 MCP 工具和工程质量门禁。所有推荐分数与顺序由推荐器决定，Agent 负责工具选择和解释。
 这是可运行的工程演示，不是商业音乐服务或经过真实用户验证的推荐产品。
 
-## Release preparation / 发布准备
+## Version and license / 版本与许可证
 
-`v1.0.0` is being prepared; it has not been tagged or published by this preparation.
-See [CHANGELOG](CHANGELOG.md), [release notes draft](docs/releases/v1.0.0.md) and
-[release audit](docs/releases/v1.0.0-readiness.md). The repository has no LICENSE; no license
-was selected during preparation. API/web/OpenAPI metadata still reports `0.1.0`.
+Sonora **v1.0.0** uses the [MIT License](LICENSE), copyright 2026 jiangking22.
+API, web and OpenAPI application metadata are version **1.0.0**.
+See [CHANGELOG](CHANGELOG.md), [release notes](docs/releases/v1.0.0.md) and
+[release audit](docs/releases/v1.0.0-readiness.md).
 
-`v1.0.0` 发布资料已准备，尚未打标或创建 Release；许可证和组件版本口径仍需明确。
+Sonora 正式版本为 v1.0.0，采用 MIT License；API、Web 与 OpenAPI 应用版本统一为 1.0.0。
 
 ## Preview / 展示
 

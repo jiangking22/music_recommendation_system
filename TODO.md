@@ -98,7 +98,27 @@ All 17 Markdown files were checked: local file targets and 15 history links reso
 screenshots were visually reviewed; no image or application source changed. README/deployment
 now link actual CI evidence; architecture wording reflects Redis readiness and seed/limit input.
 
-[Release audit](docs/releases/v1.0.0-readiness.md) recommends holding the final tag until the owner
-resolves the missing LICENSE and the `0.1.0` component / `v1.0.0` release version relationship.
-The final remote tag candidate still needs its own successful CI. Preparation is complete;
-this single local documentation commit is not pushed. No new development phase is started.
+At preparation commit `b34eec3`, the [release audit](docs/releases/v1.0.0-readiness.md) held the tag
+for missing LICENSE and unresolved version identity. That documentation commit was kept locally
+without publishing at that stage. The owner subsequently chose MIT and version 1.0.0 below.
+
+## Final v1.0.0 release / 最终正式发布
+
+- [x] Finalize the owner-approved v1.0.0 release candidate: standard MIT License, project
+  versions 1.0.0, existing release documentation and full local release verification.
+
+Acceptance 2026-10-02: API 72 tests, Ruff, compile, offline evaluation, pip check, wheel fixtures
+and both migration SQL directions passed. Web 12 tests, lint, typecheck, build and npm audit
+(zero findings) passed. Legacy smoke and temporary API/production web HTTP smoke passed,
+including OpenAPI application version 1.0.0 and local recommendation/feedback/Agent/RAG/context.
+MIT clauses match the standard template. Independent release review found no new blockers;
+dependency versions and all core behaviour are unchanged. `b34eec3` is preserved as an ancestor.
+
+Publication procedure: add one release commit, push main normally, and require successful API,
+web and clean-start CI on the exact main SHA before creating/pushing an annotated v1.0.0 tag.
+Publish a regular GitHub Release from the existing notes. The
+[release record](https://github.com/jiangking22/music_recommendation_system/releases/tag/v1.0.0)
+contains the final SHA and actual CI run; that record is the publication outcome.
+
+Scope: license/version/release material only; no core changes, dependency upgrades, force push,
+rebase, history rewrite or new development phase. Real providers and paid LLMs are not used in checks.

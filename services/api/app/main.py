@@ -14,7 +14,7 @@ from app.observability.events import RequestTelemetry, configure_logging, emit
 
 settings = get_settings()
 configure_logging()
-app = FastAPI(title="Music Recommendation API", version="0.1.0")
+app = FastAPI(title="Music Recommendation API", version="1.0.0")
 app.add_middleware(RequestBodyLimit)
 app.add_middleware(RequestTelemetry)
 # CORS wraps early rejections and unexpected-error responses too.

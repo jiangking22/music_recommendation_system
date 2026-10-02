@@ -4,11 +4,13 @@ This record describes code present on merged `main`, checked against Git history
 implementation. Planned roadmap work and the reverted early API prototype are not release features.
 本文件依据真实提交与当前实现整理；不把路线图或已回退的早期 API 原型计入交付。
 
-## [1.0.0] — Unreleased / 待发布
+## [v1.0.0] — 2026-10-02
 
-Prepared on 2026-10-02 against `4c54239a46d1cc32a813d3f841c3d0ca0d5c7c30`.
-No tag or GitHub Release has been created by this preparation. Release date is not assigned.
-License and component-version decisions remain open; see the [release audit](docs/releases/v1.0.0-readiness.md).
+First formal repository release, continuing preparation commit `b34eec3` and the application
+baseline `4c54239a46d1cc32a813d3f841c3d0ca0d5c7c30`. Added the owner-approved standard
+[MIT License](LICENSE), copyright 2026 jiangking22, and aligned API/web/OpenAPI application
+versions to 1.0.0. Third-party dependencies and core logic are unchanged by release finalization.
+Verification and publication gates are recorded in the [release audit](docs/releases/v1.0.0-readiness.md).
 
 ### Engineering foundation
 
@@ -105,4 +107,4 @@ benchmarks. Live provider availability and real-model compatibility are not rele
 There is no account authentication, licensed music streaming, remote MCP HTTP/OAuth transport,
 distributed monitoring stack, Redis caching or automatic chat-retention cleanup.
 
-组件版本目前仍为 `0.1.0`；本节是拟定的仓库 `v1.0.0` 发布记录，不表示已发布。
+仓库正式版本为 `v1.0.0`，API/Web/OpenAPI 应用版本为 `1.0.0`，许可证为 MIT。
