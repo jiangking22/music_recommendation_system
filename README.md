@@ -2,12 +2,12 @@
 
 [![Release quality](https://github.com/jiangking22/music_recommendation_system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jiangking22/music_recommendation_system/actions/workflows/ci.yml)
 
-A portfolio project combining a deterministic multi-source recommender with one bounded music
+A music recommendation project combining a deterministic multi-source recommender with one bounded music
 Agent. It demonstrates typed service boundaries, durable anonymous feedback, offline evaluation,
 small RAG, standard MCP tools, and reproducible quality gates. The recommender owns every score
 and ordering decision; the Agent selects tools and explains their results.
 
-求职作品：以确定性多源推荐为核心，结合一个受控音乐 Agent，展示类型化接口、持久化匿名反馈、
+音乐推荐项目：以确定性多源推荐为核心，结合一个受控音乐 Agent，展示类型化接口、持久化匿名反馈、
 离线评估、小型 RAG、标准 MCP 工具和工程质量门禁。所有推荐分数与顺序由推荐器决定，Agent 负责工具选择和解释。
 这是可运行的工程演示，不是商业音乐服务或经过真实用户验证的推荐产品。
 
@@ -304,7 +304,7 @@ caching/rate limits, optional remote MCP authorization, and broader live-provide
 | Runtime | Role / 定位 | Start / 启动 |
 | --- | --- | --- |
 | Legacy | Browser orchestration/ranking + stdlib proxy; localStorage preferences; more best-effort sources / 原始课程演示 | `python server.py` |
-| Target | Next.js + typed FastAPI + durable profiles + bounded Agent + MCP; separate business layers / 求职展示工程 | `docker compose up --build --wait` |
+| Target | Next.js + typed FastAPI + durable profiles + bounded Agent + MCP; separate business layers / 音乐推荐系统 | `docker compose up --build --wait` |
 
 Legacy sources include QQ, NetEase, iTunes, YouTube and Spotify fallbacks; they are not guarantees
 of target-runtime support. The four legacy files remain unchanged and runnable.
