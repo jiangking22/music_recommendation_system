@@ -37,6 +37,15 @@ export type RecommendationResponse = {
   items: RecommendationItem[];
   sources: Record<string, ProviderResult>;
 };
+export type InterfaceLanguage = "en" | "zh";
+export type DiscoveryResponse = RecommendationResponse & {
+  seed_track: Track | null;
+  seed_candidates: Track[];
+  seed_status: "matched" | "ambiguous" | "unresolved";
+  guidance: string;
+  guidance_provider: "local" | "openai_compatible";
+  guidance_status: "ready" | "unavailable";
+};
 export type ProfileAffinity = { name: string; weight: number };
 export type PreferenceProfile = {
   artists: ProfileAffinity[];

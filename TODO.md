@@ -1,5 +1,28 @@
 # TODO
 
+## Homepage discovery correction / 首页推荐修复（当前任务）
+
+- [x] Resolve song seeds before related-track recall, prefer verified original recordings over
+  covers, exclude repeated seed versions from recommendations, and expose ambiguous matches.
+  Add an EN/中文 interface switch while preserving music metadata and English theme headings.
+  Reuse the assistant's optional server-side LLM configuration for grounded discovery guidance;
+  deterministic recall/ranking remains authoritative. Preserve the legacy demo.
+
+Scope: `apps/web` homepage components/client/tests, `services/api` recommendation domain/service,
+additive `/v1/recommendations/discover` API/tests, and current-state documentation. Verification:
+API pytest/Ruff, web Vitest/ESLint/typecheck/build, a targeted browser flow, and legacy help/HTTP smoke.
+
+Acceptance 2026-10-05: 101 API tests and 22 web tests pass; Ruff/compile, ESLint/typecheck and
+production Next build pass. Offline evaluation remains unchanged. Independent review covered
+studio/live merging, version-word song titles, translated-title ambiguity, model failures,
+concurrency and cancellation. Real browser checks verified live `我好想你` → sodagreen seed →
+five different related tracks, immediate EN/中文 switching, persisted language, feedback/profile,
+clean console and 320/768/1024/1440px layouts (including a corrected narrow form overflow).
+The two default live providers returned results during this check; future availability is not
+guaranteed. Legacy help and isolated HTTP 200 pass. Temporary SQLite was used for browser testing;
+real LLM execution and live PostgreSQL were not tested. Model adapter integration is verified
+with MockTransport, and no credentials or generated output belong in the focused commit.
+
 ## Phase 0 — Audit and shared context
 
 - [x] Inventory the legacy front end, proxy server, documentation, requirements, and ignore rules.

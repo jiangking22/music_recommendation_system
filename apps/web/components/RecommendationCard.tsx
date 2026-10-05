@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { safeExternalUrl } from "../lib/url";
-import type { FeedbackValue, RecommendationItem } from "../types/music";
+import { copyFor, factorLabel, recommendationExplanation } from "../lib/i18n";
+import type { FeedbackValue, InterfaceLanguage, RecommendationItem } from "../types/music";
 
 type Props = {
   item: RecommendationItem;
@@ -8,6 +9,7 @@ type Props = {
   rating?: FeedbackValue;
   pending: boolean;
   onFeedback: (value: FeedbackValue) => void;
+  language?: InterfaceLanguage;
 };
 
 export default function RecommendationCard({
@@ -16,7 +18,9 @@ export default function RecommendationCard({
   rating,
   pending,
   onFeedback,
+  language = "en",
 }: Props) {
+  const copy = copyFor(language);
   const link =
     safeExternalUrl(item.track.source.external_url) ??
     item.provenance
@@ -33,13 +37,13 @@ export default function RecommendationCard({
         {artwork ? (
           <Image
             src={artwork}
-            alt={`Cover artwork for ${item.title}`}
+            alt={language === "zh" ? `${item.title} 的封面` : `Cover artwork for ${item.title}`}
             width={144}
             height={144}
             unoptimized
           />
         ) : (
-          <span aria-label={`No artwork for ${item.title}`} role="img">
+          <span aria-label={language === "zh" ? `${item.title} 暂无封面` : `No artwork for ${item.title}`} role="img">
             ♪
           </span>
         )}
@@ -55,11 +59,11 @@ export default function RecommendationCard({
               ) : null}
             </p>
           </div>
-          <span className="match">Score {item.score.toFixed(2)}</span>
+          <span className="match">{copy.score} {item.score.toFixed(2)}</span>
         </div>
-        <p className="explanation">{item.explanation}</p>
+        <p className="explanation">{recommendationExplanation(item, language)}</p>
         <div className="track-footer">
-          <div className="providers" aria-label="Music sources">
+          <div className="providers" aria-label={copy.sources}>
             {providers.map((provider) => (
               <span key={provider}>{provider}</span>
             ))}
@@ -68,24 +72,24 @@ export default function RecommendationCard({
             <button
               type="button"
               className={rating === "like" ? "feedback selected" : "feedback"}
-              aria-label={`Like ${item.title}`}
+              aria-label={`${copy.like} ${item.title}`}
               aria-pressed={rating === "like"}
               disabled={pending}
               onClick={() => onFeedback("like")}
             >
-              ♡ <span>Like</span>
+              ♡ <span>{copy.like}</span>
             </button>
             <button
               type="button"
               className={
                 rating === "dislike" ? "feedback selected" : "feedback"
               }
-              aria-label={`Dislike ${item.title}`}
+              aria-label={`${copy.dislike} ${item.title}`}
               aria-pressed={rating === "dislike"}
               disabled={pending}
               onClick={() => onFeedback("dislike")}
             >
-              − <span>Dislike</span>
+              − <span>{copy.dislike}</span>
             </button>
             {link ? (
               <a
@@ -93,19 +97,19 @@ export default function RecommendationCard({
                 href={link}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label={`Open track ${item.title} in ${item.track.source.provider}`}
+                aria-label={language === "zh" ? `在 ${item.track.source.provider} 打开歌曲 ${item.title}` : `Open track ${item.title} in ${item.track.source.provider}`}
               >
-                Open track ↗
+                {copy.openTrack}
               </a>
             ) : null}
           </div>
         </div>
         <details className="score-details">
-          <summary>Why this match?</summary>
+          <summary>{copy.whyMatch}</summary>
           <dl>
             {Object.entries(item.score_breakdown).map(([name, value]) => (
               <div key={name}>
-                <dt>{name.replaceAll("_", " ")}</dt>
+                <dt>{factorLabel(name, language)}</dt>
                 <dd>{value.toFixed(2)}</dd>
               </div>
             ))}

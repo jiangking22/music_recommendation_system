@@ -1,5 +1,33 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-020: Resolve recording seeds before discovery; optional shared model guidance
+
+**Status:** Accepted
+**Date:** 2026-10-05
+
+### Decision
+
+Use a deterministic recording-resolution step before artist/attribute recall. Keep a small,
+source-backed original-recording hint for the reported `我好想你` case; unknown multi-artist
+matches require explicit artist selection. A single unlabelled match does not certify original
+authorship. Filter alternate recordings before deduplication, exclude seed versions, and score
+related artist/genre/tag/language factors explicitly alongside existing profile policy.
+Bound each request to three registry operations and never pad a resolved song with unrelated
+fixture tracks. Keep generic theme fallback and the existing recommendation response contract.
+
+Add `/v1/recommendations/discover` for canonical seed metadata, ambiguity choices and explanation.
+Reuse the assistant's configured LLM adapter for bounded prose only; errors preserve deterministic
+results with local guidance. Translate homepage interface copy through an EN/中文 preference,
+keeping music metadata and English theme headings unchanged.
+
+### Consequences
+
+Song discovery goes beyond a title search without handing recall/ranking to a model. Original
+identification depends on source quality and bounded verified hints; incomplete upstream data
+can produce fewer results or a request for clarification. Optional model prose can still be
+inaccurate despite schema validation and grounding instructions; real-model quality is unverified.
+No new dependency, database schema or legacy-runtime change is required.
+
 ## ADR-001: Incremental strangler migration from the legacy demo
 
 **Status:** Accepted

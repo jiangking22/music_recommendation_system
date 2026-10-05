@@ -138,6 +138,36 @@ track from each default provider; future availability remains unverified.
 
 ## Service boundaries / 服务边界
 
+### Homepage seeded discovery (2026-10-05) / 首页歌曲发现
+
+The homepage now calls additive `POST /v1/recommendations/discover`. Typed inputs bound seed to
+120 characters, artist confirmation to 200, result limit to 1–10, and UI language to `en`/`zh`.
+The deterministic service resolves exact recording titles before recalling artist and available
+genre/tag context, with at most three registry operations and 25 results/provider/operation.
+Verified title/artist hints for `我好想你` distinguish the 苏打绿 recording and its title/artist
+aliases. Other multi-artist matches expose at most five canonical choices. Alternate recordings
+are filtered before merging; song mode excludes the seed's versions and unrelated fixture fill.
+Generic mood/genre requests retain the existing local catalog fallback and policy.
+
+The seed is separate from ranked results. Explicit seed artist/genre/tag/language weights in
+`app/domain/discovery.py` supplement the existing profile/source/popularity policy. The existing
+recommendation REST/Agent/MCP entry points share the corrected deterministic service. Scores,
+provenance and per-source errors remain visible; followup failures do not erase successful recall.
+
+The discovery API permits four active requests/event loop and uses the existing four-slot worker
+pool. Workers own their database sessions until completion, including after cancellation. Recall
+has a 37-second waiting deadline; optional model guidance has eight seconds, within a 45-second
+request deadline. Structured busy/timeout errors reveal no payloads. Guidance reuses the assistant's
+`get_llm_provider` configuration and strict prose-only Answer schema. It receives bounded canonical
+track summaries/factors and the current seed, without device IDs, private chat or full profiles.
+No key uses local guidance; malformed/unavailable/timed-out model prose preserves ranked results.
+
+The homepage stores only the selected interface language alongside its existing random device ID.
+It translates UI labels, statuses, feedback and measured explanation factors, keeping canonical
+music metadata and English theme headings intact. The shared card/profile components default to
+English for existing consumers. Locale changes update existing states without reranking; model
+prose in the previous language is replaced by local guidance until another search.
+
 ### Phase 3 recommendation core (implemented)
 
 `app/services/recommendation.py` recalls bounded candidates from Provider Registry and the

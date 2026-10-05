@@ -101,6 +101,41 @@ Apple's documented search API. No live provider availability is guaranteed. / �
 
 Embeddings and RAG do not silently enter ranking. No LLM ranks songs. / 向量与 RAG 不隐式参与排序，LLM 不排序。
 
+### Homepage discovery / 首页歌曲推荐
+
+The homepage resolves a song recording first, shows it separately as the seed, then recalls
+the artist and available genre/tag context. Related results exclude alternate recordings and
+other versions of the seed. A small source-backed hint resolves `我好想你` to 苏打绿 / 蘇打綠 /
+sodagreen. Unknown titles with multiple artist matches ask you to choose an artist; a single
+unlabelled match is a seed candidate, not proof of original authorship. Resolved songs, known
+originals, explicit artist selections and matches containing only alternate recordings do not
+get filled with unrelated demo songs. Unmatched inputs are treated as mood/genre prompts and
+retain local fallback; the API has no separate song-versus-mood selector.
+
+首页先识别起点歌曲并单独显示，再按歌手与已有风格/标签召回相关音乐，排除起点的同名版本与翻唱、现场等
+替代录音。《我好想你》使用已核对来源的苏打绿提示；未知歌曲出现多个歌手时提供确认按钮。
+单个未注明翻唱的结果不等于已证实原唱。已识别歌曲、已知原唱、明确指定歌手或只找到替代录音时，
+不会用无关演示歌曲补数；完全没有匹配的输入会按心情/风格线索保留本地降级，接口尚未区分歌曲与心情输入类型。
+
+Use **EN / 中文** in the header to switch and remember interface copy. Music titles, artists,
+albums and English theme headings remain unchanged. The additive
+`POST /v1/recommendations/discover` accepts `seed`, `limit`, `language` (`en`/`zh`) and an optional
+`seed_artist`, and returns canonical results, seed candidates and short discovery guidance.
+
+顶部 **EN / 中文** 按钮切换并记住界面语言；歌曲名、歌手、专辑和英文主题标题保持原样。
+新增发现接口返回起点、歧义候选、统一推荐结果与简短说明。
+
+Homepage guidance uses the same server-only `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY` and
+`LLM_MODEL` as `/agent`; see the existing [.env.example](.env.example). No extra browser key is
+needed. The model explains measured results without changing recall or ranking. Missing keys
+use local guidance; model errors/timeouts keep the music results and fall back to local text.
+Model guidance is generated in the selected interface language; after switching language,
+search again for new model prose. Live model compatibility/quality remains unverified.
+
+首页与助手复用同一套服务端 `LLM_*` 环境变量，不在浏览器输入 Key。模型仅解释推荐器给出的结果；
+无 Key 时使用本地说明，模型失败或超时也保留推荐结果。切换语言后重新搜索可生成对应语言的模型说明。
+真实模型兼容性与输出效果仍未实测。
+
 ## Agent, memory, RAG and MCP / 助手与工具协议
 
 The Agent validates one plan of 1–4 distinct allowlisted tools. A 30-second default deadline,

@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createApiClient, type ApiClient } from "../lib/api";
 import { getDeviceId } from "../lib/device";
+import { copyFor, localGuidance, readLanguage, saveLanguage } from "../lib/i18n";
 import type {
   FeedbackValue,
   PreferenceProfile,
-  RecommendationResponse,
+  DiscoveryResponse,
+  InterfaceLanguage,
   RecommendationItem,
 } from "../types/music";
 import ProfilePanel from "./ProfilePanel";
@@ -21,17 +23,40 @@ export default function ProductClient() {
   const [ready, setReady] = useState(false);
   const [seed, setSeed] = useState("");
   const [limit, setLimit] = useState(5);
-  const [result, setResult] = useState<RecommendationResponse | null>(null);
+  const [language, setLanguage] = useState<InterfaceLanguage>("en");
+  const [result, setResult] = useState<DiscoveryResponse | null>(null);
+  const [resultLanguage, setResultLanguage] = useState<InterfaceLanguage>("en");
+  const [resultSeed, setResultSeed] = useState("");
+  const [selectedArtist, setSelectedArtist] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  const [notice, setNotice] = useState<"deviceUnavailable" | "partialSources" | null>(null);
   const [profile, setProfile] = useState<PreferenceProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState(false);
   const [ratings, setRatings] = useState<Record<string, FeedbackValue>>({});
   const [pending, setPending] = useState<string | null>(null);
-  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [feedbackError, setFeedbackError] = useState(false);
   const [preferencesChanged, setPreferencesChanged] = useState(false);
+  const copy = copyFor(language);
+
+  useEffect(() => {
+    // Browser preference is restored after hydration so the server and first client render agree.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLanguage(readLanguage());
+  }, []);
+
+  useEffect(() => {
+    const previous = document.documentElement.lang;
+    document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+    return () => { document.documentElement.lang = previous; };
+  }, [language]);
+
+  function switchLanguage() {
+    const next = language === "en" ? "zh" : "en";
+    setLanguage(next);
+    saveLanguage(next);
+  }
 
   useEffect(() => {
     const client = createApiClient(API_BASE, getDeviceId());
@@ -41,9 +66,7 @@ export default function ProductClient() {
       .bootstrap()
       .catch(() => {
         if (active)
-          setNotice(
-            "Your device profile could not be connected. Try again later.",
-          );
+          setNotice("deviceUnavailable");
       })
       .finally(() => {
         if (active) setReady(true);
@@ -63,7 +86,7 @@ export default function ProductClient() {
         );
       })
       .catch(() => {
-        if (active) setProfileError("Your profile is unavailable right now.");
+        if (active) setProfileError(true);
       })
       .finally(() => {
         if (active) setProfileLoading(false);
@@ -73,25 +96,23 @@ export default function ProductClient() {
     };
   }, []);
 
-  async function findMusic(event?: React.FormEvent) {
+  async function findMusic(event?: React.FormEvent, artist = selectedArtist, query = seed) {
     event?.preventDefault();
-    if (!api.current || !seed.trim() || loading) return;
+    if (!api.current || !query.trim() || loading) return;
     setLoading(true);
-    setError(null);
+    setError(false);
     setNotice(null);
-    setFeedbackError(null);
+    setFeedbackError(false);
     try {
-      const response = await api.current.recommend(seed.trim(), limit);
+      const response = await api.current.discover(query.trim(), limit, language, artist);
       setResult(response);
+      setResultLanguage(language);
+      setResultSeed(query.trim());
       setPreferencesChanged(false);
       if (Object.values(response.sources).some((source) => source.error))
-        setNotice(
-          "Some sources are unavailable. Showing the music we could find.",
-        );
+        setNotice("partialSources");
     } catch {
-      setError(
-        "Couldn’t load recommendations. Check the service and try again.",
-      );
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -102,16 +123,16 @@ export default function ProductClient() {
     const previous = ratings[item.id];
     setRatings((current) => ({ ...current, [item.id]: value }));
     setPending(item.id);
-    setFeedbackError(null);
+    setFeedbackError(false);
     try {
       await api.current.feedback(item.track, value);
       setPreferencesChanged(true);
       try {
         const nextProfile = await api.current.profile();
         setProfile(nextProfile);
-        setProfileError(null);
+        setProfileError(false);
       } catch {
-        setProfileError("Your profile is unavailable right now.");
+        setProfileError(true);
       }
     } catch {
       setRatings((current) => {
@@ -120,7 +141,7 @@ export default function ProductClient() {
         else delete next[item.id];
         return next;
       });
-      setFeedbackError("Couldn’t save feedback. Please try again.");
+      setFeedbackError(true);
     } finally {
       setPending(null);
     }
@@ -129,25 +150,30 @@ export default function ProductClient() {
   return (
     <div className="site-shell">
       <header className="site-header">
-        <Link href="/" className="brand" aria-label="Sonora home">
+        <Link href="/" className="brand" aria-label={copy.home}>
           <span className="brand-icon">◉</span> sonora
           <span className="brand-dot">.</span>
         </Link>
-        <Link href="/agent" className="agent-nav">Music assistant ↗</Link>
+        <div className="header-actions">
+          <button type="button" className="language-toggle" onClick={switchLanguage}
+            aria-label={language === "en" ? "切换为中文" : "Switch to English"}>
+            <span lang="en" className={language === "en" ? "active-language" : undefined}>EN</span>
+            <span aria-hidden="true"> / </span>
+            <span lang="zh-CN" className={language === "zh" ? "active-language" : undefined}>中文</span>
+          </button>
+          <Link href="/agent" className="agent-nav">{copy.assistant}</Link>
+        </div>
       </header>
       <main>
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero-copy">
-            <span className="eyebrow">FIND YOUR NEXT FAVORITE</span>
-            <h1 id="hero-title">
+            <span className="eyebrow" lang="en">FIND YOUR NEXT FAVORITE</span>
+            <h1 id="hero-title" lang="en">
               Listen into
               <br />
               <em>something new.</em>
             </h1>
-            <p>
-              Begin with a song, artist, or feeling. We’ll find music that
-              resonates—and learn what you love along the way.
-            </p>
+            <p>{copy.heroDescription}</p>
           </div>
           <div className="hero-record" aria-hidden="true">
             <div className="record-inner">
@@ -164,36 +190,36 @@ export default function ProductClient() {
             <section className="search-panel" aria-labelledby="search-title">
               <div className="section-heading">
                 <div>
-                  <span className="eyebrow">01 / DISCOVER</span>
-                  <h2 id="search-title">What’s on your mind?</h2>
+                  <span className="eyebrow" lang="en">01 / DISCOVER</span>
+                  <h2 id="search-title" lang="en">What’s on your mind?</h2>
                 </div>
                 <span className="section-aside">
-                  Your next listen starts here.
+                  {copy.searchAside}
                 </span>
               </div>
               <form onSubmit={findMusic}>
                 <div className="form-row">
                   <div className="input-wrap">
-                    <label htmlFor="seed">Song or mood</label>
+                    <label htmlFor="seed">{copy.seedLabel}</label>
                     <input
                       id="seed"
                       value={seed}
-                      onChange={(event) => setSeed(event.target.value)}
-                      placeholder="e.g. Dreams by Fleetwood Mac, late-night jazz…"
+                      onChange={(event) => { setSeed(event.target.value); setSelectedArtist(undefined); }}
+                      placeholder={copy.seedPlaceholder}
                       maxLength={120}
                       required
                     />
                   </div>
                   <div className="limit-wrap">
-                    <label htmlFor="limit">Results</label>
+                    <label htmlFor="limit">{copy.resultsLabel}</label>
                     <select
                       id="limit"
                       value={limit}
                       onChange={(event) => setLimit(Number(event.target.value))}
                     >
-                      <option value={3}>3 tracks</option>
-                      <option value={5}>5 tracks</option>
-                      <option value={10}>10 tracks</option>
+                      <option value={3}>3 {copy.trackUnit}</option>
+                      <option value={5}>5 {copy.trackUnit}</option>
+                      <option value={10}>10 {copy.trackUnit}</option>
                     </select>
                   </div>
                   <button
@@ -201,7 +227,7 @@ export default function ProductClient() {
                     type="submit"
                     disabled={!ready || loading}
                   >
-                    {loading ? "Finding…" : "Find music"}
+                    {loading ? copy.finding : copy.findMusic}
                     <span aria-hidden="true">↗</span>
                   </button>
                 </div>
@@ -214,39 +240,39 @@ export default function ProductClient() {
             >
               <div className="section-heading">
                 <div>
-                  <span className="eyebrow">02 / YOUR MIX</span>
-                  <h2 id="results-title">Made for this moment</h2>
+                  <span className="eyebrow" lang="en">02 / YOUR MIX</span>
+                  <h2 id="results-title" lang="en">Made for this moment</h2>
                 </div>
                 {result && !loading ? (
                   <span className="result-count">
-                    {result.items.length} tracks found
+                    {language === "zh" ? `找到 ${result.items.length} 首歌曲` : `${result.items.length} tracks found`}
                   </span>
                 ) : null}
               </div>
               <div className="status-region" aria-live="polite">
-                {!ready ? <p>Connecting your listening profile…</p> : null}
+                {!ready ? <p>{copy.connecting}</p> : null}
                 {loading ? (
-                  <p className="loading-state">Finding your next listen…</p>
+                  <p className="loading-state">{copy.loading}</p>
                 ) : null}
-                {notice ? <p className="notice">{notice}</p> : null}
+                {notice ? <p className="notice">{copy[notice]}</p> : null}
                 {error ? (
                   <div role="alert" className="error-state">
-                    <p>{error}</p>
+                    <p>{copy.recommendationsError}</p>
                     <button type="button" onClick={() => findMusic()}>
-                      Try again
+                      {copy.tryAgain}
                     </button>
                   </div>
                 ) : null}
                 {feedbackError ? (
                   <p role="alert" className="feedback-error">
-                    {feedbackError}
+                    {copy.feedbackError}
                   </p>
                 ) : null}
                 {preferencesChanged ? (
                   <p className="personalization-note">
-                    Your taste has changed.{" "}
+                    {copy.tasteChanged}{" "}
                     <button type="button" onClick={() => findMusic()}>
-                      Refresh recommendations ↗
+                      {copy.refresh}
                     </button>
                   </p>
                 ) : null}
@@ -256,10 +282,41 @@ export default function ProductClient() {
                   <div aria-hidden="true" className="empty-art">
                     ♫
                   </div>
-                  <h3>Ready to discover</h3>
-                  <p>
-                    Start with a song you love—or a mood you can’t quite name.
-                  </p>
+                  <h3>{copy.emptyTitle}</h3>
+                  <p>{copy.emptyDescription}</p>
+                </div>
+              ) : null}
+              {!loading && result && !error ? (
+                <div className="discovery-context">
+                  {result.seed_track ? (
+                    <p className="seed-track"><span>{copy.basedOn}</span>
+                      <strong>{result.seed_track.title} · {result.seed_track.artist.name}</strong>
+                    </p>
+                  ) : null}
+                  {result.seed_status === "ambiguous" ? (
+                    <div className="seed-confirmation">
+                      <h3>{copy.confirmArtist}</h3>
+                      <p>{copy.confirmDescription}</p>
+                      <div className="seed-choices">
+                        {result.seed_candidates.slice(0, 5).map((candidate) => (
+                          <button type="button" key={candidate.canonical_key} onClick={() => {
+                            setSeed(resultSeed);
+                            setSelectedArtist(candidate.artist.name);
+                            void findMusic(undefined, candidate.artist.name, resultSeed);
+                          }}>{candidate.title} · {candidate.artist.name}</button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="discovery-guidance">
+                      <h3>{copy.guidanceTitle}</h3>
+                      <p>{result.guidance_provider === "openai_compatible" && result.guidance_status === "ready" && resultLanguage === language
+                        ? result.guidance : localGuidance(result, language)}</p>
+                      {result.guidance_status === "unavailable" ? <p className="guidance-note">{copy.modelUnavailable}</p> : null}
+                      {result.guidance_provider === "openai_compatible" && resultLanguage !== language
+                        ? <p className="guidance-note">{copy.guidanceLanguage}</p> : null}
+                    </div>
+                  )}
                 </div>
               ) : null}
               {!loading && result && !error ? (
@@ -273,13 +330,14 @@ export default function ProductClient() {
                         rating={ratings[item.id]}
                         pending={pending !== null}
                         onFeedback={(value) => sendFeedback(item, value)}
+                        language={language}
                       />
                     ))}
                   </div>
-                ) : (
+                ) : result.seed_status === "ambiguous" ? null : (
                   <div className="empty-state">
-                    <h3>No tracks found</h3>
-                    <p>Try another song or mood to start a different search.</p>
+                    <h3>{copy.noTracks}</h3>
+                    <p>{copy.noTracksDescription}</p>
                   </div>
                 )
               ) : null}
@@ -288,13 +346,14 @@ export default function ProductClient() {
           <ProfilePanel
             profile={profile}
             loading={profileLoading}
-            error={profileError}
+            error={profileError ? copy.profileError : null}
+            language={language}
           />
         </div>
       </main>
       <footer className="site-footer">
         <span>sonora. / Find your frequency.</span>
-        <span>Thoughtful music discovery, one track at a time.</span>
+        <span>{copy.footer}</span>
       </footer>
     </div>
   );

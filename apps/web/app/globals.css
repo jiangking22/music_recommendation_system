@@ -550,6 +550,81 @@ summary:focus-visible {
   font-size: 11px;
   color: #8b8780;
 }
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.language-toggle {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 8px 10px;
+  white-space: nowrap;
+}
+.active-language {
+  color: var(--ink);
+  font-weight: 700;
+}
+.discovery-context {
+  margin-bottom: 20px;
+}
+.seed-track {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 13px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--orange);
+  background: var(--soft);
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+.seed-track span {
+  color: var(--muted);
+}
+.seed-confirmation,
+.discovery-guidance {
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+}
+.seed-confirmation h3,
+.discovery-guidance h3 {
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+.seed-confirmation p,
+.discovery-guidance p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+.discovery-guidance p.guidance-note {
+  margin-top: 8px;
+  font-size: 11px;
+}
+.seed-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.seed-choices button {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 8px 12px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 12px;
+}
 @media (max-width: 1100px) {
   .hero-record {
     right: -90px;
@@ -598,6 +673,14 @@ summary:focus-visible {
   }
 }
 @media (max-width: 560px) {
+  .header-actions {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+  .language-toggle {
+    padding: 8px;
+  }
   .site-header {
     height: 70px;
   }
@@ -633,7 +716,7 @@ summary:focus-visible {
     padding: 38px 18px 60px;
   }
   .form-row {
-    grid-template-columns: 1fr 110px;
+    grid-template-columns: minmax(0, 1fr) 110px;
   }
   .input-wrap input {
     font-size: 12px;

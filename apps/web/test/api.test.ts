@@ -52,4 +52,18 @@ describe("API client", () => {
       status: 422,
     } satisfies Partial<ApiError>);
   });
+
+  it("sends the discovery locale and artist confirmation with a bounded deadline", async () => {
+    const deadline = vi.spyOn(AbortSignal, "timeout");
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], sources: {} }), { status: 200 }));
+    const api = createApiClient("http://localhost:8000", "device_1234567890", fetcher);
+    await api.discover("我好想你", 5, "zh", "苏打绿");
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/v1/recommendations/discover", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ seed: "我好想你", limit: 5, language: "zh", seed_artist: "苏打绿" }),
+      headers: expect.objectContaining({ "X-Device-Id": "device_1234567890" }),
+    }));
+    expect(deadline).toHaveBeenCalledWith(60000);
+    deadline.mockRestore();
+  });
 });

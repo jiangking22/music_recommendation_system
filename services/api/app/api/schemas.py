@@ -52,6 +52,25 @@ class RecommendationResponse(BaseModel):
     sources: dict[str, ProviderResult]
 
 
+class DiscoveryRequest(RecommendationRequest):
+    language: Literal["en", "zh"] = "en"
+    seed_artist: str | None = Field(default=None, min_length=1, max_length=200)
+
+    @field_validator("seed_artist", mode="before")
+    @classmethod
+    def strip_artist(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class DiscoveryResponse(RecommendationResponse):
+    seed_track: Track | None = None
+    seed_candidates: list[Track] = Field(default_factory=list, max_length=5)
+    seed_status: Literal["matched", "ambiguous", "unresolved"]
+    guidance: str = Field(max_length=2000)
+    guidance_provider: Literal["local", "openai_compatible"]
+    guidance_status: Literal["ready", "unavailable"]
+
+
 class FeedbackRequest(BaseModel):
     track: Track
     value: Literal["like", "dislike"]

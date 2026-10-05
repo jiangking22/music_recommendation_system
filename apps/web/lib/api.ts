@@ -1,5 +1,7 @@
 import type {
   FeedbackValue,
+  DiscoveryResponse,
+  InterfaceLanguage,
   PreferenceProfile,
   RecommendationResponse,
   Track,
@@ -26,6 +28,7 @@ export function createApiClient(
     path: string,
     method = "GET",
     body?: unknown,
+    timeoutMs = 12000,
   ): Promise<T> {
     let response: Response;
     try {
@@ -36,7 +39,7 @@ export function createApiClient(
           "X-Device-Id": deviceId,
         },
         body: body === undefined ? undefined : JSON.stringify(body),
-        signal: AbortSignal.timeout(12000),
+        signal: AbortSignal.timeout(timeoutMs),
         cache: "no-store",
       });
     } catch (error) {
@@ -77,6 +80,13 @@ export function createApiClient(
         seed,
         limit,
       }),
+    discover: (seed: string, limit: number, language: InterfaceLanguage, seedArtist?: string) =>
+      request<DiscoveryResponse>("/v1/recommendations/discover", "POST", {
+        seed,
+        limit,
+        language,
+        ...(seedArtist ? { seed_artist: seedArtist } : {}),
+      }, 60000),
     feedback: (track: Track, value: FeedbackValue) =>
       request<{ track_key: string; value: FeedbackValue }>(
         "/v1/feedback",

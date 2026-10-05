@@ -1,31 +1,35 @@
-import type { PreferenceProfile } from "../types/music";
+import { copyFor } from "../lib/i18n";
+import type { InterfaceLanguage, PreferenceProfile } from "../types/music";
 
 export default function ProfilePanel({
   profile,
   loading,
   error,
+  language = "en",
 }: {
   profile: PreferenceProfile | null;
   loading: boolean;
   error: string | null;
+  language?: InterfaceLanguage;
 }) {
+  const copy = copyFor(language);
   const sections = [
-    ["Artists", profile?.artists],
-    ["Genres & tags", [...(profile?.genres ?? []), ...(profile?.tags ?? [])]],
-    ["Language", profile?.languages],
+    [copy.artists, profile?.artists],
+    [copy.genres, [...(profile?.genres ?? []), ...(profile?.tags ?? [])]],
+    [copy.language, profile?.languages],
   ] as const;
   return (
     <aside className="profile-panel" aria-labelledby="profile-title">
       <div className="profile-top">
-        <span className="eyebrow">YOUR LISTENING DNA</span>
+        <span className="eyebrow" lang="en">YOUR LISTENING DNA</span>
         <div className="profile-mark">◎</div>
       </div>
-      <h2 id="profile-title">Preference profile</h2>
+      <h2 id="profile-title" lang="en">Preference profile</h2>
       <p className="profile-intro">
-        Your likes shape the next set of recommendations.
+        {copy.profileIntro}
       </p>
       {loading ? (
-        <p role="status">Loading your profile…</p>
+        <p role="status">{copy.profileLoading}</p>
       ) : error ? (
         <p role="alert">{error}</p>
       ) : (
@@ -42,12 +46,12 @@ export default function ProfilePanel({
                   ))}
                 </div>
               ) : (
-                <p className="profile-muted">No signals yet</p>
+                <p className="profile-muted">{copy.noSignals}</p>
               )}
             </section>
           ))}
           <section className="profile-section">
-            <h3>Recent feedback</h3>
+            <h3>{copy.recentFeedback}</h3>
             {profile?.recent_feedback.length ? (
               <ul className="recent-feedback">
                 {profile.recent_feedback.map((item) => (
@@ -56,13 +60,13 @@ export default function ProfilePanel({
                       {item.value === "like" ? "♡" : "−"}{" "}
                       {item.track_key.split("::")[0]}
                     </span>
-                    <strong>{item.value}</strong>
+                    <strong>{item.value === "like" ? copy.like : copy.dislike}</strong>
                   </li>
                 ))}
               </ul>
             ) : (
               <p className="profile-muted">
-                Your listening story starts with a like.
+                {copy.profileEmpty}
               </p>
             )}
           </section>

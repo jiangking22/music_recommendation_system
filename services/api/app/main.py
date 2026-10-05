@@ -6,6 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
 from app.api.agent import router as agent_router
+from app.api.discovery import router as discovery_router
 from app.api.mcp import router as mcp_router
 from app.api.middleware import RequestBodyLimit
 from app.api.routes import router
@@ -27,6 +28,7 @@ app.add_middleware(
 )
 app.include_router(router)
 app.include_router(agent_router)
+app.include_router(discovery_router)
 app.include_router(mcp_router)
 
 
