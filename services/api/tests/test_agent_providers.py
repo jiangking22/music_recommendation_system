@@ -39,6 +39,46 @@ def test_openai_compatible_adapter_uses_mock_transport_for_plan_and_answer():
     assert answer.answer == "Jazz has improvisation."
 
 
+@pytest.mark.parametrize("base_url, disables_thinking", [
+    ("https://api.deepseek.com/", True),
+    ("https://api.deepseek.com/v1/", True),
+    ("https://api.deepseek.com.example.org/v1", False),
+    ("https://model.example/v1", False),
+])
+def test_json_output_preserved_and_thinking_override_is_only_for_deepseek(
+    base_url, disables_thinking,
+):
+    operations = []
+
+    def respond(request):
+        assert str(request.url) == f"{base_url.rstrip('/')}/chat/completions"
+        body = json.loads(request.content)
+        assert body["response_format"] == {"type": "json_object"}
+        assert body["max_tokens"] == 1200
+        assert body["model"] == "fixture-model"
+        if disables_thinking:
+            assert body["thinking"] == {"type": "disabled"}
+        else:
+            assert "thinking" not in body
+        data = json.loads(body["messages"][1]["content"])
+        if "tools" in data:
+            operations.append("plan")
+            output = {"calls": [{"name": "search_music_knowledge",
+                                  "arguments": {"query": "jazz"}}]}
+        else:
+            operations.append("answer")
+            output = {"answer": "Jazz has improvisation."}
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(output)}}]})
+
+    provider = OpenAICompatibleProvider(base_url, "mock-key", "fixture-model",
+                                        httpx.MockTransport(respond))
+    plan = Plan.model_validate(asyncio.run(provider.plan({"message": "介绍爵士乐"}, tool_schemas())))
+    assert plan.calls[0].name == "search_music_knowledge"
+    answer = Answer.model_validate(asyncio.run(provider.answer({"message": "jazz"}, [])))
+    assert answer.answer == "Jazz has improvisation."
+    assert operations == ["plan", "answer"]
+
+
 @pytest.mark.parametrize("payload", [
     {"choices": []}, {"choices": [{"message": {"content": "not-json"}}]},
     {"choices": [{"message": {"content": "[]"}}]},

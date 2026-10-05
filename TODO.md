@@ -1,6 +1,25 @@
 # TODO
 
-## Homepage discovery correction / 首页推荐修复（当前任务）
+## DeepSeek startup compatibility / DeepSeek 启动兼容（当前任务）
+
+- [x] Preserve the configured DeepSeek integration when rebuilding the merged homepage:
+  explicitly disable thinking for the official DeepSeek host, keep JSON output and strict
+  validation, and preserve other OpenAI-compatible request behavior. Reuse existing `.env`.
+
+Scope: LLM adapter, focused provider tests, bilingual startup notes, and current-state docs.
+Verification: failing transport regression first; API pytest/Ruff; Docker rebuild/readiness and
+homepage/assistant HTTP checks using the existing configuration. Keep the other task's stash.
+
+Acceptance 2026-10-05: transport regression first failed on both official DeepSeek URL forms;
+all 105 API tests, Ruff/compile and independent review then passed. The configured DeepSeek-flash
+returned a validated answer. Local Docker API/web rebuild and readiness passed against existing
+PostgreSQL/Redis; homepage/assistant pages returned HTTP 200. Live discovery resolved `我好想你`
+to sodagreen with three related songs and model guidance; Agent chat used the same real provider.
+This is existing-stack verification, not a new disposable local clean start or general quality
+evaluation. Existing development-only braces advisory still blocks full npm audit; the audit gate
+is retained. Credentials and the other task's stash remain outside the commit.
+
+## Homepage discovery correction / 首页推荐修复
 
 - [x] Resolve song seeds before related-track recall, prefer verified original recordings over
   covers, exclude repeated seed versions from recommendations, and expose ambiguous matches.

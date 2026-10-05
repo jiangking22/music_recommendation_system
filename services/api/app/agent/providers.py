@@ -2,6 +2,7 @@ import json
 import logging
 from time import perf_counter
 from typing import Protocol
+from urllib.parse import urlsplit
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
@@ -91,16 +92,20 @@ class OpenAICompatibleProvider:
                  level=logging.INFO if status == "ok" else logging.WARNING)
 
     async def _request(self, prompt: str, data: dict, usage: dict) -> dict:
+        request_body = {
+            "model": self.model, "max_tokens": 1200,
+            "response_format": {"type": "json_object"},
+            "messages": [{"role": "system", "content": prompt},
+                         {"role": "user", "content": json.dumps(data, ensure_ascii=False)}],
+        }
+        if urlsplit(self.base_url).hostname == "api.deepseek.com":
+            request_body["thinking"] = {"type": "disabled"}
         async with (
             httpx.AsyncClient(timeout=10, transport=self.transport, follow_redirects=False,
                               trust_env=False) as client,
             client.stream("POST", f"{self.base_url}/chat/completions",
-                          headers={"Authorization": f"Bearer {self.api_key}", **correlation_headers()}, json={
-                              "model": self.model, "max_tokens": 1200,
-                              "response_format": {"type": "json_object"},
-                              "messages": [{"role": "system", "content": prompt},
-                                           {"role": "user", "content": json.dumps(data, ensure_ascii=False)}],
-                          }) as response,
+                          headers={"Authorization": f"Bearer {self.api_key}", **correlation_headers()},
+                          json=request_body) as response,
         ):
             response.raise_for_status()
             body = bytearray()

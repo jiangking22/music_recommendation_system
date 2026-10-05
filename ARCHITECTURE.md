@@ -215,6 +215,8 @@ No migration or recommendation policy change was needed.
 planning/answer interface. The local provider is a deterministic bilingual intent router, not
 a model; the OpenAI-compatible adapter uses bounded Chat Completions JSON requests, validates
 payloads and then validates the plan/answer schemas. No Key defaults to the local provider.
+Requests to the official `api.deepseek.com` host explicitly disable thinking to fit the bounded
+planner/answer deadlines. JSON output mode and strict response validation remain enabled.
 Real model quality/compatibility is not inferred from mocked transport tests.
 
 ```mermaid
@@ -321,13 +323,18 @@ lint/typecheck/build/audit and a disposable offline Compose clean start with rea
 
 Author Windows host (2026-09-30) has no Docker: local container clean start is **not executed**;
 static topology/Dockerfile/environment checks and full offline PostgreSQL upgrade/downgrade SQL
-are separate evidence. See actual CI runs for remote runtime status. Real LLM compatibility remains
-unverified. [Deployment](docs/DEPLOYMENT.md), [Demo](docs/DEMO.md), [Logs](docs/OBSERVABILITY.md).
+are separate evidence. See actual CI runs for remote runtime status. Real LLM compatibility was
+unverified at that point. [Deployment](docs/DEPLOYMENT.md), [Demo](docs/DEMO.md), [Logs](docs/OBSERVABILITY.md).
 
 Release audit on 2026-10-02: main `4c54239` passed the actual
 [CI clean-start job](https://github.com/jiangking22/music_recommendation_system/actions/runs/36971477031/job/110726170498),
 including PostgreSQL/pgvector, Redis, migrations and the offline product flow. This adds remote
 runtime evidence without changing the historical local no-Docker status or architecture decisions.
+
+On 2026-10-05, local Docker API/web rebuild and readiness passed against the existing PostgreSQL
+and Redis stack. Live discovery and Agent chat used the configured DeepSeek-flash through the
+shared adapter. This verifies that configuration, not other providers, general quality or a new
+disposable local database clean start.
 
 | Area | Responsibility | Must not do |
 | --- | --- | --- |

@@ -1,5 +1,20 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-021: Keep DeepSeek compatibility at the shared model adapter boundary
+
+**Status:** Accepted
+**Date:** 2026-10-05
+
+Explicitly send `thinking: {type: disabled}` only when the configured URL hostname is exactly
+`api.deepseek.com`. Both the homepage and assistant reuse this adapter and existing `LLM_*`
+environment variables. Preserve JSON output mode and strict schema validation for every provider;
+custom endpoints and lookalike domain names retain their existing request payload.
+
+DeepSeek enables thinking by default; its [Chat Completions documentation](https://api-docs.deepseek.com/api/create-chat-completion/)
+supports disabling it and requesting JSON output. This keeps reasoning within existing request
+deadlines without introducing a new credential, changing the configured model or removing
+structured output from unrelated providers. Mocked transport checks do not certify live quality.
+
 ## ADR-020: Resolve recording seeds before discovery; optional shared model guidance
 
 **Status:** Accepted

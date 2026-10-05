@@ -130,11 +130,21 @@ Homepage guidance uses the same server-only `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM
 needed. The model explains measured results without changing recall or ranking. Missing keys
 use local guidance; model errors/timeouts keep the music results and fall back to local text.
 Model guidance is generated in the selected interface language; after switching language,
-search again for new model prose. Live model compatibility/quality remains unverified.
+search again for new model prose. On 2026-10-05, the configured DeepSeek-flash completed live
+homepage guidance and Agent chat in local Docker. Other providers and general quality remain unverified.
 
 首页与助手复用同一套服务端 `LLM_*` 环境变量，不在浏览器输入 Key。模型仅解释推荐器给出的结果；
 无 Key 时使用本地说明，模型失败或超时也保留推荐结果。切换语言后重新搜索可生成对应语言的模型说明。
-真实模型兼容性与输出效果仍未实测。
+2026-10-05 已在本机 Docker 验证现有 DeepSeek-flash 的首页说明与助手对话；其他模型与整体输出质量仍未验证。
+
+If the assistant is already configured, keep the main checkout's `.env`; both pages reuse it.
+After updating code, run `docker compose up -d --build --wait --wait-timeout 180` in that checkout,
+then open <http://localhost:3000>. The official DeepSeek endpoint uses
+non-thinking JSON requests through the shared adapter.
+
+助手已配置时，保留主目录现有 `.env`，首页无需单独填写 API Key。更新代码后在主目录执行
+`docker compose up -d --build --wait --wait-timeout 180`，访问 <http://localhost:3000>。
+官方 DeepSeek 接口由共享适配器使用非思考模式和 JSON 输出。
 
 ## Agent, memory, RAG and MCP / 助手与工具协议
 
@@ -322,10 +332,12 @@ focused on maintainability and reproducible evidence.
 
 ## Known Limitations / 已知限制
 
-- Docker/PostgreSQL/pgvector not executed on the author's local host; offline SQL and SQLite tests
-  are different evidence. / 本机无 Docker，实机状态以 CI 或部署机器结果为准。
-- Real-model quality and compatibility are unverified; local routing has limited bilingual patterns.
-  / 真实 LLM 未实测；本地助手只能识别有限规则。
+- Local Docker rebuild/readiness and product flow passed on 2026-10-05 against an existing
+  PostgreSQL/Redis stack; disposable clean-start evidence comes from CI.
+  / 本机已验证已有数据库上的 Docker 更新与运行；全新数据库启动以 CI 记录为准。
+- DeepSeek-flash passed local compatibility checks; other providers and general model quality
+  remain unverified. Local routing has limited bilingual patterns.
+  / 已实测现有 DeepSeek-flash 调用；其他模型与整体质量未验证，本地助手仍使用有限规则。
 - Tiny catalog, two-case evaluation and 16D hash collisions limit relevance and RAG semantics.
   / 小曲库、小评估和哈希冲突不支持线上质量推断。
 - Anonymous identifiers are not authentication. Chat is stored in bounded rows, but there is no
