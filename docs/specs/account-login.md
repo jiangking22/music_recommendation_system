@@ -7,7 +7,7 @@ retains six turns per login session, without cross-device history. Legacy source
 ## Product and contracts
 
 - Open username/password registration. ASCII letters/digits/underscore, 3–32 characters,
-  case-insensitive uniqueness; password 15–128 characters including spaces, never trimmed.
+  case-insensitive uniqueness; password 7–128 characters including spaces, never trimmed.
 - Login/register/show password/remember login, safe local return path, account menu/change password.
   Login is 24 hours or 30 days remembered. Registration logs in. Reset is local administrator CLI.
 - Typed `/v1/auth/csrf`, `/register`, `/login`, `/me`, `/logout`, `/change-password`; consistent errors.

@@ -1,5 +1,15 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-031: User-requested password minimum
+
+**Status:** Accepted (explicit user amendment to the account plan)
+**Date:** 2026-10-06
+
+Accept 7–128 Unicode characters for registration, login, password changes and administrator reset,
+replacing the original 15-character minimum. Spaces and password-manager paste remain supported;
+no composition rules are added. Usernames remain case-insensitively unique, backed by the existing
+database constraint. Password hashing, session revocation and account ownership are unchanged.
+
 ## ADR-030: Specific development-only dependency audit exception
 
 **Status:** Accepted (bounded release validation policy)

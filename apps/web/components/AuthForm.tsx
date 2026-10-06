@@ -32,8 +32,8 @@ export default function AuthForm({ mode }: { mode: "login" | "register" | "passw
     setError("");
     if (mode !== "password" && !/^[A-Za-z0-9_]{3,32}$/.test(username)) { setError(copy.invalidUsername); return; }
     const passwordLength = Array.from(password).length;
-    if (passwordLength < 15 || passwordLength > 128) { setError(copy.invalidPassword); return; }
-    if (mode === "password" && (Array.from(oldPassword).length < 15 || Array.from(oldPassword).length > 128)) { setError(copy.invalidPassword); return; }
+    if (passwordLength < 7 || passwordLength > 128) { setError(copy.invalidPassword); return; }
+    if (mode === "password" && (Array.from(oldPassword).length < 7 || Array.from(oldPassword).length > 128)) { setError(copy.invalidPassword); return; }
     if (mode !== "login" && password !== confirmation) { setError(copy.mismatch); return; }
     setPending(true);
     try {

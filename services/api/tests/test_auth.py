@@ -79,6 +79,48 @@ def test_register_login_cookie_and_case_insensitive_uniqueness(auth_env):
     assert "Max-Age=2592000" in logged.headers["set-cookie"]
 
 
+def test_seven_character_password_register_login_and_duplicate_username(auth_env):
+    client, _, _ = auth_env
+    payload = {"username": "ShortPassword", "password": "seven_7"}
+    assert client.post("/v1/auth/register", headers=csrf(client), json=payload).status_code == 201
+    duplicate = client.post("/v1/auth/register", headers=csrf(client),
+                            json=payload | {"username": "SHORTPASSWORD"})
+    assert duplicate.status_code == 409
+    assert duplicate.json()["error"]["code"] == "username_taken"
+    assert client.post("/v1/auth/logout", headers=csrf(client)).status_code == 200
+    assert client.post("/v1/auth/login", headers=csrf(client), json=payload).status_code == 200
+    changed = client.post("/v1/auth/change-password", headers=csrf(client),
+                          json={"old_password": "seven_7", "new_password": "new_pwd"})
+    assert changed.status_code == 200
+    assert client.get("/v1/auth/me").status_code == 401
+    assert client.post("/v1/auth/login", headers=csrf(client),
+                       json=payload | {"password": "new_pwd"}).status_code == 200
+
+
+def test_password_change_rejects_six_characters_without_revoking_session(auth_env):
+    client, _, _ = auth_env
+    assert register(client).status_code == 201
+    response = client.post("/v1/auth/change-password", headers=csrf(client),
+                           json={"old_password": PASSWORD, "new_password": "sixsix"})
+    assert response.status_code == 422
+    assert client.get("/v1/auth/me").status_code == 200
+
+
+def test_admin_reset_accepts_seven_characters_and_rejects_six(auth_env):
+    from app.auth.service import AuthError, reset_password
+
+    client, engine, _ = auth_env
+    assert register(client).status_code == 201
+    with Session(engine) as db:
+        reset_password(db, "listener", "reset_7")
+    assert client.get("/v1/auth/me").status_code == 401
+    with Session(engine) as db, pytest.raises(AuthError) as error:
+        reset_password(db, "Listener", "sixsix")
+    assert error.value.code == "validation_error"
+    assert client.post("/v1/auth/login", headers=csrf(client),
+                       json={"username": "Listener", "password": "reset_7"}).status_code == 200
+
+
 @pytest.mark.parametrize("origin", ["*", "http://*", "https://*.example.com", "https://example.com/"])
 def test_allowed_origins_require_exact_hostnames(origin):
     from pydantic import ValidationError
@@ -176,7 +218,7 @@ def test_expired_session_rate_limit_and_redis_failure(auth_env):
 
 
 @pytest.mark.parametrize("username,password", [("ab", PASSWORD), ("a-b", PASSWORD),
-                         ("valid", "short"), ("valid", "x" * 129)])
+                         ("valid", "short"), ("valid", "sixsix"), ("valid", "x" * 129)])
 def test_registration_validation(auth_env, username, password):
     client, _, _ = auth_env
     assert client.post("/v1/auth/register", headers=csrf(client),

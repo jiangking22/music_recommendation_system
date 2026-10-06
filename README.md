@@ -75,12 +75,12 @@ Redis 提供认证限流与就绪检查，业务缓存尚未实现。
 ## Accounts and portable preferences / 登录与跨设备偏好
 
 The target application requires an account. Open `/register`, choose a unique username
-(3–32 ASCII letters, digits or underscores, case-insensitive) and a 15–128 character password.
+(3–32 ASCII letters, digits or underscores, case-insensitive) and a 7–128 character password.
 Registration signs you in; `/login` supports 24-hour sessions or 30 days with “Remember me”.
 Use the username menu to change your password or sign out. Forgotten passwords require a local
 administrator reset; there is no email/SMS/OAuth or public administration page.
 
-新版必须登录。用户名为 3–32 位字母、数字或下划线，忽略大小写判重；密码 15–128 个字符，可含空格。
+新版必须登录。用户名为 3–32 位字母、数字或下划线，忽略大小写判重；密码 7–128 个字符，可含空格。
 注册后自动登录，默认 24 小时，保持登录 30 天。顶部账号菜单可改密或退出；忘记密码需联系管理员。
 同账号在不同设备读取相同喜欢、不喜欢、画像和向量；新账号不认领旧匿名数据。
 助手仅保留当前登录会话的六轮上下文，不同步助手历史或界面语言。

@@ -4,7 +4,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, StringConstraints
 
 Username = Annotated[str, StringConstraints(min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_]+$")]
-Password = Annotated[SecretStr, Field(min_length=15, max_length=128)]
+Password = Annotated[SecretStr, Field(min_length=7, max_length=128)]
 
 
 class Credentials(BaseModel):

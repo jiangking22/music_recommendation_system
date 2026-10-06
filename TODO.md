@@ -1,5 +1,19 @@
 # TODO
 
+## Password policy / 密码长度调整
+
+- [x] Accept passwords longer than six characters across registration, login, password changes
+  and administrator reset; retain case-insensitive username uniqueness and the 128-character cap.
+
+Current checked-out item: none.
+
+Acceptance 2026-10-06: focused failing tests preceded the policy change; 37 API auth/access tests
+and all 72 web tests pass, as do Ruff/compile, ESLint/typecheck/build and legacy smoke. Real Edge
+checks confirm six-character rejection in UI/API, seven-character registration/change/login,
+case-insensitive duplicate registration returning 409, bilingual copy and 390px layout.
+The browser harness now accepts the specified return to the original page after login.
+Local API/web images are rebuilt and updated together; all four Compose services are healthy.
+
 ## Account login / 强制登录与账号个性化
 
 - [x] 1. Record approved specification and identity ADR (documentation checkpoint).
@@ -8,7 +22,7 @@
 - [x] 4. Same-origin transport, bilingual login/register/account UI and lifecycle guards.
 - [x] 5. PostgreSQL/Compose/browser verification, deployment/CI and bilingual current-state docs.
 
-Current checked-out item: none; all five account-login items completed sequentially.
+Account-login items: all five completed sequentially.
 
 Acceptance 2026-10-06: 276 API tests and 67 web tests pass; Ruff/compile, ESLint/types/build,
 pip check, unchanged deterministic evaluation and legacy smoke pass. Failing regressions preceded

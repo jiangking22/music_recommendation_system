@@ -12,6 +12,48 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 beforeEach(() => { vi.clearAllMocks(); invalidateSession(false); });
 
 describe("account lifecycle", () => {
+  it.each(["register", "login", "password"] as const)("accepts seven-character passwords in the %s form", async (mode) => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => Promise.resolve(
+      url.endsWith("/csrf") ? json({ csrf_token: "csrf-test" }) : json(session))));
+    render(<AuthForm mode={mode} />);
+    if (mode === "password") {
+      fireEvent.change(screen.getByLabelText("Current password"), { target: { value: "old_pwd" } });
+    } else {
+      fireEvent.change(screen.getByLabelText("Username"), { target: { value: "Listener" } });
+    }
+    fireEvent.change(screen.getByLabelText(mode === "password" ? "New password" : "Password"), { target: { value: "seven_7" } });
+    if (mode !== "login") {
+      fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "seven_7" } });
+    }
+    const button = mode === "register" ? "Create account" : mode === "login" ? "Sign in" : "Update password";
+    fireEvent.click(screen.getByRole("button", { name: button }));
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith(mode === "password" ? "/login" : "/"));
+  });
+
+  it("rejects a six-character password before sending registration", () => {
+    const fetcher = vi.fn();
+    vi.stubGlobal("fetch", fetcher);
+    render(<AuthForm mode="register" />);
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "Listener" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "sixsix" } });
+    fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "sixsix" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Password must have 7–128 characters.");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("shows the duplicate username error returned by registration", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => Promise.resolve(
+      url.endsWith("/csrf") ? json({ csrf_token: "csrf-test" }) : json({ error: { code: "username_taken" } }, 409))));
+    render(<AuthForm mode="register" />);
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "LISTENER" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "seven_7" } });
+    fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "seven_7" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("That username is already taken.");
+    expect(navigation.replace).not.toHaveBeenCalled();
+  });
+
   it("allows long Unicode passwords within the 128-character limit", async () => {
     vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => Promise.resolve(
       url.endsWith("/csrf") ? json({ csrf_token: "csrf-test" }) : json(session, 201))));

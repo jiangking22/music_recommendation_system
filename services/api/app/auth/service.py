@@ -47,8 +47,8 @@ def password_work():
 
 
 def hash_password(password: str) -> str:
-    if not 15 <= len(password) <= 128:
-        raise AuthError("validation_error", 422, "Password must have 15–128 characters.")
+    if not 7 <= len(password) <= 128:
+        raise AuthError("validation_error", 422, "Password must have 7–128 characters.")
     with password_work():
         return PASSWORD_HASHER.hash(password)
 
