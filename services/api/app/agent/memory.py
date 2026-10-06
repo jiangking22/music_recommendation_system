@@ -34,6 +34,7 @@ class Conversation:
     messages: list[dict]
     last_seed: str | None
     preference_summary: str
+    last_intent: str = "auto"
 
 
 class Memory:
@@ -50,7 +51,9 @@ class Memory:
                     AgentConversation.device_id == request.device_id))
                 if row is None:
                     raise MemoryError("conversation_not_found")
-                return Conversation(row.conversation_id, row.version, row.messages, row.last_seed, preference)
+                intent = row.messages[-1].get("seed_intent", "auto") if row.messages else "auto"
+                return Conversation(row.conversation_id, row.version, row.messages, row.last_seed,
+                                    preference, intent if intent in ("theme", "song") else "auto")
             session.execute(upsert(session, DeviceUser).values(device_id=request.device_id)
                             .on_conflict_do_nothing(index_elements=["device_id"]))
             conversation_id = str(uuid4())
@@ -61,7 +64,8 @@ class Memory:
 
     def save(self, request: ChatRequest, conversation: Conversation, answer: str) -> None:
         messages = (conversation.messages + [{"role": "user", "content": request.message},
-                                             {"role": "assistant", "content": answer}])[-12:]
+                                             {"role": "assistant", "content": answer,
+                                              "seed_intent": conversation.last_intent}])[-12:]
         with bounded_session(self.engine) as session:
             updated = session.execute(update(AgentConversation).where(
                 AgentConversation.conversation_id == conversation.id,

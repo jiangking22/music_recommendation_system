@@ -2,6 +2,7 @@ import json
 import logging
 from pathlib import Path
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -55,7 +56,7 @@ def test_real_recommendation_tool_emits_display_name_without_replacing_identity(
 
     app.dependency_overrides[get_provider_registry] = FayeRegistry
     app.dependency_overrides[get_llm_provider] = FixedSeed
-    response = client.post("/v1/agent/chat", json=BODY)
+    response = client.post("/v1/agent/chat", json={**BODY, "message": "推荐与匆匆那年类似的歌"})
     assert response.status_code == 200
     item = response.json()["recommended_tracks"][0]
     assert item["title"] == "红豆"
@@ -171,3 +172,27 @@ def test_tool_latency_measures_each_call_independently(client, caplog, monkeypat
     assert client.post("/v1/agent/chat", json=BODY).status_code == 200
     logs = [json.loads(record.message) for record in caplog.records if record.name.startswith("music_api")]
     assert [log["latency_ms"] for log in logs if log["event"] == "agent_tool"] == [1000.0] * 4
+
+
+@pytest.mark.parametrize("suffix", ["", "/stream"])
+def test_http_failure_returns_basic_mode_in_json_and_sse(client, caplog, suffix):
+    class Offline(LocalLLMProvider):
+        name = "openai_compatible"
+
+        async def plan(self, context, tools):
+            raise httpx.ReadTimeout("private-upstream-marker")
+
+    caplog.set_level(logging.INFO, logger="music_api")
+    app.dependency_overrides[get_llm_provider] = Offline
+    response = client.post(f"/v1/agent/chat{suffix}", json={**BODY, "message": "缓慢的歌"})
+    assert response.status_code == 200
+    if suffix:
+        assert response.text.count("event: done") == 1
+        assert "event: error" not in response.text
+        frame = response.text.split("event: done\ndata: ")[1].split("\n\n")[0]
+        result = json.loads(frame)
+    else:
+        result = response.json()
+    assert result["provider"] == "local" and result["fallback_reason"] == "llm_unavailable"
+    assert result["recommended_tracks"]
+    assert "private-upstream-marker" not in response.text + caplog.text

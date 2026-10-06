@@ -12,7 +12,7 @@ from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.agent.memory import Memory, MemoryError
-from app.agent.providers import LLMProvider
+from app.agent.providers import LLMProvider, LocalLLMProvider
 from app.agent.schemas import Answer, ChatRequest, ChatResponse, Plan, ToolTrace
 from app.agent.tools import TOOL_INPUTS, ToolContext, invoke_tool, tool_schemas
 from app.infrastructure.workers import run_blocking
@@ -46,10 +46,20 @@ class Agent:
                 conversation = await run_blocking(lambda: memory.load(request))
                 context = {"message": request.message, "history": conversation.messages,
                            "last_seed": conversation.last_seed,
+                           "last_intent": conversation.last_intent,
                            "preference_summary": conversation.preference_summary}
+                provider = self.provider
+                fallback_reason = None
                 started = perf_counter()
-                plan = Plan.model_validate(await self.provider.plan(context, tool_schemas()))
-                if self.provider.name == "local":
+                try:
+                    plan_data = await provider.plan(context, tool_schemas())
+                except httpx.HTTPError:
+                    provider, fallback_reason = LocalLLMProvider(), "llm_unavailable"
+                    emit("agent_fallback", operation="plan", code=fallback_reason, level=logging.WARNING)
+                    yield {"event": "status", "data": {"stage": "fallback", "label": "已切换基础模式"}}
+                    plan_data = await provider.plan(context, tool_schemas())
+                plan = Plan.model_validate(plan_data)
+                if provider.name == "local":
                     emit("llm_call", provider="local", model="rule-router", operation="plan", status="ok",
                          latency_ms=round((perf_counter() - started) * 1000, 3))
                 # Validate the entire plan before any business tool is executed.
@@ -61,7 +71,8 @@ class Agent:
                 if "explain_recommendation" in names and ("recommend_tracks" not in names or
                         names.index("explain_recommendation") < names.index("recommend_tracks")):
                     raise AgentError("invalid_model_output")
-                tools = ToolContext(self.engine, self.registry, request.device_id, conversation)
+                tools = ToolContext(self.engine, self.registry, request.device_id, conversation,
+                                    message=request.message)
                 results = []
                 for call in plan.calls:
                     started = perf_counter()
@@ -82,14 +93,22 @@ class Agent:
                     results.append({"name": call.name, "output": output})
                     yield {"event": "tool_result", "data": {"tool": call.name, "status": "ok"}}
                 started = perf_counter()
-                answer = Answer.model_validate(await self.provider.answer(context, results))
-                if self.provider.name == "local":
+                try:
+                    answer_data = await provider.answer(context, results)
+                except httpx.HTTPError:
+                    provider, fallback_reason = LocalLLMProvider(), "llm_unavailable"
+                    emit("agent_fallback", operation="answer", code=fallback_reason, level=logging.WARNING)
+                    yield {"event": "status", "data": {"stage": "fallback", "label": "已切换基础模式"}}
+                    answer_data = await provider.answer(context, results)
+                answer = Answer.model_validate(answer_data)
+                if provider.name == "local":
                     emit("llm_call", provider="local", model="rule-router", operation="answer", status="ok",
                          latency_ms=round((perf_counter() - started) * 1000, 3))
                 response = ChatResponse(conversation_id=conversation.id, answer=answer.answer,
                                         recommended_tracks=tools.items, used_tools=traces,
                                         explanation=tools.explanation, citations=tools.citations,
-                                        sources=tools.sources, provider=self.provider.name)
+                                        sources=tools.sources, provider=provider.name,
+                                        fallback_reason=fallback_reason)
                 await run_blocking(lambda: memory.save(request, conversation, answer.answer))
                 yield {"event": "status", "data": {"stage": "complete", "label": "返回结果"}}
                 yield {"event": "done", "data": response.model_dump(mode="json")}

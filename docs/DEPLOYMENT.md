@@ -18,8 +18,20 @@ value in `DATABASE_URL`. Use a URL-safe password or percent-encode it in the URL
 复制模板，设置密码并同步连接 URL；密码若有 URL 保留字符需编码。模板主机名仅用于容器网络。
 `ENABLE_MUSIC_PROVIDERS=false` disables all outbound music requests for an offline catalog demo.
 `ENABLE_QQ_PROVIDER` takes effect only when music providers are enabled. `LLM_PROVIDER=local`
-is the deterministic default. `openai_compatible` with no Key falls back to local; a failing real
-model with a Key returns a safe error, not a fabricated local answer.
+is the deterministic default. `openai_compatible` with no Key uses local routing. Model HTTP
+failures during Agent planning/answer composition return explicitly labelled basic-mode results
+from the same deterministic tools. Malformed output and whole-turn timeouts remain safe errors.
+
+Model HTTPS uses the runtime system certificate store with verification enabled. If logs contain
+`tls_verification_failed`, check the API container's CA store and network certificate chain.
+Install only operator-reviewed CA certificates through the deployment's normal trust-store
+process; never disable verification. Host and container certificate stores can differ.
+The adapter retains `trust_env=false` for HTTPX proxy discovery. No `.env` change is needed for
+the default system-trust behavior.
+
+模型 HTTP 故障会切换并标注基础模式，复用推荐器结果。若日志记录 `tls_verification_failed`，检查
+API 运行环境的系统证书库与网络链路；主机和容器信任库可能不同，应按部署流程安装经核验的 CA，
+保持证书校验开启。默认系统信任行为无需修改 `.env`。
 
 `NEXT_PUBLIC_API_BASE_URL` is a web **build-time**, browser-reachable URL, not the internal API
 service name. `ALLOWED_ORIGINS` is a comma-separated explicit origin list; default localhost:3000.

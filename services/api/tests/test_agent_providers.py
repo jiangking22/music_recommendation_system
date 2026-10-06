@@ -1,5 +1,7 @@
 import asyncio
 import json
+import logging
+import ssl
 
 import httpx
 import pytest
@@ -105,3 +107,44 @@ def test_llm_size_cap():
                                         httpx.MockTransport(lambda _: httpx.Response(200, content=b"x" * 65537)))
     with pytest.raises(ValueError, match="exceeds limit"):
         asyncio.run(provider.plan({"message": "jazz"}, tool_schemas()))
+
+
+def test_model_transport_uses_system_trust_with_hostname_verification(monkeypatch):
+    original_client = httpx.AsyncClient
+    contexts = []
+
+    def client(**kwargs):
+        context = kwargs.get("verify")
+        assert isinstance(context, ssl.SSLContext)
+        assert context.verify_mode == ssl.CERT_REQUIRED
+        assert context.check_hostname
+        assert context.cert_store_stats()["x509_ca"] > 0
+        assert kwargs["trust_env"] is False
+        contexts.append(context)
+        return original_client(**kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", client)
+    provider = OpenAICompatibleProvider("https://model.example", "test-key", "test-model",
+        httpx.MockTransport(lambda _: httpx.Response(200, json={
+            "choices": [{"message": {"content": '{"answer":"ok"}'}}]})))
+    assert asyncio.run(provider.answer({"message": "test"}, [])) == {"answer": "ok"}
+    assert len(contexts) == 1
+
+
+def test_tls_failure_logs_category_without_private_exception_text(caplog):
+    caplog.set_level(logging.INFO, logger="music_api")
+
+    def fail(request):
+        try:
+            raise ssl.SSLCertVerificationError("private-certificate-marker")
+        except ssl.SSLCertVerificationError as exc:
+            raise httpx.ConnectError("private-network-marker", request=request) from exc
+
+    provider = OpenAICompatibleProvider("https://model.example", "private-key-marker", "test-model",
+                                        httpx.MockTransport(fail))
+    with pytest.raises(httpx.ConnectError):
+        asyncio.run(provider.answer({"message": "private-chat-marker"}, []))
+    events = [json.loads(record.message) for record in caplog.records if record.name == "music_api"]
+    assert events[-1]["code"] == "tls_verification_failed"
+    assert events[-1]["error_type"] == "ConnectError"
+    assert "marker" not in caplog.text

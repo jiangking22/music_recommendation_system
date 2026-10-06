@@ -1,5 +1,46 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-023: Keep assistant recommendations available during model transport failures
+
+**Status:** Accepted; refines ADR-014 model-failure behavior; homepage identification rules in ADR-022 remain unchanged
+**Date:** 2026-10-06
+
+The shared model adapter supplies Python's system-trust SSL context to HTTPX, retaining required
+certificate and hostname verification. HTTPX proxy environment discovery remains disabled.
+This fixes the observed certifi/system trust mismatch without disabling TLS verification or
+automatically trusting a certificate received from the network. See [HTTPX SSL configuration](https://www.python-httpx.org/advanced/ssl/)
+and [Python default SSL contexts](https://docs.python.org/3.12/library/ssl.html#ssl.create_default_context).
+Model failure telemetry records only exception type and a stable TLS/HTTP category, never messages.
+
+共享模型适配器显式使用系统信任库，保留证书和主机名校验；不从网络自动导入证书。
+日志只记录安全错误分类与异常类型，不记录异常原文、密钥或对话正文。
+
+For Agent planning HTTP failures, select one validated local plan and use local answer composition
+for the rest of the turn. For answer HTTP failures, compose locally from already executed tool
+outputs; do not search, rank or run tools again. Preserve the original deadline, concurrency,
+tool and result caps. Cancellation, invalid model output, database failures and tool bugs remain
+errors. Add nullable `fallback_reason: "llm_unavailable"` to JSON/SSE terminal results and report
+`provider=local` when local composition supplies the answer. The UI labels automatic basic mode.
+
+规划 HTTP 失败时使用一个经校验的本地计划；回答 HTTP 失败时复用已经执行的工具结果，保持排序。
+自动降级有明确标识；取消、整体超时、非法模型输出及数据库错误仍按原错误路径处理。
+
+The Agent recommendation tool accepts optional `intent=auto|theme|song` (default auto). Narrow
+explicit mood/tempo phrases take priority over a model's song guess; quoted titles select song
+mode. Theme mode invokes the same deterministic theme ranking even when catalog titles collide;
+song mode retains ambiguity and never pads with unrelated fixtures. Return bounded ambiguity
+choices to answer composition, so empty song results can ask for the artist. Persist the intent
+as `seed_intent` on the existing assistant-message JSON; old conversations default to auto.
+This requires no migration and does not change synchronous REST/MCP defaults or homepage rules.
+
+助手工具增加可选意图；“emo的歌”“缓慢的歌”等明确主题不会因同名歌曲被清空，“推荐《emo》”仍按歌名确认。
+意图随现有消息 JSON 保存，旧数据默认 auto，无数据库迁移。主题匹配基于已有元数据，不承诺 BPM 或情绪测量。
+
+The browser holds an in-flight/failed message separately, appending a complete user/assistant pair
+only after success. Retrying updates that pending message; deliberate repeats after success remain
+new turns. This prevents visual duplication; it does not introduce server-side request idempotency
+or reconcile a reply committed just before a network interruption.
+
 ## ADR-022: Ground homepage seed identification and keep display names separate from identity
 
 **Status:** Accepted; supersedes ADR-020 only for seed identification and metadata display

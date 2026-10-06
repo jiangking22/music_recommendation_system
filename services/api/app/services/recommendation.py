@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field, replace
 from time import perf_counter
+from typing import Literal
 
 from app.domain.artist_names import artist_identity, enrich_track
 from app.domain.discovery import (
@@ -189,10 +190,19 @@ def finish_discovery(state: DiscoverySearch, resolution: SeedResolution | None =
 
 
 def discover(seed: str, limit: int, registry: ProviderRegistry,
-             profile: PreferenceProfile | None = None, seed_artist: str | None = None) -> DiscoveryResult:
+             profile: PreferenceProfile | None = None, seed_artist: str | None = None, *,
+             intent: Literal["auto", "theme", "song"] = "auto") -> DiscoveryResult:
+    if intent not in ("auto", "theme", "song"):
+        raise ValueError("invalid discovery intent")
+    if intent == "theme" and not seed_artist:
+        state = DiscoverySearch(seed, limit, registry, profile or PreferenceProfile(), None,
+                                SeedResolution(None, [], "unresolved"), personalized=profile is not None)
+        state.query(seed)
+        return finish_discovery(state, allow_theme=True)
     state = begin_discovery(seed, limit, registry, profile, seed_artist)
     resolution = state.resolution
-    theme = not (resolution.title_matches or original_hint(seed, seed_artist) or seed_artist)
+    theme = intent != "song" and not (
+        resolution.title_matches or original_hint(seed, seed_artist) or seed_artist)
     return finish_discovery(state, allow_theme=theme)
 
 

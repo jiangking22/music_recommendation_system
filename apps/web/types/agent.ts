@@ -11,4 +11,5 @@ export type AgentResponse = {
   citations: { document_id: string; title: string; chunk_id: string; text: string; score: number }[];
   sources: Record<string, ProviderResult>;
   provider: string;
+  fallback_reason?: "llm_unavailable" | null;
 };

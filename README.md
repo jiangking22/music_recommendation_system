@@ -93,6 +93,19 @@ Apple's documented search API. No live provider availability is guaranteed. / �
 
 ## Recommendation pipeline / 推荐流程
 
+The assistant recognizes short listening themes such as `emo的歌` and `缓慢的歌`; use a quoted
+title such as `推荐《emo》` for a particular song. During model connection/HTTP failures it
+continues in visibly labelled basic mode using the deterministic recommender and local answer
+templates. Already computed tracks retain their ordering. Complex questions without local
+knowledge ask you to retry later; invalid model outputs and whole-turn timeouts still report errors.
+Theme matching uses catalog metadata, not measured tempo/emotion. Failed-message retries reuse
+one pending UI entry. TLS verification remains enabled with the system certificate store.
+
+助手支持“emo的歌”“缓慢的歌”等简短主题需求；具体歌名可输入“推荐《emo》”。模型连接或 HTTP
+失败时会明确标注“基础模式”，继续用确定性推荐器和本地回答模板；已有曲目保持原排序。
+复杂问答缺少本地资料时提示稍后重试，非法模型输出和整轮超时仍显示错误。主题匹配基于曲库元数据，
+不代表测量了 BPM 或情绪。失败重试只保留一条待完成消息；模型 TLS 使用系统信任库并保持校验开启。
+
 1. Recall up to 25 candidates per provider and include the committed local catalog. / 有界多源召回，加本地曲库降级。
 2. Normalize and merge canonical title/artist variants, retaining provenance. / 归一化去重，保留来源。
 3. Score seed similarity, attributes and optional preference signals using [explicit policy](services/api/app/domain/policy.py). / 显式权重打分。

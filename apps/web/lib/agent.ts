@@ -7,6 +7,7 @@ function validateResult(value: unknown): AgentResponse {
     || typeof result.explanation !== "string" || typeof result.provider !== "string"
     || !Array.isArray(result.recommended_tracks) || !Array.isArray(result.used_tools)
     || !Array.isArray(result.citations) || !result.sources
+    || (result.fallback_reason != null && result.fallback_reason !== "llm_unavailable")
     || result.recommended_tracks.some((item) => !item || typeof item.id !== "string"
       || typeof item.title !== "string" || typeof item.artist !== "string"
       || typeof item.explanation !== "string" || typeof item.score !== "number"

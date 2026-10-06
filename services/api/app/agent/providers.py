@@ -1,5 +1,6 @@
 import json
 import logging
+import ssl
 from time import perf_counter
 from typing import Protocol
 from urllib.parse import urlsplit
@@ -7,6 +8,7 @@ from urllib.parse import urlsplit
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.agent.intents import is_followup, quoted_song, theme_seed
 from app.agent.prompts import ANSWER_PROMPT, PLAN_PROMPT, SEED_PROMPT
 from app.infrastructure.config import get_settings
 from app.observability.events import correlation_headers, emit
@@ -32,18 +34,20 @@ class LocalLLMProvider:
 
     async def plan(self, context: dict, tools: list[dict]) -> dict:
         message = context["message"].lower()
-        recommendation = any(word in message for word in (
+        theme = theme_seed(message)
+        song = quoted_song(message)
+        recommendation = theme is not None or song is not None or is_followup(message) or any(word in message for word in (
             "推荐", "听什么", "再来", "recommend", "playlist", "more like", "more songs"))
         if not recommendation:
             return {"calls": [{"name": "search_music_knowledge", "arguments": {"query": message[:120]}}]}
-        seed = message[:120]
-        if any(word in message for word in ("学习", "专注", "study", "focus")):
-            seed = "calm jazz"
-        elif any(word in message for word in ("再来", "more like", "more songs")):
+        seed = theme or song or message[:120]
+        intent = "theme" if theme else "song" if song else "auto"
+        if is_followup(message):
             seed = context.get("last_seed") or "calm jazz"
+            intent = context.get("last_intent", "auto") if context.get("last_seed") else "theme"
         return {"calls": [
             {"name": "get_user_profile", "arguments": {}},
-            {"name": "recommend_tracks", "arguments": {"seed": seed, "limit": 5}},
+            {"name": "recommend_tracks", "arguments": {"seed": seed, "limit": 5, "intent": intent}},
             {"name": "search_music_knowledge", "arguments": {"query": seed}},
             {"name": "explain_recommendation", "arguments": {}},
         ]}
@@ -52,11 +56,17 @@ class LocalLLMProvider:
         recommendation = next((r for r in results if r["name"] == "recommend_tracks"), None)
         if recommendation is not None:
             count = len(recommendation["output"]["items"])
+            if not count:
+                candidates = recommendation["output"].get("seed_candidates", [])
+                if candidates:
+                    artists = "、".join(dict.fromkeys(item["artist"] for item in candidates))
+                    return {"answer": f"找到多个同名歌曲，请确认歌手：{artists}。请带上歌名和歌手再试。"}
+                return {"answer": "暂时没有符合要求的曲目，请补充歌名、歌手，或试试“舒缓的歌”。"}
             return {"answer": f"本地助手为你找到 {count} 首歌，已结合已有偏好。曲目按推荐器顺序展示。"}
         knowledge = next((r["output"]["citations"] for r in results
                           if r["name"] == "search_music_knowledge"), [])
         if not knowledge:
-            return {"answer": "本地知识库没有相关资料。可以试试介绍周杰伦、爵士乐或《叶惠美》。"}
+            return {"answer": "本地知识库没有相关资料。复杂问题可稍后重试，也可以试试介绍周杰伦、爵士乐或《叶惠美》。"}
         return {"answer": "本地知识库：\n" + "\n".join(f"{c['title']}：{c['text']}" for c in knowledge)}
 
 
@@ -86,14 +96,26 @@ class OpenAICompatibleProvider:
         started = perf_counter()
         usage = {}
         status = "error"
+        failure = {}
         try:
             result = await self._request(prompt, data, usage)
             status = "ok"
             return result
+        except httpx.HTTPError as exc:
+            failure = {"error_type": type(exc).__name__, "code": "llm_http_error"}
+            cause = exc
+            for _ in range(6):
+                if isinstance(cause, ssl.SSLCertVerificationError):
+                    failure["code"] = "tls_verification_failed"
+                    break
+                cause = cause.__cause__ or cause.__context__
+                if cause is None:
+                    break
+            raise
         finally:
             emit("llm_call", provider=self.name, model=self.model,
                  operation=operation or ("plan" if "tools" in data else "answer"), status=status,
-                 latency_ms=round((perf_counter() - started) * 1000, 3), **usage,
+                 latency_ms=round((perf_counter() - started) * 1000, 3), **usage, **failure,
                  level=logging.INFO if status == "ok" else logging.WARNING)
 
     async def _request(self, prompt: str, data: dict, usage: dict) -> dict:
@@ -107,7 +129,7 @@ class OpenAICompatibleProvider:
             request_body["thinking"] = {"type": "disabled"}
         async with (
             httpx.AsyncClient(timeout=10, transport=self.transport, follow_redirects=False,
-                              trust_env=False) as client,
+                              verify=ssl.create_default_context(), trust_env=False) as client,
             client.stream("POST", f"{self.base_url}/chat/completions",
                           headers={"Authorization": f"Bearer {self.api_key}", **correlation_headers()},
                           json=request_body) as response,

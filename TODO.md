@@ -1,5 +1,26 @@
 # TODO
 
+## Assistant reliability / 助手连接、主题推荐与失败重试
+
+- [x] Fix verified TLS trust for the shared model adapter; keep basic recommendations available
+  during model HTTP failures, distinguish listening themes from song titles, and avoid duplicate
+  user messages on failed retries. Explicitly label local fallback and preserve deterministic ranking.
+
+Scope: model adapter, Agent/core tools, explicit theme discovery, chat UI/tests and current-state docs.
+Verification: regressions first; API pytest/Ruff/compile; web tests/lint/typecheck/build;
+configured-model Docker/browser smoke, failure fallback, offline evaluation and legacy help/HTTP.
+One active task; preserve existing credentials and stash. No database migration.
+
+Acceptance 2026-10-06: regression tests reproduced TLS, fallback, theme ambiguity and duplicate
+retry failures before fixes. All 177 API and 28 web tests pass, together with Ruff/compile,
+ESLint/typecheck/production build and unchanged offline evaluation. The rebuilt existing Docker
+stack is healthy; actual configured-model browser requests for `emo的歌` and `缓慢的歌` return
+five recommendations. An isolated browser fault harness verified a failed send followed by
+basic-mode recovery with one user message and a visible fallback notice. Console checks are
+clean. Legacy help and isolated HTTP 200 pass; independent review found no blocking issues.
+No migration or credential change; the existing stash is preserved. Theme retrieval still uses
+available catalog metadata, not measured BPM or independently verified mood labels.
+
 ## Homepage recording identity / 首页原唱识别与歌手姓名
 
 - [x] Resolve `匆匆那年` to the verified 王菲/Faye Wong artist, show preferred Chinese/English

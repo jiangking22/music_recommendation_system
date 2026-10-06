@@ -248,6 +248,27 @@ Requests to the official `api.deepseek.com` host explicitly disable thinking to 
 planner/answer deadlines. JSON output mode and strict response validation remain enabled.
 Real model quality/compatibility is not inferred from mocked transport tests.
 
+Assistant reliability (2026-10-06): the shared model adapter uses an explicit system-trust SSL
+context with certificate/hostname verification enabled. Safe model telemetry distinguishes
+`tls_verification_failed` from other HTTP failures without exception text. An Agent planning
+HTTP failure switches to a validated local plan; an answer HTTP failure composes from the existing
+tool outputs without repeating recommendation work. JSON and SSE `done` add nullable
+`fallback_reason` (`llm_unavailable`); `provider=local` describes local answer composition and the
+UI displays basic mode. Invalid model output, database/tool errors and whole-turn deadlines
+remain errors. There are no automatic upstream retries.
+
+The Agent's optional recommendation intent is `auto|theme|song`. Explicit short listening
+phrases such as `emo的歌` and `缓慢的歌` select theme discovery regardless of same-title matches;
+quoted song titles select song discovery. Theme discovery uses existing catalog features/ranking,
+not measured tempo or mood. Song ambiguity is returned to answer composition with up to five
+candidate title/artist pairs instead of being presented as missing music sources. The latest
+intent persists in the assistant message's `seed_intent` JSON field; old rows default to auto.
+Homepage identification and REST/MCP default intent remain unchanged. No database migration.
+
+助手在模型连接故障时自动切换并标注基础模式；已得到的推荐不会重新排序或重复查询。
+明确主题与带书名号的歌名分开处理，歌曲歧义可要求确认歌手。前端单独保留待完成消息，
+失败重试不追加重复行，成功后才加入完整的一问一答；这不是服务端幂等协议。
+
 ```mermaid
 flowchart LR
   Page[Next.js /agent] -->|POST JSON or SSE| Routes[Thin Agent API]

@@ -30,6 +30,7 @@ class EmptyInput(StrictModel):
 class RecommendInput(StrictModel):
     seed: Query
     limit: int = Field(default=5, ge=1, le=10)
+    intent: Literal["auto", "theme", "song"] = "auto"
 
 
 class KnowledgeInput(StrictModel):
@@ -64,3 +65,4 @@ class ChatResponse(BaseModel):
     citations: list[Citation] = Field(default_factory=list)
     sources: dict[str, ProviderResult] = Field(default_factory=dict)
     provider: str
+    fallback_reason: Literal["llm_unavailable"] | None = None
