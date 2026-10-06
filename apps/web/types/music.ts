@@ -37,6 +37,23 @@ export type RecommendationResponse = {
   items: RecommendationItem[];
   sources: Record<string, ProviderResult>;
 };
+export type SearchReport = {
+  attempts: { platform: string; region: string | null; stage: string; operation: string;
+    status: "hit" | "no_results" | "error" | "not_configured" | "not_executed" | "unavailable" | "auth_required";
+    result_count: number; error_code: string | null }[];
+  end_reason: string;
+  external_requests: number;
+  incomplete: boolean;
+};
+export type RecordingResolveResponse = {
+  request_id: string;
+  status: "matched" | "ambiguous" | "not_found" | "unsupported_platform" | "unavailable" | "incomplete";
+  matched_track: Track | null;
+  resolution_id: string | null;
+  candidates: { track: Track; resolution_id: string }[];
+  search_report: SearchReport;
+  sources: Record<string, ProviderResult>;
+};
 export type InterfaceLanguage = "en" | "zh";
 export type VerifiedStorefront = "TW" | "HK";
 export type SongIdentity = { title: string; artist: string };
@@ -47,8 +64,13 @@ export type OriginalIdentificationResponse = {
   matched_track: Track | null;
   verified_storefront?: VerifiedStorefront | null;
   sources: Record<string, ProviderResult>;
+  resolution_id?: string | null;
+  search_report?: SearchReport | null;
 };
 export type DiscoveryResponse = RecommendationResponse & {
+  resolution_id?: string | null;
+  search_report?: SearchReport | null;
+  candidate_resolutions?: Record<string, string>;
   seed_track: Track | null;
   seed_candidates: Track[];
   seed_status: "matched" | "ambiguous" | "unresolved";

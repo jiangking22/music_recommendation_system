@@ -99,7 +99,7 @@ export default function RecommendationCard({
                 rel="noopener noreferrer"
                 aria-label={language === "zh" ? `在 ${item.track.source.provider} 打开歌曲 ${item.title}` : `Open track ${item.title} in ${item.track.source.provider}`}
               >
-                {copy.openTrack}
+                {item.track.source.provider === "musicbrainz" ? copy.verificationSource : copy.openTrack}
               </a>
             ) : null}
           </div>

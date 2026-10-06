@@ -1,5 +1,37 @@
 # TODO
 
+## Automatic recording resolution / 自动扩展检索与成功记录记忆
+
+- [x] Implement one shared, bounded recording resolver for discovery, rejected candidates and
+  manual platform/link recovery; revalidate confirmation references and persist only confirmed
+  platform recordings. Add a migration, bilingual UI/reports, regressions and documentation.
+
+Scope: API providers/services/repository/schema/migration, web recovery and confirmation, docs.
+Verification: full API pytest/Ruff/compile/evaluation; web tests/lint/types/build; live platform,
+model and narrow-browser recovery checks; legacy smoke. Update existing services after acceptance.
+Feasibility 2026-10-06: MusicBrainz recording search responds successfully; Kugou connection fails
+and Kuwo returns an illegal-request rejection. Keep those two explicitly unavailable until a
+stable adapter can be verified. Brave remains optional and requires its own server-side key.
+
+Acceptance 2026-10-06: 240 API and 44 web tests pass, including expansion to another catalog,
+manual-link recovery, confirmation-only memory, stale records, homonyms, expired references,
+request/deadline caps, punctuation variants, real-ID adapter validation and four outbound slots.
+Ruff/compile/evaluation, ESLint/typecheck/build, PostgreSQL migration SQL in both directions and
+legacy help/HTTP 200 pass. Live provider detail probes verified Apple TW, NetEase, QQ IDs/mids and
+MusicBrainz metadata; Kugou/Kuwo stay unavailable, Brave's live key-dependent branch is unverified.
+An isolated Edge browser exercised actual configured-model rejection and manual link recovery:
+before confirmation no recommendations, after confirmation five recommendations; subsequent 宠爱
+query used remembered QQ detail first. 晴天 and 宠爱 both returned five recommendations. The 390px
+layout has no horizontal overflow or page errors; actual screenshots were reviewed. Initial empty
+and ambiguous responses were injected only to reach recovery branches; subsequent model/catalog/
+confirmation calls were real. Standalone source/model availability can still vary.
+Existing Compose services were restarted after Docker Desktop was found stopped; the existing
+database volume was retained and a pre-migration dump saved outside the repository. API/web were
+rebuilt, PostgreSQL reached migration 0006 and actual confirmation/upsert/revalidation succeeded.
+Both temporary verification servers were stopped. Canonical recommendation scoring, legacy source,
+credentials and the existing stash remain unchanged. Documentation records current capabilities;
+the success memory is not model training or authorship certification.
+
 ## Domestic catalog coverage / Apple 未命中时的国内曲库补充
 
 - [x] Enable the existing QQ catalog adapter by default alongside iTunes and NetEase; verify

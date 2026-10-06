@@ -11,6 +11,7 @@ from app.domain.discovery import (
     rank_related,
     recording_title,
     resolve_seed,
+    title_matches_query,
 )
 from app.domain.music import (
     Artist,
@@ -64,10 +65,10 @@ class DiscoverySearch:
         return _merge_searches(self.searches)
 
     def query(self, query: str) -> None:
-        if len(self.searches) < MAX_DISCOVERY_OPERATIONS:
+        if len(self.searches) < getattr(self.registry, "max_discovery_operations", MAX_DISCOVERY_OPERATIONS):
             recall_limit = min(25, max(self.limit * 3, 10))
-            self.searches.append(_bounded_search(
-                self.registry.search_tracks(query[:120], recall_limit), recall_limit))
+            search = self.registry.search_tracks(query[:120], recall_limit)
+            self.searches.append(search if hasattr(self.registry, "expand") else _bounded_search(search, recall_limit))
 
 
 def local_catalog() -> list[Track]:
@@ -118,10 +119,15 @@ def begin_discovery(seed: str, limit: int, registry: ProviderRegistry,
         if query != seed:
             state.query(query)
             state.resolution = resolve_seed(seed, state.search.tracks, seed_artist)
+    if state.resolution.track is None and seed_artist and hasattr(registry, "expand"):
+        state.resolution = registry.expand(seed_artist)
+        state.searches.append(SearchResult(tracks=registry.tracks, sources=registry.sources))
     return state
 
 
 def match_model_seed(state: DiscoverySearch, title: str, artist: str) -> SeedResolution:
+    if not title_matches_query(state.seed, title, artist, artist):
+        return SeedResolution(None, [], "unresolved")
     def match() -> SeedResolution:
         result = resolve_seed(state.seed, state.search.tracks, artist)
         if result.track and recording_title(result.track.title) == recording_title(title):
@@ -132,6 +138,9 @@ def match_model_seed(state: DiscoverySearch, title: str, artist: str) -> SeedRes
     if resolution.track is None:
         state.query(f"{title} {artist}")
         resolution = match()
+    if resolution.track is None and hasattr(state.registry, "expand"):
+        resolution = state.registry.expand(artist)
+        state.searches.append(SearchResult(tracks=state.registry.tracks, sources=state.registry.sources))
     return resolution
 
 

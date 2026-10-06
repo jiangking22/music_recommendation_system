@@ -5,18 +5,22 @@ import type { ApiClient } from "../lib/api";
 import { artistDisplayName, copyFor } from "../lib/i18n";
 import { safeExternalUrl } from "../lib/url";
 import type { InterfaceLanguage, OriginalIdentificationResponse, Track, VerifiedStorefront } from "../types/music";
+import RecordingRecovery from "./RecordingRecovery";
+import SearchReport, { platformName } from "./SearchReport";
 
 type LookupState =
   | { status: "idle" | "loading" }
   | { status: "ready"; result: OriginalIdentificationResponse }
   | { status: "error"; code: string };
 
-export default function ArtistConfirmation({ query, candidates, language, identifyOriginal, onSelect }: {
+export default function ArtistConfirmation({ query, candidates, language, identifyOriginal, resolveRecording, candidateResolutions, onSelect }: {
   query: string;
   candidates: Track[];
   language: InterfaceLanguage;
   identifyOriginal: ApiClient["identifyOriginal"];
-  onSelect: (artist: string, modelSuggested: boolean, storefront?: VerifiedStorefront) => void;
+  resolveRecording?: ApiClient["resolveRecording"];
+  candidateResolutions?: Record<string, string>;
+  onSelect: (artist: string, modelSuggested: boolean, storefront?: VerifiedStorefront, resolutionId?: string) => void;
 }) {
   const [lookup, setLookup] = useState<LookupState>({ status: "idle" });
   const controller = useRef<AbortController | null>(null);
@@ -61,7 +65,7 @@ export default function ArtistConfirmation({ query, candidates, language, identi
       <div className="seed-choices">
         {candidates.slice(0, 5).map(candidate => (
           <button type="button" key={candidate.canonical_key} disabled={busy}
-            onClick={() => onSelect(candidate.artist.name, false)}>
+            onClick={() => onSelect(candidate.artist.name, false, undefined, candidateResolutions?.[candidate.canonical_key])}>
             {candidate.title} · {artistDisplayName(candidate.artist)}
           </button>
         ))}
@@ -84,6 +88,8 @@ export default function ArtistConfirmation({ query, candidates, language, identi
             <p>{identified.status === "matched"
               ? identified.verified_storefront ? copy.onlineVerified : copy.catalogMatched
               : copy.catalogUnverified}</p>
+            {suggestedTrack ? <p>{platformName(suggestedTrack.source.provider)}
+              {suggestedTrack.source.provider === "musicbrainz" ? ` · ${copy.metadataOnly}` : ""}</p> : null}
             {identified.status === "matched" && verificationUrl ? (
               <a href={verificationUrl} target="_blank" rel="noopener noreferrer">
                 {copy.verificationSource}
@@ -93,10 +99,15 @@ export default function ArtistConfirmation({ query, candidates, language, identi
             {identified.status === "matched" && suggestedTrack ? (
               <button type="button" className="text-button"
                 onClick={() => onSelect(suggestedTrack.artist.name, true,
-                  identified.verified_storefront ?? undefined)}>{copy.confirmAndRecommend}</button>
+                  identified.verified_storefront ?? undefined, identified.resolution_id ?? undefined)}>{copy.confirmAndRecommend}</button>
             ) : null}
           </>
         ) : null}
+        <SearchReport report={identified?.search_report} language={language} />
+        {!busy && identified?.status !== "matched" && resolveRecording ? <RecordingRecovery
+          key={identified?.request_id ?? "initial"} query={query} artist={identified?.suggestion?.artist} language={language}
+          resolve={resolveRecording} onSelect={(track, id) => onSelect(track.artist.name,
+            Boolean(identified?.suggestion && track.artist.name === identified.suggestion.artist), undefined, id)} /> : null}
       </div>
     </div>
   );

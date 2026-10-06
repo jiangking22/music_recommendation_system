@@ -1,3 +1,5 @@
+import json
+import re
 from collections.abc import Mapping
 
 from app.domain.music import (
@@ -72,6 +74,25 @@ class QQProvider(HTTPMusicProvider):
 
     def search_tracks(self, query: str, limit: int) -> ProviderResult:
         return self._execute(lambda: self._search(query, self._bounded_limit(limit)))
+
+    def lookup_track(self, identifier: str) -> ProviderResult:
+        def fetch():
+            if not re.fullmatch(r"[A-Za-z0-9]{1,30}", identifier):
+                raise InvalidPayload("Invalid recording ID")
+            param = {"song_id": int(identifier)} if identifier.isdecimal() else {"song_mid": identifier}
+            payload = self._request("GET", "https://u.y.qq.com/cgi-bin/musicu.fcg", params={"data": json.dumps({
+                "comm": {"format": "json"}, "req": {"module": "music.pf_song_detail_svr",
+                "method": "get_song_detail_yqq", "param": {**param, "song_type": 0}}})})
+            req = optional_object(payload.get("req"))
+            if payload.get("code") != 0 or req.get("code") != 0:
+                raise InvalidPayload("Detail request rejected")
+            item = optional_object(optional_object(req.get("data")).get("track_info"))
+            track = map_qq_track(item)
+            returned = str(item.get("id")) if identifier.isdecimal() else str(item.get("mid"))
+            if track and returned != identifier:
+                raise InvalidPayload("Recording ID mismatch")
+            return [track] if track else []
+        return self._execute(fetch)
 
     def search_artist_tracks(self, artist: str, limit: int) -> ProviderResult:
         return self._execute(lambda: [track for track in self._search(artist, self._bounded_limit(limit))

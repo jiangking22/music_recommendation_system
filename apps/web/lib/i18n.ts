@@ -65,6 +65,21 @@ const en = {
   identificationBusy: "The music service is busy. Please try again later.",
   identificationError: "Couldn’t identify another artist. Check the service and try again.",
   retryIdentification: "Retry identification",
+  expandingSearch: "Searching music catalogs and automatically expanding the search…",
+  searchReport: "Search report",
+  searchIncomplete: "The search is incomplete: a source failed or the time/request budget was reached.",
+  searchNotFound: "The song was not found on the searched platforms. Check the title, artist or source link.",
+  sourceRecovery: "Specify a platform or song link",
+  sourcePlatform: "Music platform",
+  sourceLink: "Song link",
+  sourceArtist: "Artist (optional)",
+  sourceSearch: "Search this source",
+  sourceSearching: "Searching…",
+  sourceUnsupported: "This platform or link format is not supported yet.",
+  sourceUnavailable: "This platform is unavailable or not configured. Try another source.",
+  resolutionExpired: "The recording confirmation expired or could not be reverified. Search again.",
+  metadataOnly: "Recording metadata; this source is not a playback service.",
+  memoryNotice: "Confirmed recordings are remembered and reverified on future searches.",
   guidanceTitle: "Listening direction",
   modelUnavailable: "Model guidance is unavailable; recommendations are still ready.",
   guidanceLanguage: "Search again for guidance in this language.",
@@ -133,6 +148,21 @@ const zh: Copy = {
   identificationBusy: "音乐服务繁忙，请稍后重试。",
   identificationError: "暂时无法识别其他歌手，请检查服务后重试。",
   retryIdentification: "重试识别",
+  expandingSearch: "正在检索音乐曲库，并自动扩大检索范围…",
+  searchReport: "检索报告",
+  searchIncomplete: "检索尚未完成：部分来源故障，或已达到时间／请求预算。",
+  searchNotFound: "未在已检索平台找到该歌曲，请检查歌名、歌手或来源链接。",
+  sourceRecovery: "指定音乐平台或粘贴歌曲链接",
+  sourcePlatform: "音乐平台",
+  sourceLink: "歌曲链接",
+  sourceArtist: "歌手（可选）",
+  sourceSearch: "检索指定来源",
+  sourceSearching: "检索中…",
+  sourceUnsupported: "暂不支持该平台或歌曲链接格式。",
+  sourceUnavailable: "该平台暂不可用或尚未配置，请尝试其他来源。",
+  resolutionExpired: "录音确认已过期或无法重新核实，请重新检索。",
+  metadataOnly: "录音元数据，此来源不提供播放服务。",
+  memoryNotice: "确认采用的录音会保存为成功记录，下次检索仍会重新核实。",
   guidanceTitle: "聆听方向",
   modelUnavailable: "助手解读暂不可用，歌曲推荐仍可正常查看。",
   guidanceLanguage: "重新搜索可获取当前语言的助手解读。",
@@ -203,6 +233,8 @@ export function localGuidance(result: DiscoveryResponse, language: InterfaceLang
   if (result.seed_status === "ambiguous") return copyFor(language).confirmDescription;
   const seed = result.seed_track;
   if (!seed) {
+    if (!result.items.length && result.search_report) return result.search_report.incomplete
+      ? copyFor(language).searchIncomplete : copyFor(language).searchNotFound;
     if (!result.items.length) return language === "zh"
       ? "暂未确认具体歌曲，也未找到相关曲目。添加歌手名或换个线索再试。"
       : "No specific recording or related tracks were found. Add the artist or try another input.";

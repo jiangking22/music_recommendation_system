@@ -63,6 +63,8 @@ class DiscoveryRequest(RecommendationRequest):
     language: Literal["en", "zh"] = "en"
     seed_artist: str | None = Field(default=None, min_length=1, max_length=200)
     seed_storefront: Literal["TW", "HK"] | None = None
+    resolution_id: str | None = Field(default=None,
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
     @model_validator(mode="after")
     def require_confirmed_artist(self):
@@ -85,6 +87,9 @@ class DiscoveryResponse(RecommendationResponse):
     guidance: str = Field(max_length=2000)
     guidance_provider: Literal["local", "openai_compatible"]
     guidance_status: Literal["ready", "unavailable"]
+    search_report: "SearchReport | None" = None
+    resolution_id: str | None = None
+    candidate_resolutions: dict[str, str] = Field(default_factory=dict)
 
 
 class SongIdentity(BaseModel):
@@ -108,6 +113,50 @@ class OriginalIdentificationResponse(BaseModel):
     suggestion: SongIdentity | None = None
     matched_track: Track | None = None
     verified_storefront: Literal["TW", "HK"] | None = None
+    sources: dict[str, ProviderResult] = Field(default_factory=dict)
+    search_report: "SearchReport | None" = None
+    resolution_id: str | None = None
+
+
+class SearchAttempt(BaseModel):
+    platform: str
+    region: str | None = None
+    stage: Literal["memory", "common", "expanded", "web", "manual", "confirmation", "recall"]
+    operation: Literal["search", "lookup", "web"] = "search"
+    status: Literal["hit", "no_results", "error", "not_configured", "not_executed", "unavailable", "auth_required"]
+    result_count: int = 0
+    error_code: str | None = None
+
+
+class SearchReport(BaseModel):
+    attempts: list[SearchAttempt] = Field(default_factory=list, max_length=60)
+    end_reason: Literal["matched", "ambiguous", "not_found", "budget_exhausted", "deadline",
+                        "unsupported_platform", "unavailable", "partial_failure"]
+    external_requests: int = Field(ge=0, le=24)
+    incomplete: bool = False
+
+
+class RecordingResolveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    seed: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    artist: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)] | None = None
+    language: Literal["en", "zh"] = "en"
+    platform: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)] | None = None
+    song_url: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2048)] | None = None
+
+
+class ResolvedChoice(BaseModel):
+    track: Track
+    resolution_id: str
+
+
+class RecordingResolveResponse(BaseModel):
+    request_id: str
+    status: Literal["matched", "ambiguous", "not_found", "unsupported_platform", "unavailable", "incomplete"]
+    matched_track: Track | None = None
+    resolution_id: str | None = None
+    candidates: list[ResolvedChoice] = Field(default_factory=list, max_length=5)
+    search_report: SearchReport
     sources: dict[str, ProviderResult] = Field(default_factory=dict)
 
 

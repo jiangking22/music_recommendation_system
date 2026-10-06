@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     allowed_origins: str = "http://localhost:3000"
     enable_qq_provider: bool = True
     enable_music_providers: bool = True
+    enable_musicbrainz_provider: bool = True
+    brave_search_api_key: SecretStr | None = None
     llm_provider: Literal["local", "openai_compatible"] = "local"
     llm_base_url: str = "https://api.openai.com/v1"
     llm_api_key: SecretStr | None = None

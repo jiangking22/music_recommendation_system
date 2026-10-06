@@ -14,7 +14,7 @@ from starlette.responses import JSONResponse
 _context: ContextVar[dict | None] = ContextVar("telemetry_context", default=None)
 _fields = {"method", "status", "latency_ms", "provider", "model", "operation", "tool",
            "code", "error_type", "result_count", "candidate_count", "source_count",
-           "failed_sources", "personalized", "prompt_tokens", "completion_tokens", "total_tokens"}
+           "failed_sources", "personalized", "prompt_tokens", "completion_tokens", "total_tokens", "stage"}
 
 
 def configure_logging() -> None:

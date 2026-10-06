@@ -2,6 +2,8 @@ import json
 import re
 from collections.abc import Callable, Mapping
 from ipaddress import ip_address
+from threading import BoundedSemaphore
+from time import perf_counter
 from typing import Protocol
 from urllib.parse import urlparse
 
@@ -20,10 +22,13 @@ from app.observability.events import correlation_headers
 MAX_RESULTS = 25
 MAX_RESPONSE_BYTES = 1_000_000
 REQUEST_TIMEOUT = httpx.Timeout(4.0, connect=2.0)
+EXTERNAL_SLOTS = BoundedSemaphore(4)
 
 
 class MusicProvider(Protocol):
     name: str
+
+    def lookup_track(self, identifier: str) -> ProviderResult: ...
 
     def search_tracks(self, query: str, limit: int) -> ProviderResult: ...
 
@@ -90,11 +95,18 @@ class HTTPMusicProvider:
         return self._health.model_copy(deep=True)
 
     def _request(self, method: str, url: str, *, jsonp: bool = False, **kwargs: object) -> Mapping[str, object]:
+        with EXTERNAL_SLOTS:
+            return self._bounded_request(method, url, jsonp=jsonp, **kwargs)
+
+    def _bounded_request(self, method: str, url: str, *, jsonp: bool = False, **kwargs: object) -> Mapping[str, object]:
         kwargs["headers"] = {**kwargs.get("headers", {}), **correlation_headers()}
         with self.client.stream(method, url, timeout=REQUEST_TIMEOUT, **kwargs) as response:
             response.raise_for_status()
             chunks = bytearray()
+            started = perf_counter()
             for chunk in response.iter_bytes():
+                if perf_counter() - started > 4:
+                    raise httpx.ReadTimeout("Catalog response exceeded its time budget")
                 chunks.extend(chunk)
                 if len(chunks) > MAX_RESPONSE_BYTES:
                     raise InvalidPayload("Response too large")
@@ -116,6 +128,8 @@ class HTTPMusicProvider:
             return result
         except httpx.TimeoutException:
             code = "timeout"
+        except httpx.HTTPStatusError as error:
+            code = "auth_required" if error.response.status_code in {401, 403} else "upstream_error"
         except (httpx.HTTPError, OSError):
             code = "upstream_error"
         except (InvalidPayload, ValidationError, ValueError, TypeError, KeyError):

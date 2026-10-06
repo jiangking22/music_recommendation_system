@@ -59,7 +59,7 @@ class ProviderCapabilities(BaseModel):
 
 
 class ProviderError(BaseModel):
-    code: Literal["timeout", "upstream_error", "invalid_payload", "unavailable"]
+    code: Literal["timeout", "upstream_error", "invalid_payload", "unavailable", "auth_required"]
     message: str
 
 

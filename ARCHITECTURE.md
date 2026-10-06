@@ -138,108 +138,100 @@ track from each default provider; future availability remains unverified.
 
 ## Service boundaries / 服务边界
 
-### Homepage seeded discovery (2026-10-06) / 首页歌曲发现
+### Homepage seeded discovery and recording resolution / 首页
 
-Current catalog coverage: QQ joins iTunes and NetEase by default (an explicit
-`ENABLE_QQ_PROVIDER=false` still disables it). This reuses the existing canonical adapter for
-initial discovery, model qualification, rejection verification, confirmation and related recall;
-no separate seed-provider contract is needed. Apple misses/failures can yield real QQ seeds and
-recommendations with QQ IDs/links. The registry remains sequential with at most three sources per
-operation and three operations/request; per-call deadlines, total deadlines and partial errors
-are unchanged. Global offline mode still creates an empty registry. Matched suggestions display
-their canonical evidence link for every source, without claiming independently certified authorship.
+The homepage, **None of the above**, and manual source recovery share a recording resolver.
+It revalidates confirmed success records first, then searches Apple, NetEase and QQ, followed
+by Apple Taiwan/Hong Kong and MusicBrainz. Queries use bounded artist-qualified forms,
+reviewed aliases and normalized punctuation. Identical platform/region/query combinations
+are not repeated. Expansion stops when a matching title/artist recording is found; covers,
+live versions and unrelated titles do not qualify. Catalog presence does not certify authorship.
 
-当前默认曲库增加 QQ；显式关闭开关与离线模式保持有效。原有适配器直接参与首次识别、候选否定核实、确认和
-推荐召回，Apple 未命中时可匹配真实 QQ 录音。最多三轮、每轮三个来源；匹配建议展示对应曲库来源链接。
+首页、**以上均没有** 和人工补查共用录音解析服务。依次重新核实成功记录、检索 Apple／网易云／QQ，
+再扩展 Apple 台湾／香港与 MusicBrainz；使用歌名、歌名＋歌手、已审核别名与规范化标点，避免重复查询。
+核实命中后停止扩展；同名不同歌手、明确翻唱或现场版本不会冒充匹配。曲库存在性不等于原唱认证。
 
-Explicit candidate rejection: additive `POST /v1/recommendations/identify-original` accepts a
-bounded seed/language and 1–5 title/artist rejection summaries. It makes one configured model call,
-validates the strict seed-identification schema, rejects themes/unknowns, rejected artist identities
-(including reviewed aliases), and titles unrelated to the requested recording. Canonical provider
-searches verify the suggestion. Default qualified artist/alias queries use at most two operations;
-remaining operations query Apple Taiwan, then Hong Kong when capacity remains. The request-local
-registry changes only the iTunes storefront, preserves configured sources/offline mode and never
-mutates the shared default US provider. Successful responses distinguish matched/unverified/unknown and include a nullable
-suggestion/recording and per-source status. Configuration, transport, malformed output, busy and
-timeout failures use distinct safe identification errors. No synthetic Track, ranking, profile
-access, persistence, Agent tool or migration is added.
+MusicBrainz provides recording metadata, not playback; requests share a one-per-second limiter
+and an identifying User-Agent ([API documentation](https://musicbrainz.org/doc/MusicBrainz_API)).
+Kugou and Kuwo are explicitly **unavailable**, rather than reported as searched: on 2026-10-06
+the former failed to connect and the latter rejected the public request. They have no enabled
+adapter. Each report distinguishes returned recordings, empty results, errors, authorization,
+unconfigured sources and sources not executed. An incomplete budget or source failure never
+means that the song does not exist.
 
-The route shares discovery's four-request semaphore and four-worker pool. Model waiting is eight
-seconds; verification waiting is 37 seconds within the 45-second request deadline, without automatic
-model retries. The extracted ArtistConfirmation component owns an abortable lookup and retains
-original choices on failure. A new discovery unmounts and cancels the lookup, preventing late results
-from replacing a new query. Matched suggestions require confirmation before the existing
-discover/seed_artist path revalidates and ranks; a UI marker retains model origin after confirmation.
-Regional Apple matches include `verified_storefront=TW|HK` and the canonical recording's evidence
-link. Confirmation sends optional `seed_storefront` (allowed only with an explicit artist); recall
-and refresh use that same region and revalidate the seed. Discovery returns the region only for
-an actual Apple seed recording. Input edits clear region selection. No arbitrary URL fetching,
-HTML scraping or model-supplied Track metadata is introduced; default discovery remains US.
-Unverified suggestions remain plain title/artist text without playback or a recommendation action.
-A catalog match does not certify original authorship. Only seed and bounded rejection metadata enter
-the model context; structured status/duration/error events contain no song, profile or credentials.
+MusicBrainz 仅核对录音元数据，界面明确说明不提供播放。酷狗连接失败、酷我公开请求被拒绝，当前均标为
+**暂不可用**，未启用适配器。报告分别列出返回录音、无结果、故障、需要授权、未配置和未执行；预算用尽
+或网络故障显示“检索尚未完成”。最终未命中提示：**未在已检索平台找到该歌曲，请检查歌名、歌手或来源链接。**
 
-候选列表末尾的“以上均没有”使用现有模型配置重新识别；拒绝同一歌手别名与无关歌曲，并在最多三次查询内核查
-统一曲库录音。默认查询未匹配时，剩余预算查询 Apple 台湾区、必要时香港区；匹配后显示核实来源链接。
-确认与刷新携带同一地区，重新验证录音并使用确定性推荐器；新输入清除地区。模型结果与曲库匹配区分展示：未匹配时仅显示
-待核实歌名/歌手。新搜索取消旧识别，识别失败保留原候选；无数据库迁移、画像写入或排名规则变更。
+Optional `BRAVE_SEARCH_API_KEY` enables a maximum of five web clues per search. It is disabled
+without its own server-side key ([Brave authentication](https://api-dashboard.search.brave.com/documentation/guides/authentication)).
+Snippets are never recordings: registered provider detail lookup must return matching canonical
+metadata. The server parses only supported HTTPS song links; it never fetches the supplied URL,
+follows a redirect, runs webpage code or trusts model-generated recording IDs.
 
-The homepage now calls additive `POST /v1/recommendations/discover`. Typed inputs bound seed to
-120 characters, artist confirmation to 200, result limit to 1–10, and UI language to `en`/`zh`.
-The request first searches canonical recordings. Reviewed hints cover `我好想你` / 苏打绿 and
-`匆匆那年` / 王菲; explicit user artist selection takes precedence. Other inputs, even a single
-unverified version, may use strict model identification containing only `kind`, `title`, `artist`.
-A suggested song must match the requested recording and artist in canonical provider results;
-an optional qualified search consumes the same request budget. Unknown or failed suggestions
-retain up to five artist-confirmation choices or an unresolved state. Matching proves catalog
-presence, not original authorship; `model` seeds carry a separate UI label. Explicit themes retain
-fallback even during model outages; a model `theme` result permits fallback only without matched recording titles.
+可选 `BRAVE_SEARCH_API_KEY` 为独立服务端 Key，不配置时默认关闭网页搜索。摘要仅为线索；必须读取已接入
+平台的真实详情数据才能形成录音。用户链接仅解析受支持域名与录音 ID，服务端调用固定平台接口，不直接
+抓取输入 URL、跟随重定向或执行网页代码。现支持 Apple US/TW/HK、网易云歌曲链接、QQ songDetail 链接
+和 MusicBrainz recording 链接；其他平台／链接格式明确提示暂不支持。
 
-The seed stays separate from ranked results. Deterministic artist/genre/tag recall and weights
-supplement the existing profile/source/popularity policy. Alternate recordings are filtered before
-merging; seed versions and unrelated fixture fill are excluded from song discovery. Reviewed artist
-aliases merge only within request-local recording candidates while preserving representative keys
-and provenance, unioning genre/tag recall metadata and filling missing metadata from alias matches.
-The synchronous recommendation REST/Agent/MCP tools share this deterministic core
-without invoking seed-identification models; their existing theme behavior remains separate.
-Scores, provenance and per-source errors stay visible.
+Automatic discovery has a 45-second total deadline, at most one model call (8 seconds), and
+24 external requests (one reserved for the optional model; reports count catalog/web calls).
+Music work has a 37-second deadline; expansion reserves four requests
+for deterministic related recall. Providers run sequentially within one request (below the
+maximum of two); all HTTP catalog/web calls share four global outbound slots. Discovery,
+identification and manual recovery share four active request slots and the existing bounded
+worker pool. Each adapter retains four-second timeouts, a 1 MB response cap and 25 recordings.
+Manual recovery has 30 seconds and six external requests, without automatic retry loops.
 
-The discovery API permits four active requests/event loop and uses the existing four-slot worker
-pool. Workers own their database sessions until completion, including after cancellation. All
-identification and recall stages share three registry operations and 25 results/provider/operation.
-Compute waiting has a cumulative 37-second budget; at most one model call has eight seconds inside
-the 45-second request deadline. Identification reuses the assistant's `get_llm_provider` and sends
-only the seed and bounded candidate title/artist summaries. After an identification attempt, local
-guidance is returned with `guidance_provider=local`; otherwise optional prose uses the strict Answer
-schema and measured factors. No private device/chat/profile data enters these prompts. Missing keys
-retain local confirmation/theme handling; invalid or unavailable model responses preserve local
-confirmation or guidance. Structured busy/timeout errors reveal no payloads.
+自动流程总限时 45 秒、模型最多一次且限时 8 秒、外部请求最多 24 次，其中为模型预留一次，报告计数为曲库／
+网页请求。曲库工作限时 37 秒，扩展预留四次
+请求用于确定性召回。每请求顺序调用来源，满足最多两个来源并发的上限；全局外部 HTTP 并发最多四个。
+三个入口共享四个请求槽与有界工作池。适配器保留 4 秒超时、1 MB 响应与每来源 25 首上限；人工补查
+限时 30 秒、最多六次外部请求，不自动循环重试。日志仅记录关联 ID、来源、阶段、状态、计数、耗时和错误码。
 
-The homepage stores only the selected interface language alongside its existing random device ID.
-It translates UI labels, statuses, feedback and measured explanation factors. A small reviewed
-artist alias map enriches optional `Track.artist.display_name`, profile artist `display_name` and
-recent-feedback `artist_display_name`; 王菲 and 苏打绿 prefer Chinese names regardless of locale,
-reviewed foreign names such as Taylor Swift use English, and unknown artists preserve source names.
-Raw artist names, provider IDs, stored affinities and
-canonical keys are unchanged; no database migration is introduced. Titles, albums and English
-theme headings stay intact. `seed_resolution_source` adds the contract values `verified_hint`,
-`user`, `model`, `catalog`, `none`. Locale changes retain that source label without reranking;
-old-language model prose yields to local guidance until another search.
+`POST /v1/recordings/resolve` accepts `seed` (1–120 trimmed characters), optional `artist`
+(1–200), `language=en|zh`, optional `platform` (1–40) and `song_url` (1–2048).
+It returns `status=matched|ambiguous|not_found|unsupported_platform|unavailable|incomplete`,
+nullable `matched_track`/`resolution_id`, bounded candidate tracks with their references,
+`search_report` and canonical `sources`. It performs no recommendation or model call.
+Discovery and identify-original add `search_report` and nullable `resolution_id`; discovery
+also returns `candidate_resolutions`. Identification retains its existing model error codes.
 
-首页先搜索统一录音；已审核提示覆盖《我好想你》/苏打绿与《匆匆那年》/王菲，用户明确选择的歌手优先。
-其他输入即使只有一个未核实版本，也可使用只含 `kind`、`title`、`artist` 的严格模型识别。模型建议必须
-匹配真实曲库中的标题和歌手，必要的限定搜索共用查询预算；未知或失败时保留最多五个确认候选或未解析状态。
-匹配曲库不等于认证原唱，模型起点单独标记。明确主题在模型故障时仍保留降级；模型判为主题也必须没有录音标题匹配。
-确定性领域服务继续负责召回、评分与重排，排除起点版本和歌曲模式下的无关演示补数；同步推荐接口、Agent
-与 MCP 工具不调用识别模型，保留原有主题处理。
+新增解析接口不调用模型、不生成推荐。发现／补充识别响应增加 `search_report` 与 `resolution_id`，
+多版本候选分别附带确认引用。报告包含平台、地区、阶段、操作、状态、数量、安全错误码、请求计数和结束原因。
+旧参数 `seed_artist`、`seed_storefront=TW|HK` 继续兼容。
 
-首页最多四个并发请求与四个工作槽；查询总计最多三次，每次每来源最多 25 首。计算等待累计限时 37 秒，
-一次模型调用限时 8 秒，总请求 45 秒；模型识别只接收输入与有界标题/歌手候选，不含设备、聊天或完整画像。
-尝试识别后返回本地说明（`guidance_provider=local`），其他请求可生成经严格校验的因素说明。失败保留确认
-或本地说明。可选姓名显示字段只由已审核别名派生；王菲、苏打绿在两种界面语言下优先中文，Taylor Swift 等
-已审核外国歌手使用英文，未知姓名保留
-来源写法，不保证完整姓名覆盖。原始身份、画像、canonical key 不变，无数据库迁移。识别来源契约包括
-`verified_hint`、`user`、`model`、`catalog`、`none`；切换语言保留来源标记，不重新排序。
+The UI retains the original query and model suggestion. Unresolved results offer a platform
+selector, optional artist and song-link field; multiple recordings require a choice, and a single
+recording still requires **Confirm and recommend**. Confirmation sends `resolution_id` plus
+`seed_artist` to discovery. The server re-fetches the same provider ID before deterministic recall
+and ranking. Expired, mismatched or unavailable references return `resolution_expired` (410),
+`resolution_mismatch` (422) or `resolution_unavailable` (503). New searches cancel pending UI
+lookups; late results cannot replace the next query. English and Chinese copy cover the flow.
+
+未命中时保留原查询／模型建议／历史报告，并提供指定来源补查。单个或多个真实录音均先展示来源并等待确认，
+确认携带引用后从原命中平台重新核实，再由原推荐器召回和排序。重复提交被禁用，新查询取消旧请求，迟到
+响应不会覆盖新结果；失效确认可重新检索，不强行推荐。
+
+Migration `0006_recording_resolution` adds `recording_resolutions` (30-minute verification
+references, expired rows pruned when new references are issued) and `verified_recordings`
+(canonical title, artist identity, platform, real recording ID, URL, region and verification time).
+Only a fresh provider verification plus explicit reference confirmation upserts success memory.
+Guesses, failed lookups and unconfirmed tracks are never saved as durable facts. Future searches
+revalidate remembered IDs; missing IDs are marked stale and other platforms are searched. Homonyms
+remain separate. This is successful-result memory, not model training or global original-author certification.
+
+迁移新增临时核实引用和成功录音表；仅“平台核实成功＋用户明确确认采用”写入成功记录。下次优先重查该
+平台与 ID，失效记录标为待核实并继续扩展；同名不同歌手分别存储。此机制不训练模型、不建立原唱认证，
+不修改评分规则。现有 Compose API 启动流程执行 Alembic 迁移；升级应保留现有 `.env` 和数据库卷。
+
+The legacy `python server.py` demo remains unchanged. Synchronous recommendation REST/Agent/MCP
+retain their existing bounded registry contract and deterministic theme behavior; expanded resolution
+belongs to the homepage and recording endpoints. Automated tests mock providers/models; live source,
+model and browser checks are recorded separately and do not establish universal coverage or accuracy.
+
+旧版演示保持可运行；原同步推荐、Agent 和 MCP 的现有契约／主题处理保持兼容。自动测试模拟平台和模型，
+真实平台、已配置模型与浏览器验收单独记录；不能保证所有歌曲均被收录或始终可访问。
 
 ### Phase 3 recommendation core (implemented)
 

@@ -8,6 +8,7 @@ import type {
   RecommendationResponse,
   Track,
   VerifiedStorefront,
+  RecordingResolveResponse,
 } from "../types/music";
 
 export class ApiError extends Error {
@@ -27,6 +28,7 @@ export function createApiClient(
   fetcher: typeof fetch = fetch,
 ) {
   const root = baseUrl.replace(/\/$/, "");
+  let discoveryController: AbortController | null = null;
   async function request<T>(
     path: string,
     method = "GET",
@@ -78,20 +80,31 @@ export function createApiClient(
     return payload as T;
   }
   return {
+    cancelDiscovery: () => discoveryController?.abort(),
     bootstrap: () => request<{ deviceId: string }>("/v1/device"),
     recommend: (seed: string, limit: number) =>
       request<RecommendationResponse>("/v1/recommendations", "POST", {
         seed,
         limit,
       }),
-    discover: (seed: string, limit: number, language: InterfaceLanguage, seedArtist?: string, seedStorefront?: VerifiedStorefront) =>
-      request<DiscoveryResponse>("/v1/recommendations/discover", "POST", {
+    discover: (seed: string, limit: number, language: InterfaceLanguage, seedArtist?: string, seedStorefront?: VerifiedStorefront,
+      resolutionId?: string, signal?: AbortSignal) => {
+      discoveryController?.abort();
+      discoveryController = new AbortController();
+      return request<DiscoveryResponse>("/v1/recommendations/discover", "POST", {
         seed,
         limit,
         language,
         ...(seedArtist ? { seed_artist: seedArtist } : {}),
         ...(seedStorefront ? { seed_storefront: seedStorefront } : {}),
-      }, 60000),
+        ...(resolutionId ? { resolution_id: resolutionId } : {}),
+      }, 60000, signal ? AbortSignal.any([signal, discoveryController.signal]) : discoveryController.signal);
+    },
+    resolveRecording: (seed: string, language: InterfaceLanguage, artist?: string, platform?: string,
+      songUrl?: string, signal?: AbortSignal) => request<RecordingResolveResponse>("/v1/recordings/resolve", "POST", {
+        seed, language, ...(artist ? { artist } : {}), ...(platform ? { platform } : {}),
+        ...(songUrl ? { song_url: songUrl } : {}),
+      }, 35000, signal),
     identifyOriginal: (seed: string, language: InterfaceLanguage, rejectedCandidates: SongIdentity[], signal?: AbortSignal) =>
       request<OriginalIdentificationResponse>("/v1/recommendations/identify-original", "POST", {
         seed, language, rejected_candidates: rejectedCandidates,

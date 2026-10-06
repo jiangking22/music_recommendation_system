@@ -1,5 +1,31 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-027: Share bounded recording expansion and remember confirmed provider IDs
+
+**Status:** Accepted; supersedes ADR-024/025/026 homepage search caps and no-persistence scope
+**Date:** 2026-10-06
+
+Use one request-local resolver for discovery, rejected-candidate verification and manual platform
+or link recovery. Revalidate success memory, search common catalogs, then regional Apple and
+MusicBrainz metadata. Optional Brave returns only clues for registered detail lookups. Keep Kugou
+and Kuwo unavailable after failed live feasibility probes. Report exactly what ran and distinguish
+budget/deadline/partial failure from a completed miss; never infer that a song does not exist.
+
+Maintain 45 seconds/one 8-second model call, at most 24 external requests with four reserved for
+related recall, and four global outbound slots. Sequential per-request calls stay below the two-source
+concurrency ceiling. Manual recovery gets 30 seconds/six requests. Provider failures are isolated;
+MusicBrainz shares a one-per-second limiter and is explicitly metadata-only.
+
+Issue 30-minute PostgreSQL verification references and re-fetch the same platform ID on confirmation.
+Only confirmed, freshly verified recordings enter durable success memory. Stale IDs continue through
+expansion; homonyms remain separate. References and knowledge are public recording metadata, not
+device authentication, private conversation memory, global authorship certification or model training.
+Fixed adapter endpoints and validated HTTPS song-link IDs avoid arbitrary URL fetch/redirect execution.
+
+新增迁移与解析接口是用户已批准的范围调整；原推荐器继续负责召回、评分与排序。具体契约、来源可用性、
+配置与恢复流程见 [recording resolution](docs/recording-resolution.md)。旧请求与旧版演示继续兼容；
+未配置 Brave 不进行网页搜索，未接入平台不冒充已检索。适配器稳定性和平台收录仍限制覆盖率。
+
 ## ADR-026: Enable domestic catalog coverage in the shared registry by default
 
 **Status:** Accepted; supersedes the QQ opt-in default, retaining ADR-025 regional Apple fallback

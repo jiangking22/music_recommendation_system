@@ -19,6 +19,29 @@ class Base(DeclarativeBase):
     pass
 
 
+class VerifiedRecording(Base):
+    __tablename__ = "verified_recordings"
+    knowledge_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    normalized_title: Mapped[str] = mapped_column(String(200), index=True)
+    artist_identity: Mapped[str] = mapped_column(String(200), nullable=False)
+    platform: Mapped[str] = mapped_column(String(40), nullable=False)
+    recording_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    region: Mapped[str | None] = mapped_column(String(2))
+    source_url: Mapped[str | None] = mapped_column(String(2048))
+    track: Mapped[dict] = mapped_column(JSON, nullable=False)
+    verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    stale: Mapped[bool] = mapped_column(default=False, nullable=False)
+
+
+class RecordingResolution(Base):
+    __tablename__ = "recording_resolutions"
+    resolution_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    seed: Mapped[str] = mapped_column(String(120), nullable=False)
+    track: Mapped[dict] = mapped_column(JSON, nullable=False)
+    region: Mapped[str | None] = mapped_column(String(2))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
 class DeviceUser(Base):
     __tablename__ = "device_users"
 

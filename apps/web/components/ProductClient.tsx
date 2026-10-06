@@ -16,6 +16,9 @@ import type {
 import ProfilePanel from "./ProfilePanel";
 import RecommendationCard from "./RecommendationCard";
 import ArtistConfirmation from "./ArtistConfirmation";
+import RecordingRecovery from "./RecordingRecovery";
+import SearchReport from "./SearchReport";
+import { safeExternalUrl } from "../lib/url";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -31,6 +34,8 @@ export default function ProductClient() {
   const [resultSeed, setResultSeed] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<string | undefined>();
   const [selectedStorefront, setSelectedStorefront] = useState<VerifiedStorefront | null>(null);
+  const [selectedResolution, setSelectedResolution] = useState<string | undefined>();
+  const [resolutionError, setResolutionError] = useState(false);
   const [confirmedModelArtist, setConfirmedModelArtist] = useState<string | null>(null);
   const discoveryRequest = useRef(0);
   const discoveryPending = useRef(false);
@@ -100,11 +105,12 @@ export default function ProductClient() {
     return () => {
       active = false;
       discoveryRequest.current += 1;
+      client.cancelDiscovery?.();
     };
   }, []);
 
   async function findMusic(event?: React.FormEvent, artist = selectedArtist, query = seed, modelSuggested = false,
-    storefront = selectedStorefront) {
+    storefront = selectedStorefront, resolutionId = selectedResolution) {
     event?.preventDefault();
     if (!api.current || !query.trim() || discoveryPending.current) return;
     const currentRequest = ++discoveryRequest.current;
@@ -112,23 +118,33 @@ export default function ProductClient() {
     if (modelSuggested && artist) setConfirmedModelArtist(artist);
     setLoading(true);
     setError(false);
+    setResolutionError(false);
     setNotice(null);
     setFeedbackError(false);
     try {
-      const response = storefront
+      const response = resolutionId
+        ? await api.current.discover(query.trim(), limit, language, artist, storefront ?? undefined, resolutionId)
+        : storefront
         ? await api.current.discover(query.trim(), limit, language, artist, storefront)
         : await api.current.discover(query.trim(), limit, language, artist);
       if (currentRequest !== discoveryRequest.current) return;
       setResult(response);
       setResultLanguage(language);
       setResultSeed(query.trim());
+      if (resolutionId) setSelectedResolution(response.resolution_id ?? undefined);
       setConfirmedModelArtist(response.seed_status === "matched" && artist &&
         (modelSuggested || (query.trim() === resultSeed && artist === confirmedModelArtist)) ? artist : null);
       setPreferencesChanged(false);
       if (Object.values(response.sources).some((source) => source.error))
         setNotice("partialSources");
-    } catch {
-      if (currentRequest === discoveryRequest.current) setError(true);
+    } catch (failure) {
+      if (currentRequest === discoveryRequest.current) {
+        setError(true);
+        if (failure instanceof Error && "code" in failure && typeof failure.code === "string"
+          && failure.code.startsWith("resolution_")) {
+          setResolutionError(true); setSelectedResolution(undefined);
+        }
+      }
     } finally {
       if (currentRequest === discoveryRequest.current) {
         discoveryPending.current = false;
@@ -225,6 +241,11 @@ export default function ProductClient() {
                       value={seed}
                       onChange={(event) => {
                         setSeed(event.target.value); setSelectedArtist(undefined); setSelectedStorefront(null);
+                        setSelectedResolution(undefined);
+                        if (discoveryPending.current) {
+                          api.current?.cancelDiscovery?.(); discoveryRequest.current += 1;
+                          discoveryPending.current = false; setLoading(false); setResult(null);
+                        }
                       }}
                       placeholder={copy.seedPlaceholder}
                       maxLength={120}
@@ -273,12 +294,12 @@ export default function ProductClient() {
               <div className="status-region" aria-live="polite">
                 {!ready ? <p>{copy.connecting}</p> : null}
                 {loading ? (
-                  <p className="loading-state">{copy.loading}</p>
+                  <p className="loading-state">{copy.expandingSearch}</p>
                 ) : null}
                 {notice ? <p className="notice">{copy[notice]}</p> : null}
                 {error ? (
                   <div role="alert" className="error-state">
-                    <p>{copy.recommendationsError}</p>
+                    <p>{resolutionError ? copy.resolutionExpired : copy.recommendationsError}</p>
                     <button type="button" onClick={() => findMusic()}>
                       {copy.tryAgain}
                     </button>
@@ -316,20 +337,26 @@ export default function ProductClient() {
                       {result.seed_resolution_source === "verified_hint" ? <span>{copy.verifiedSeed}</span> : null}
                       {confirmedModelArtist ? <span>{copy.modelConfirmed}</span> : null}
                       {result.seed_storefront ? <span>{copy.onlineVerified}</span> : null}
+                      {safeExternalUrl(result.seed_track.source.external_url) ? <a href={safeExternalUrl(result.seed_track.source.external_url)!}
+                        target="_blank" rel="noopener noreferrer">{copy.verificationSource}</a> : null}
+                      {result.seed_track.source.provider === "musicbrainz" ? <span>{copy.metadataOnly}</span> : null}
                     </p>
                   ) : null}
                   {result.seed_status === "ambiguous" ? (
                     <ArtistConfirmation key={`${result.request_id}:${resultSeed}`} query={resultSeed}
                       candidates={result.seed_candidates} language={language}
+                      candidateResolutions={result.candidate_resolutions}
                       identifyOriginal={(...args) => {
                         if (!api.current) return Promise.reject(new Error("Music service is not ready."));
                         return api.current.identifyOriginal(...args);
                       }}
-                      onSelect={(artist, modelSuggested, storefront) => {
+                      resolveRecording={(...args) => api.current!.resolveRecording(...args)}
+                      onSelect={(artist, modelSuggested, storefront, resolutionId) => {
                         setSeed(resultSeed);
                         setSelectedArtist(artist);
                         setSelectedStorefront(storefront ?? null);
-                        void findMusic(undefined, artist, resultSeed, modelSuggested, storefront ?? null);
+                        setSelectedResolution(resolutionId);
+                        void findMusic(undefined, artist, resultSeed, modelSuggested, storefront ?? null, resolutionId);
                       }} />
                   ) : (
                     <div className="discovery-guidance">
@@ -341,6 +368,13 @@ export default function ProductClient() {
                         ? <p className="guidance-note">{copy.guidanceLanguage}</p> : null}
                     </div>
                   )}
+                  <SearchReport report={result.search_report} language={language} />
+                  {result.seed_status === "unresolved" && !result.items.length ? <RecordingRecovery
+                    key={`${result.request_id}:${resultSeed}:manual`} query={resultSeed} language={language}
+                    resolve={(...args) => api.current!.resolveRecording(...args)} onSelect={(track, id) => {
+                      setSeed(resultSeed); setSelectedArtist(track.artist.name); setSelectedStorefront(null); setSelectedResolution(id);
+                      void findMusic(undefined, track.artist.name, resultSeed, false, null, id);
+                    }} /> : null}
                 </div>
               ) : null}
               {!loading && result && !error ? (
@@ -358,7 +392,7 @@ export default function ProductClient() {
                       />
                     ))}
                   </div>
-                ) : result.seed_status === "ambiguous" ? null : (
+                ) : result.seed_status !== "matched" ? null : (
                   <div className="empty-state">
                     <h3>{copy.noTracks}</h3>
                     <p>{copy.noTracksDescription}</p>

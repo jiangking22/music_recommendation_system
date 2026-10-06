@@ -12,17 +12,31 @@ from app.domain.music import (
 from app.infrastructure.config import get_settings
 from app.observability.events import emit
 from app.providers.base import MAX_RESULTS, MusicProvider
+from app.providers.brave import BraveSearch
 from app.providers.itunes import ITunesProvider
+from app.providers.musicbrainz import MusicBrainzProvider
 from app.providers.netease import NetEaseProvider
 from app.providers.qq import QQProvider
 
 
 class ProviderRegistry:
-    def __init__(self, providers: list[MusicProvider]) -> None:
+    def __init__(self, providers: list[MusicProvider], *, extensions: list[MusicProvider] | None = None,
+                 web_search: BraveSearch | None = None) -> None:
         names = [provider.name for provider in providers]
         if len(names) != len(set(names)):
             raise ValueError("duplicate provider name")
         self._providers = dict(zip(names, providers, strict=True))
+        self.extensions = extensions or []
+        self.web_search = web_search
+
+    def catalogs(self) -> list[MusicProvider]:
+        return list(self._providers.values())
+
+    def catalog(self, name: str | None, region: str | None = None) -> MusicProvider | None:
+        provider = next((p for p in [*self.catalogs(), *self.extensions] if p.name == name), None)
+        if isinstance(provider, ITunesProvider) and region:
+            return ITunesProvider(client=provider.client, storefront=region)
+        return provider
 
     def capabilities(self) -> list[ProviderCapabilities]:
         return [provider.capabilities() for provider in self._providers.values()]
@@ -38,7 +52,7 @@ class ProviderRegistry:
             ITunesProvider(client=provider.client, storefront=storefront)
             if isinstance(provider, ITunesProvider) else provider
             for provider in self._providers.values()
-        ])
+        ], extensions=self.extensions, web_search=self.web_search)
 
     def search_tracks(self, query: str, limit: int) -> SearchResult:
         if not query.strip() or not 1 <= limit <= MAX_RESULTS:
@@ -69,4 +83,7 @@ def get_provider_registry() -> ProviderRegistry:
     providers: list[MusicProvider] = [ITunesProvider(), NetEaseProvider()]
     if get_settings().enable_qq_provider:
         providers.append(QQProvider())
-    return ProviderRegistry(providers)
+    settings = get_settings()
+    extensions = [MusicBrainzProvider()] if settings.enable_musicbrainz_provider else []
+    web = BraveSearch(settings.brave_search_api_key) if settings.brave_search_api_key else None
+    return ProviderRegistry(providers, extensions=extensions, web_search=web)

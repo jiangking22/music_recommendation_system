@@ -22,12 +22,16 @@ def test_postgres_memory_and_vector_fixture_migrations_compile_offline(monkeypat
     assert "CREATE TABLE agent_conversations" in sql
     assert "CREATE TABLE agent_preference_summaries" in sql
     assert "CREATE TABLE music_knowledge_chunks" in sql
+    assert "CREATE TABLE verified_recordings" in sql
+    assert "CREATE TABLE recording_resolutions" in sql
     assert "TYPE vector(16)" in sql
     assert sql.count("INSERT INTO music_knowledge_documents") == 4
     assert sql.count("INSERT INTO music_knowledge_chunks") == 4
     assert "周杰伦" in sql
     rollback = io.StringIO()
     alembic.output_buffer = rollback
-    command.downgrade(alembic, "0005_music_knowledge:0003_embeddings", sql=True)
+    command.downgrade(alembic, "0006_recording_resolution:0003_embeddings", sql=True)
+    assert "DROP TABLE verified_recordings" in rollback.getvalue()
+    assert "DROP TABLE recording_resolutions" in rollback.getvalue()
     assert "DROP TABLE music_knowledge_chunks" in rollback.getvalue()
     assert "DROP TABLE agent_conversations" in rollback.getvalue()

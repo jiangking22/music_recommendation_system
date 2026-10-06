@@ -253,7 +253,7 @@ describe("recommendation home", () => {
       target: { value: "jazz" },
     });
     fireEvent.click(screen.getByRole("button", { name: /find music/i }));
-    expect(screen.getByText(/finding your next listen/i)).toBeInTheDocument();
+    expect(screen.getByText(/automatically expanding the search/i)).toBeInTheDocument();
     finish({
       ...result,
       sources: {
@@ -374,7 +374,7 @@ describe("recommendation home", () => {
     fireEvent.change(screen.getByLabelText(/song or mood/i), { target: { value: "jazz" } });
     fireEvent.click(screen.getByRole("button", { name: /find music/i }));
     fireEvent.click(screen.getByRole("button", { name: "切换为中文" }));
-    expect(screen.getByText("正在寻找下一首好歌…")).toBeInTheDocument();
+    expect(screen.getByText("正在检索音乐曲库，并自动扩大检索范围…")).toBeInTheDocument();
     fail(new Error("offline"));
     expect(await screen.findByRole("alert")).toHaveTextContent("暂时无法获取推荐，请检查服务后重试。");
     fireEvent.click(screen.getByRole("button", { name: "Switch to English" }));

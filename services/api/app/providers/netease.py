@@ -1,3 +1,4 @@
+import json
 from collections.abc import Mapping
 
 from app.domain.music import (
@@ -73,6 +74,17 @@ class NetEaseProvider(HTTPMusicProvider):
 
     def search_tracks(self, query: str, limit: int) -> ProviderResult:
         return self._execute(lambda: self._search(query, self._bounded_limit(limit)))
+
+    def lookup_track(self, identifier: str) -> ProviderResult:
+        def fetch():
+            if not identifier.isdecimal() or len(identifier) > 20:
+                raise InvalidPayload("Invalid recording ID")
+            payload = self._request("GET", "https://music.163.com/api/song/detail/",
+                params={"id": identifier, "ids": json.dumps([int(identifier)])},
+                headers={"Referer": "https://music.163.com/"})
+            return [track for item in require_list(payload.get("songs"))[:25]
+                    if (track := map_netease_track(item)) and track.source.provider_track_id == identifier]
+        return self._execute(fetch)
 
     def search_artist_tracks(self, artist: str, limit: int) -> ProviderResult:
         return self._execute(lambda: [track for track in self._search(artist, self._bounded_limit(limit))

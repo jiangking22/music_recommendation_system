@@ -793,3 +793,20 @@ summary:focus-visible {
     transition: none;
   }
 }
+.recording-recovery { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border, #ddd); }
+.recovery-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem; max-width: 34rem; }
+.recovery-form input, .recovery-form select { width: 100%; min-width: 0; padding: .65rem; border: 1px solid #ccc; background: transparent; border-radius: .3rem; }
+.recovery-form label { font-size: .85rem; margin-top: .4rem; }
+.recovery-form button { justify-self: start; margin-top: .5rem; }
+.resolved-choice { margin-top: 1rem; padding: .8rem 0; }
+.resolved-choice a, .resolved-choice button { display: inline-block; margin-right: 1rem; margin-bottom: .5rem; }
+.search-report { margin: 1rem 0; font-size: .85rem; overflow-wrap: anywhere; }
+.search-report summary { cursor: pointer; padding: .5rem 0; }
+.search-report ul { padding-left: 1.25rem; line-height: 1.8; }
+.seed-track a { display: block; margin-top: .5rem; }
+.recording-recovery .text-button, .original-identification .text-button {
+  min-height: 44px; padding: .65rem .9rem; border: 1px solid var(--line); border-radius: 3px;
+  color: var(--ink); background: var(--soft); font: inherit; font-size: .85rem; cursor: pointer;
+}
+.recording-recovery .text-button:hover, .original-identification .text-button:hover { border-color: var(--orange); }
+.recording-recovery .text-button:disabled { opacity: .6; cursor: wait; }

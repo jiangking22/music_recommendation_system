@@ -33,7 +33,7 @@ class IdentificationError(Exception):
 
 
 async def identify_original(request: OriginalIdentificationRequest, provider: LLMProvider,
-                            registry: ProviderRegistry) -> OriginalIdentificationResponse:
+                            registry: ProviderRegistry, engine=None) -> OriginalIdentificationResponse:
     if provider.name == "local":
         raise IdentificationError("identification_not_configured", 503,
                                   "No model API is configured on the server.")
@@ -58,6 +58,20 @@ async def identify_original(request: OriginalIdentificationRequest, provider: LL
             or not title_matches_query(request.seed, suggestion.title, suggestion.artist, suggestion.artist)):
         return response
     response.suggestion = SongIdentity(title=suggestion.title, artist=suggestion.artist)
+
+    if engine is not None and hasattr(registry, "catalogs"):
+        from app.services.recording_resolution import RecordingResolver
+        resolver = RecordingResolver(registry, engine, request.seed, suggestion.artist)
+        async with asyncio.timeout(37):
+            result = await run_blocking(resolver.resolve)
+        response.status = "matched" if result.matched_track else "unverified"
+        response.matched_track = result.matched_track
+        response.resolution_id = result.resolution_id
+        response.search_report = result.search_report
+        response.sources = result.sources
+        region = resolver.region(result.matched_track) if result.matched_track else None
+        response.verified_storefront = region if region in {"TW", "HK"} else None
+        return response
 
     def verify():
         # No profile or recommendation work: only the existing bounded catalog matcher.
