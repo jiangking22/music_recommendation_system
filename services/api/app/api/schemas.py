@@ -79,6 +79,7 @@ class DiscoveryRequest(RecommendationRequest):
 
 
 class DiscoveryResponse(RecommendationResponse):
+    requires_confirmation: bool = False
     seed_track: Track | None = None
     seed_candidates: list[Track] = Field(default_factory=list, max_length=5)
     seed_status: Literal["matched", "ambiguous", "unresolved"]

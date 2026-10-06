@@ -287,7 +287,8 @@ export default function ProductClient() {
                 </div>
                 {result && !loading ? (
                   <span className="result-count">
-                    {language === "zh" ? `找到 ${result.items.length} 首歌曲` : `${result.items.length} tracks found`}
+                    {result.requires_confirmation ? copy.awaitingArtistConfirmation
+                      : language === "zh" ? `找到 ${result.items.length} 首歌曲` : `${result.items.length} tracks found`}
                   </span>
                 ) : null}
               </div>
@@ -330,7 +331,7 @@ export default function ProductClient() {
               ) : null}
               {!loading && result && !error ? (
                 <div className="discovery-context">
-                  {result.seed_track ? (
+                  {result.seed_track && !result.requires_confirmation ? (
                     <p className="seed-track"><span>{copy.basedOn}</span>
                       <strong>{result.seed_track.title} · {artistDisplayName(result.seed_track.artist)}</strong>
                       {result.seed_resolution_source === "model" ? <span>{copy.modelSeed}</span> : null}
@@ -342,10 +343,16 @@ export default function ProductClient() {
                       {result.seed_track.source.provider === "musicbrainz" ? <span>{copy.metadataOnly}</span> : null}
                     </p>
                   ) : null}
-                  {result.seed_status === "ambiguous" ? (
+                  {result.seed_status === "ambiguous" || result.requires_confirmation ? (
                     <ArtistConfirmation key={`${result.request_id}:${resultSeed}`} query={resultSeed}
                       candidates={result.seed_candidates} language={language}
                       candidateResolutions={result.candidate_resolutions}
+                      initialSuggestion={result.requires_confirmation && result.seed_track ? {
+                        request_id: result.request_id, status: "matched",
+                        suggestion: { title: result.seed_track.title, artist: result.seed_track.artist.name },
+                        matched_track: result.seed_track, verified_storefront: result.seed_storefront,
+                        resolution_id: result.resolution_id, sources: result.sources,
+                      } : undefined}
                       identifyOriginal={(...args) => {
                         if (!api.current) return Promise.reject(new Error("Music service is not ready."));
                         return api.current.identifyOriginal(...args);
@@ -392,7 +399,7 @@ export default function ProductClient() {
                       />
                     ))}
                   </div>
-                ) : result.seed_status !== "matched" ? null : (
+                ) : result.seed_status !== "matched" || result.requires_confirmation ? null : (
                   <div className="empty-state">
                     <h3>{copy.noTracks}</h3>
                     <p>{copy.noTracksDescription}</p>

@@ -122,8 +122,14 @@ def test_model_identifies_an_original_artist_already_in_the_first_catalog_page(i
     assert body["seed_status"] == "matched"
     assert body["seed_resolution_source"] == "model"
     assert body["seed_track"] == second.model_dump(mode="json")
-    assert [item["title"] for item in body["items"]] == ["Neighbour"]
+    assert body["requires_confirmation"] is True
+    assert body["items"] == []
+    assert [query for query, _ in registry.calls] == ["Shared Title"]
     assert_identification_budget(registry, model)
+    confirmed = discover(client, seed_artist="Second")
+    assert confirmed["requires_confirmation"] is False
+    assert [item["title"] for item in confirmed["items"]] == ["Neighbour"]
+    assert len(model.identify_calls) == 1
 
 
 def test_model_artist_proposal_can_trigger_one_qualified_catalog_search(identification_case):
@@ -137,9 +143,10 @@ def test_model_artist_proposal_can_trigger_one_qualified_catalog_search(identifi
     body = discover(client)
     assert body["seed_track"] == second.model_dump(mode="json")
     assert body["seed_resolution_source"] == "model"
-    assert [item["title"] for item in body["items"]] == ["Neighbour"]
+    assert body["requires_confirmation"] is True
+    assert body["items"] == []
     assert [query for query, _ in registry.calls] == [
-        "Shared Title", "Shared Title Second", "Second"]
+        "Shared Title", "Shared Title Second"]
     assert_identification_budget(registry, model)
 
 
@@ -269,7 +276,11 @@ def test_model_and_manual_selection_preserve_the_same_deterministic_scores(ident
     model_result = discover(client)
     assert_identification_budget(registry, model)
     user_result = discover(client, seed_artist="Second")
-    assert model_result["items"] == user_result["items"]
+    assert model_result["requires_confirmation"] is True
+    assert model_result["items"] == []
+    confirmed_result = discover(client, seed_artist=model_result["seed_track"]["artist"]["name"])
+    assert confirmed_result["items"] == user_result["items"]
+    assert user_result["items"]
     assert model_result["seed_resolution_source"] == "model"
     assert user_result["seed_resolution_source"] == "user"
     assert len(model.identify_calls) == 1
@@ -693,5 +704,6 @@ def test_qq_only_original_can_be_identified_confirmed_and_recommended(identifica
     automatic = discover(client, "宠爱")
     assert automatic["seed_resolution_source"] == "model"
     assert automatic["seed_track"]["source"]["provider"] == "qq"
-    assert [item["title"] for item in automatic["items"]] == ["相关歌曲"]
+    assert automatic["requires_confirmation"] is True
+    assert automatic["items"] == []
     assert len(calls) <= 9

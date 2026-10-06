@@ -134,7 +134,12 @@ genre/tag context. Source-backed hints identify `我好想你` with 苏打绿 an
 your explicit artist selection takes precedence. Other song inputs, including a single unverified
 version, use optional model identification or ask for artist confirmation. The model returns only
 strict `kind`/`title`/`artist` fields; a song suggestion must match a real canonical catalog recording.
-The UI labels this as model-assisted identification, not certified original authorship. The
+Every model-derived artist, including the initial match, waits for **Confirm and recommend**;
+discovery returns `requires_confirmation=true` and no recommendations before that action.
+Choose **Different artist — I'll provide it** if the suggestion is wrong, enter the artist and
+verify across available platforms (or specify a platform/song link), then select the real recording.
+Only the explicitly confirmed and revalidated recording is remembered. The UI labels catalog
+presence as recording evidence, not certified original authorship. The
 deterministic recommender still owns related-song recall and ranking, excludes seed versions and
 alternate recordings, and never fills a song request with unrelated demo tracks. Explicit
 mood/genre inputs retain catalog fallback even when model identification is unavailable. A model's `theme` classification permits that
@@ -143,7 +148,10 @@ fallback only when no recording title matched; an unknown song does not silently
 首页先识别起点歌曲，再按歌手与已有曲风/标签召回相关音乐。已核对来源的提示将《我好想你》对应苏打绿、
 《匆匆那年》对应王菲；用户明确选择的歌手优先。其他歌曲输入，即使只找到一个未核实版本，也会尝试可选的
 模型识别，或要求确认歌手。模型只能返回严格校验的 `kind`/`title`/`artist`，歌曲建议必须匹配真实统一曲库录音，
-界面注明“模型辅助识别，已匹配曲库”，不视为原唱认证。确定性推荐器继续负责相关曲目召回与排序，排除起点
+首次与补充识别中的模型歌手均先等待“确认并推荐”；发现响应 `requires_confirmation=true` 时不生成推荐。
+若不正确，可点“不是这位歌手，我来填写”，输入歌手并核实，默认自动检索可用平台，也可指定平台或歌曲链接。
+核实真实录音后确认采用，才重新验证、记忆成功结果并推荐；曲库存在性不视为原唱认证。
+确定性推荐器继续负责相关曲目召回与排序，排除起点
 的同名版本和替代录音，不用无关演示歌曲补数。模型不可用时仍保留明确心情/风格输入的曲库降级；模型判为 `theme`
 时也只有未匹配歌曲标题才允许降级，未知歌曲不会自动变成主题。
 

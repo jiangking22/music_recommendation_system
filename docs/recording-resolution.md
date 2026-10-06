@@ -56,10 +56,14 @@ nullable `matched_track`/`resolution_id`, bounded candidate tracks with their re
 `search_report` and canonical `sources`. It performs no recommendation or model call.
 Discovery and identify-original add `search_report` and nullable `resolution_id`; discovery
 also returns `candidate_resolutions`. Identification retains its existing model error codes.
+When initial discovery matches a model-derived artist it adds `requires_confirmation=true`,
+returns a real `seed_track`/reference and empty `items`, and does not recall or rank until explicit
+artist confirmation. Other discovery branches default this flag to false.
 
 新增解析接口不调用模型、不生成推荐。发现／补充识别响应增加 `search_report` 与 `resolution_id`，
 多版本候选分别附带确认引用。报告包含平台、地区、阶段、操作、状态、数量、安全错误码、请求计数和结束原因。
 旧参数 `seed_artist`、`seed_storefront=TW|HK` 继续兼容。
+首次匹配模型歌手时新增 `requires_confirmation=true`，返回核实录音与引用但不生成推荐，等待用户确认。
 
 The UI retains the original query and model suggestion. Unresolved results offer a platform
 selector, optional artist and song-link field; multiple recordings require a choice, and a single
@@ -68,10 +72,17 @@ recording still requires **Confirm and recommend**. Confirmation sends `resoluti
 and ranking. Expired, mismatched or unavailable references return `resolution_expired` (410),
 `resolution_mismatch` (422) or `resolution_unavailable` (503). New searches cancel pending UI
 lookups; late results cannot replace the next query. English and Chinese copy cover the flow.
+Both initial and rejected-candidate model suggestions offer **Different artist — I'll provide it**.
+That action hides the model's confirmation button and requires a supplied artist. The manual
+resolver defaults to automatic platform expansion, with optional source restrictions. Selecting
+the verified recording uses its own reference and is not labeled as confirming the rejected model
+artist. Editing artist/platform/link removes stale recording choices but retains report history.
 
 未命中时保留原查询／模型建议／历史报告，并提供指定来源补查。单个或多个真实录音均先展示来源并等待确认，
 确认携带引用后从原命中平台重新核实，再由原推荐器召回和排序。重复提交被禁用，新查询取消旧请求，迟到
 响应不会覆盖新结果；失效确认可重新检索，不强行推荐。
+首次与补充模型建议都可选择“不是这位歌手，我来填写”；填写歌手、核实录音并确认后再推荐。
+默认自动检索平台，修改输入清除旧确认按钮；被否定的模型歌手不会作为成功记录保存。
 
 Migration `0006_recording_resolution` adds `recording_resolutions` (30-minute verification
 references, expired rows pruned when new references are issued) and `verified_recordings`

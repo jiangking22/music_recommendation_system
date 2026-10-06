@@ -48,4 +48,17 @@ describe("manual recording recovery", () => {
     await act(async () => release(response));
     expect(select).not.toHaveBeenCalled();
   });
+
+  it("invalidates a verified artist when the user edits it and can recover from failure", async () => {
+    const resolve = vi.fn().mockRejectedValueOnce(new Error("Unavailable")).mockResolvedValueOnce(response);
+    render(<RecordingRecovery query="Missing" requireArtist language="en" resolve={resolve} onSelect={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Correct artist"), { target: { value: "Singer" } });
+    fireEvent.click(screen.getByRole("button", { name: "Verify artist" }));
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Verify artist" }));
+    await screen.findByRole("button", { name: "Confirm and recommend" });
+    fireEvent.change(screen.getByLabelText("Correct artist"), { target: { value: "Other" } });
+    expect(screen.queryByRole("button", { name: "Confirm and recommend" })).not.toBeInTheDocument();
+    expect(resolve).toHaveBeenCalledTimes(2);
+  });
 });

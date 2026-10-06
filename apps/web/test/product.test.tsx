@@ -8,6 +8,7 @@ const api = vi.hoisted(() => ({
   recommend: vi.fn(),
   discover: vi.fn(),
   identifyOriginal: vi.fn(),
+  resolveRecording: vi.fn(),
   feedback: vi.fn(),
   profile: vi.fn(),
 }));
@@ -115,6 +116,19 @@ describe("original candidate rejection", () => {
     expect(api.discover).toHaveBeenCalledTimes(1);
   });
 
+  it("allows rejection of a matched fallback-model artist and manual correction", async () => {
+    api.identifyOriginal.mockResolvedValue(identification);
+    await showChoices();
+    fireEvent.click(screen.getByRole("button", { name: "None of the above" }));
+    await screen.findByText("Shared Title · Another Artist");
+    fireEvent.click(screen.getByRole("button", { name: "Different artist — I'll provide it" }));
+    expect(screen.getByLabelText("Correct artist")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Verify artist" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Confirm and recommend" })).not.toBeInTheDocument();
+    expect(api.discover).toHaveBeenCalledTimes(1);
+    expect(api.identifyOriginal).toHaveBeenCalledTimes(1);
+  });
+
   it("offers online evidence and uses the verified storefront for confirmation and refresh", async () => {
     const verified = { ...newTrack, source: { ...newTrack.source,
       external_url: "https://music.apple.com/tw/song/123" } };
@@ -215,6 +229,68 @@ describe("original candidate rejection", () => {
     fireEvent.click(screen.getByRole("button", { name: "切换为中文" }));
     expect(screen.getByText("模型建议，经用户确认")).toBeInTheDocument();
     expect(api.identifyOriginal).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("all model artists require confirmation", () => {
+  const suggested = { ...track, title: "Shared Title" };
+  const corrected = { ...suggested, artist: { name: "Correct Artist", provider_artist_id: null },
+    canonical_key: "shared title::correct artist" };
+  async function showSuggestion() {
+    api.discover.mockResolvedValueOnce({ ...result, items: [], seed_track: suggested, seed_status: "matched",
+      seed_resolution_source: "model", requires_confirmation: true, resolution_id: "model-proof" });
+    render(<ProductClient />);
+    await screen.findByText("Ready to discover");
+    fireEvent.change(screen.getByLabelText(/song or mood/i), { target: { value: "Shared Title" } });
+    fireEvent.click(screen.getByRole("button", { name: /find music/i }));
+    await screen.findByRole("button", { name: "Confirm and recommend" });
+  }
+  it("holds the initial suggestion until confirmation and retains its proof", async () => {
+    await showSuggestion();
+    expect(api.discover).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("No tracks found")).not.toBeInTheDocument();
+    expect(screen.getByText("Awaiting artist confirmation")).toBeInTheDocument();
+    api.discover.mockResolvedValueOnce({ ...result, seed_track: suggested, seed_status: "matched" });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and recommend" }));
+    await screen.findByText("Night Signal");
+    expect(api.discover).toHaveBeenLastCalledWith("Shared Title", 5, "en", "Mira Vale", undefined, "model-proof");
+    expect(screen.getByText("Model suggestion, confirmed by you.")).toBeInTheDocument();
+  });
+  it("verifies a supplied artist across sources and only recommends after selecting that recording", async () => {
+    await showSuggestion();
+    fireEvent.change(screen.getByLabelText(/song or mood/i), { target: { value: "Edited Input" } });
+    fireEvent.click(screen.getByRole("button", { name: "Different artist — I'll provide it" }));
+    expect(screen.queryByRole("button", { name: "Confirm and recommend" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Correct artist"), { target: { value: "Correct Artist" } });
+    api.resolveRecording.mockResolvedValueOnce({ request_id: "manual", status: "matched",
+      matched_track: corrected, resolution_id: "correct-proof", candidates: [], sources: {},
+      search_report: { attempts: [], end_reason: "matched", external_requests: 1, incomplete: false } });
+    fireEvent.click(screen.getByRole("button", { name: "Verify artist" }));
+    await screen.findByText("Shared Title · Correct Artist");
+    expect(api.resolveRecording).toHaveBeenLastCalledWith("Shared Title", "en", "Correct Artist", undefined, undefined, expect.any(AbortSignal));
+    expect(api.discover).toHaveBeenCalledTimes(1);
+    api.discover.mockResolvedValueOnce({ ...result, seed_status: "matched", seed_track: corrected });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and recommend" }));
+    await screen.findByText("Night Signal");
+    expect(api.discover).toHaveBeenLastCalledWith("Shared Title", 5, "en", "Correct Artist", undefined, "correct-proof");
+    expect(screen.queryByText("Model suggestion, confirmed by you.")).not.toBeInTheDocument();
+  });
+  it("cancels manual correction on a new search and ignores its late recording", async () => {
+    await showSuggestion();
+    fireEvent.click(screen.getByRole("button", { name: "Different artist — I'll provide it" }));
+    fireEvent.change(screen.getByLabelText("Correct artist"), { target: { value: "Correct Artist" } });
+    let release!: (value: unknown) => void;
+    api.resolveRecording.mockReturnValueOnce(new Promise(resolve => { release = resolve; }));
+    fireEvent.click(screen.getByRole("button", { name: "Verify artist" }));
+    const signal = api.resolveRecording.mock.calls[0][5] as AbortSignal;
+    fireEvent.change(screen.getByLabelText(/song or mood/i), { target: { value: "New Query" } });
+    fireEvent.click(screen.getByRole("button", { name: /find music/i }));
+    await screen.findByText("Night Signal");
+    expect(signal.aborted).toBe(true);
+    await act(async () => release({ request_id: "late", status: "matched", matched_track: corrected,
+      resolution_id: "late-proof", candidates: [], sources: {} }));
+    expect(screen.queryByText("Shared Title · Correct Artist")).not.toBeInTheDocument();
+    expect(api.discover).toHaveBeenLastCalledWith("New Query", 5, "en", undefined);
   });
 });
 

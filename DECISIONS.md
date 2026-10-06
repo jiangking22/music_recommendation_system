@@ -1,5 +1,27 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-028: Confirm every model-derived artist before recommendation
+
+**Status:** Accepted; supersedes ADR-022's automatic recommendation after model identification
+**Date:** 2026-10-06
+
+Initial discovery now returns `requires_confirmation=true`, the real seed recording and its
+verification reference, with no related recall or ranked items when a model supplied the artist.
+The same confirmation component handles initial and rejected-candidate model suggestions. Catalog
+presence verifies the recording only; the user must confirm that this is the artist they meant.
+Explicit artist inputs, reviewed hints and theme behavior retain their existing contracts.
+
+Users can reject even a successfully matched model artist and supply a different artist. The
+manual resolver searches available platforms by default, optionally narrowed by platform/link,
+without another model call or recommendation. A verified recording is selected explicitly before
+discovery re-fetches its provider ID, remembers the confirmed result and runs deterministic ranking.
+Editing manual inputs invalidates the previous recording choice, while retaining its search report.
+No schema migration, new model configuration or scoring change is needed.
+
+首次与补充识别中的模型歌手均需用户确认；“不是这位歌手，我来填写”隐藏原建议的确认动作，要求填写歌手，
+重新联网核实后才允许确认推荐。沿用查询快照、取消与重复提交保护、来源报告、预算和成功记录规则；
+模型猜测、被否定歌手或仅填写文本均不能写入已核实知识。
+
 ## ADR-027: Share bounded recording expansion and remember confirmed provider IDs
 
 **Status:** Accepted; supersedes ADR-024/025/026 homepage search caps and no-persistence scope

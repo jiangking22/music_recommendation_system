@@ -68,6 +68,7 @@ export type OriginalIdentificationResponse = {
   search_report?: SearchReport | null;
 };
 export type DiscoveryResponse = RecommendationResponse & {
+  requires_confirmation?: boolean;
   resolution_id?: string | null;
   search_report?: SearchReport | null;
   candidate_resolutions?: Record<string, string>;

@@ -1,5 +1,32 @@
 # TODO
 
+## Model artist confirmation / 模型歌手确认与自行提供
+
+- [x] Require confirmation of model-derived artists in initial discovery and the rejected-candidate
+  branch; let users supply a different artist and verify a real recording before recommending.
+
+Scope: discovery API/schema, homepage confirmation/recovery, focused regressions and bilingual docs.
+Verification: failing regressions first; API pytest/Ruff/compile/evaluation, web tests/lint/types/build,
+narrow browser confirmation/correction and cancellation checks, legacy smoke. Update running services
+after acceptance; preserve catalog expansion, confirmed memory and deterministic ranking.
+
+Acceptance 2026-10-06: first failing API/UI regressions demonstrated initial automatic recall and
+the missing confirmation action. All 242 API / 49 web tests pass; Ruff/compile/evaluation,
+ESLint/typecheck/build and legacy help/HTTP 200 pass. Tests cover initial and fallback model
+confirmation, supplied artist verification, no recall or durable memory before confirmation,
+same-provider revalidation, corrected-artist-only memory, input invalidation, failure retry,
+duplicate prevention, cancellation and ignored late manual responses.
+Actual configured-model/catalog checks in isolated and updated Compose Edge sessions at 390px
+resolved 晴天 / 周杰伦 and 宠爱 / TFBOYS with zero recommendations before confirmation and five
+after confirmation. Initial/manual and fallback/manual correction, source-link rejection/recovery,
+query snapshots and language switching passed; no horizontal overflow or page errors. The live
+manual flow supplied the real artist again; distinct wrong-to-correct artist behavior is covered
+by simulated-provider regressions. Only the fallback's initial ambiguous choices were injected;
+model, verification and recommendation calls were real. Reviewed actual pending/manual screenshots.
+API/web were rebuilt and all four existing Compose services are healthy; database remains at 0006.
+No migration, credential, ranking, legacy-source or stash changes. Temporary verification servers
+were stopped after acceptance; no secret or generated output is included in the focused commit.
+
 ## Automatic recording resolution / 自动扩展检索与成功记录记忆
 
 - [x] Implement one shared, bounded recording resolver for discovery, rejected candidates and

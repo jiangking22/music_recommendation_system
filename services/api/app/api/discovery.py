@@ -28,6 +28,7 @@ from app.repository.feedback import load_profile
 from app.services.discovery_guidance import add_guidance, local_guidance
 from app.services.original_identification import IdentificationError, identify_original
 from app.services.recommendation import (
+    DiscoveryResult,
     DiscoverySearch,
     begin_discovery,
     finish_discovery,
@@ -152,6 +153,11 @@ async def discovery(
                     resolver.preferred = resolver.registry.catalog(resolution.track.source.provider, resolver.region(resolution.track))
                 elif resolver and resolution.status == "ambiguous":
                     resolver.end_reason = "ambiguous"
+                if source == "model":
+                    # Catalog evidence verifies a recording, not the user's intended artist.
+                    # Do not recall or rank until the user supplies the confirmed artist.
+                    return DiscoveryResult([], state.search, resolution.track,
+                                           resolution.candidates, resolution.status)
                 return finish_discovery(state, resolution, allow_theme=theme)
 
             async with asyncio.timeout(max(0.001, 37 - compute_seconds)):
@@ -166,6 +172,7 @@ async def discovery(
                 seed_track=enrich_track(result.seed_track) if result.seed_track else None,
                 seed_candidates=[enrich_track(track) for track in result.seed_candidates[:5]],
                 seed_status=result.seed_status, seed_resolution_source=source,
+                requires_confirmation=source == "model",
                 seed_storefront=(request.seed_storefront if result.seed_track
                                  and result.seed_track.source.provider == "itunes" else None),
                 guidance="", guidance_provider="local", guidance_status="ready")

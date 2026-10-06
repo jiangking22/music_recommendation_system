@@ -140,6 +140,16 @@ track from each default provider; future availability remains unverified.
 
 ### Homepage seeded discovery and recording resolution / 首页
 
+Every model-derived artist now requires user confirmation, including initial discovery. A matched
+model seed returns `requires_confirmation=true`, its canonical recording/reference and empty
+`items`; related recall and ranking do not run yet. Both model branches share the confirmation UI.
+Users may supply a different artist, verified through the recording resolver with automatic
+platform selection by default. Selecting that verified recording sends its reference and explicit
+artist to discovery; revalidation, confirmed memory and deterministic ranking then proceed.
+
+首次模型识别也先确认歌手再推荐。可点“不是这位歌手，我来填写”，输入歌手并自动检索曲库，核实后确认采用。
+输入修改会清除旧录音的确认按钮；取消、过期响应与请求预算仍沿用原机制，未确认不写成功记录。
+
 The homepage, **None of the above**, and manual source recovery share a recording resolver.
 It revalidates confirmed success records first, then searches Apple, NetEase and QQ, followed
 by Apple Taiwan/Hong Kong and MusicBrainz. Queries use bounded artist-qualified forms,

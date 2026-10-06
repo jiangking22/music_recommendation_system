@@ -225,6 +225,60 @@ def test_manual_endpoint_confirmation_and_remembered_discovery(engine):
         app.dependency_overrides.clear()
 
 
+@pytest.mark.parametrize("artist", ["Artist", "Other"])
+def test_initial_model_artist_waits_for_confirmation_or_manual_correction(engine, artist):
+    catalog = Catalog("qq", [recording(provider="qq", identifier="123"),
+        recording(artist="Other", provider="qq", identifier="321"),
+        recording("Neighbour", artist=artist, provider="qq", identifier="456")])
+    registry = ProviderRegistry([catalog])
+    class Model:
+        name = "openai_compatible"
+        calls = 0
+        async def identify_seed(self, context):
+            self.calls += 1
+            return {"kind": "song", "title": "Missing", "artist": "Artist"}
+        async def answer(self, context, results):
+            return {"answer": "Related recordings."}
+    model = Model()
+    def session_override():
+        with Session(engine) as session:
+            yield session
+    app.dependency_overrides[get_session] = session_override
+    app.dependency_overrides[get_provider_registry] = lambda: registry
+    app.dependency_overrides[get_llm_provider] = lambda: model
+    try:
+        with TestClient(app) as client:
+            initial = client.post("/v1/recommendations/discover", json={"seed": "Missing"}).json()
+            assert initial["requires_confirmation"] and initial["items"] == []
+            assert initial["seed_track"]["artist"]["name"] == "Artist"
+            assert catalog.calls == [("search", "Missing")]
+            with Session(engine) as session:
+                assert not session.scalars(select(VerifiedRecording)).all()
+            proof = initial["resolution_id"]
+            implicit = client.post("/v1/recommendations/discover", json={"seed": "Missing", "resolution_id": proof})
+            assert implicit.status_code == 422
+            with Session(engine) as session:
+                assert not session.scalars(select(VerifiedRecording)).all()
+            if artist == "Other":
+                corrected = client.post("/v1/recordings/resolve", json={"seed": "Missing", "artist": artist}).json()
+                assert corrected["matched_track"]["artist"]["name"] == artist
+                assert "items" not in corrected
+                proof = corrected["resolution_id"]
+            confirmed = client.post("/v1/recommendations/discover", json={
+                "seed": "Missing", "seed_artist": artist, "resolution_id": proof}).json()
+            assert not confirmed["requires_confirmation"]
+            assert confirmed["seed_track"]["artist"]["name"] == artist
+            assert [item["title"] for item in confirmed["items"]] == ["Neighbour"]
+            assert ("lookup", "123" if artist == "Artist" else "321") in catalog.calls
+            assert model.calls == 1
+            with Session(engine) as session:
+                saved = session.scalars(select(VerifiedRecording)).all()
+                assert len(saved) == 1
+                assert saved[0].track["artist"]["name"] == artist
+    finally:
+        app.dependency_overrides.clear()
+
+
 @pytest.mark.parametrize("catalog_tracks,status", [([recording()], "matched"), ([], "unverified")])
 def test_rejection_uses_same_expansion_without_recommending_or_learning(engine, catalog_tracks, status):
     import asyncio

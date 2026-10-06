@@ -13,16 +13,19 @@ type LookupState =
   | { status: "ready"; result: OriginalIdentificationResponse }
   | { status: "error"; code: string };
 
-export default function ArtistConfirmation({ query, candidates, language, identifyOriginal, resolveRecording, candidateResolutions, onSelect }: {
+export default function ArtistConfirmation({ query, candidates, language, identifyOriginal, resolveRecording, candidateResolutions, initialSuggestion, onSelect }: {
   query: string;
   candidates: Track[];
   language: InterfaceLanguage;
   identifyOriginal: ApiClient["identifyOriginal"];
   resolveRecording?: ApiClient["resolveRecording"];
   candidateResolutions?: Record<string, string>;
+  initialSuggestion?: OriginalIdentificationResponse;
   onSelect: (artist: string, modelSuggested: boolean, storefront?: VerifiedStorefront, resolutionId?: string) => void;
 }) {
-  const [lookup, setLookup] = useState<LookupState>({ status: "idle" });
+  const [lookup, setLookup] = useState<LookupState>(() => initialSuggestion
+    ? { status: "ready", result: initialSuggestion } : { status: "idle" });
+  const [correcting, setCorrecting] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const copy = copyFor(language);
   const busy = lookup.status === "loading";
@@ -61,8 +64,8 @@ export default function ArtistConfirmation({ query, candidates, language, identi
   return (
     <div className="seed-confirmation">
       <h3>{copy.confirmArtist}</h3>
-      <p>{copy.confirmDescription}</p>
-      <div className="seed-choices">
+      <p>{initialSuggestion ? copy.modelArtistConfirmation : copy.confirmDescription}</p>
+      {!initialSuggestion && !correcting ? <div className="seed-choices">
         {candidates.slice(0, 5).map(candidate => (
           <button type="button" key={candidate.canonical_key} disabled={busy}
             onClick={() => onSelect(candidate.artist.name, false, undefined, candidateResolutions?.[candidate.canonical_key])}>
@@ -70,7 +73,7 @@ export default function ArtistConfirmation({ query, candidates, language, identi
           </button>
         ))}
         <button type="button" disabled={busy} onClick={() => void identify()}>{copy.noneOfAbove}</button>
-      </div>
+      </div> : null}
       <div className="original-identification" aria-live="polite" aria-busy={busy}>
         {busy ? <p role="status">{copy.identifyingOriginal}</p> : null}
         {lookup.status === "error" ? (
@@ -96,18 +99,21 @@ export default function ArtistConfirmation({ query, candidates, language, identi
               </a>
             ) : null}
             {Object.values(identified.sources).some(source => source.error) ? <p>{copy.partialSources}</p> : null}
-            {identified.status === "matched" && suggestedTrack ? (
+            {!correcting && identified.status === "matched" && suggestedTrack ? (
               <button type="button" className="text-button"
                 onClick={() => onSelect(suggestedTrack.artist.name, true,
                   identified.verified_storefront ?? undefined, identified.resolution_id ?? undefined)}>{copy.confirmAndRecommend}</button>
             ) : null}
           </>
         ) : null}
+        {!busy && !correcting && resolveRecording ? <button type="button" className="text-button"
+          onClick={() => setCorrecting(true)}>{copy.provideArtist}</button> : null}
         <SearchReport report={identified?.search_report} language={language} />
-        {!busy && identified?.status !== "matched" && resolveRecording ? <RecordingRecovery
-          key={identified?.request_id ?? "initial"} query={query} artist={identified?.suggestion?.artist} language={language}
+        {!busy && (correcting || identified?.status !== "matched") && resolveRecording ? <RecordingRecovery
+          key={`${identified?.request_id ?? "initial"}:${correcting}`} query={query}
+          artist={correcting ? undefined : identified?.suggestion?.artist} requireArtist={correcting} language={language}
           resolve={resolveRecording} onSelect={(track, id) => onSelect(track.artist.name,
-            Boolean(identified?.suggestion && track.artist.name === identified.suggestion.artist), undefined, id)} /> : null}
+            Boolean(!correcting && identified?.suggestion && track.artist.name === identified.suggestion.artist), undefined, id)} /> : null}
       </div>
     </div>
   );

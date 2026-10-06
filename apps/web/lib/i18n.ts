@@ -56,6 +56,12 @@ const en = {
   onlineVerified: "Verified online against an official music catalog.",
   verificationSource: "View verification source ↗",
   confirmAndRecommend: "Confirm and recommend",
+  awaitingArtistConfirmation: "Awaiting artist confirmation",
+  modelArtistConfirmation: "Confirm the suggested artist before recommendations, or provide a different artist.",
+  provideArtist: "Different artist — I'll provide it",
+  correctArtist: "Correct artist",
+  verifyArtist: "Verify artist",
+  allPlatforms: "Search available platforms automatically",
   modelConfirmed: "Model suggestion, confirmed by you.",
   originalUnknown: "No other reliable candidate was found. Edit the title or add the artist.",
   identificationNotConfigured: "No model API is configured on the server.",
@@ -139,6 +145,12 @@ const zh: Copy = {
   onlineVerified: "已联网核实官方曲库录音。",
   verificationSource: "查看核实来源 ↗",
   confirmAndRecommend: "确认并推荐",
+  awaitingArtistConfirmation: "等待确认歌手",
+  modelArtistConfirmation: "请先确认模型建议的歌手；若不是你要找的歌手，可以自行填写。确认后再推荐。",
+  provideArtist: "不是这位歌手，我来填写",
+  correctArtist: "正确的歌手",
+  verifyArtist: "核实歌手",
+  allPlatforms: "自动检索可用音乐平台",
   modelConfirmed: "模型建议，经用户确认",
   originalUnknown: "暂未找到其他可靠候选，请修改歌名或补充歌手。",
   identificationNotConfigured: "服务端尚未配置大模型 API。",
@@ -230,6 +242,7 @@ export function recommendationExplanation(item: Pick<RecommendationItem, "explan
 }
 
 export function localGuidance(result: DiscoveryResponse, language: InterfaceLanguage): string {
+  if (result.requires_confirmation) return copyFor(language).modelArtistConfirmation;
   if (result.seed_status === "ambiguous") return copyFor(language).confirmDescription;
   const seed = result.seed_track;
   if (!seed) {

@@ -10,6 +10,9 @@ from app.observability.events import emit
 
 
 def local_guidance(result: DiscoveryResponse, language: str) -> str:
+    if result.requires_confirmation:
+        return ("请先确认模型建议的歌手；若不是你要找的歌手，可以自行填写。确认后再推荐。" if language == "zh" else
+                "Confirm the suggested artist before recommendations, or provide a different artist.")
     if result.seed_status == "ambiguous":
         return ("找到多个同名版本，请先确认歌手，再推荐相关歌曲。" if language == "zh" else
                 "Several artists have this title. Choose the artist to discover related tracks.")
