@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.agent.prompts import ANSWER_PROMPT, PLAN_PROMPT
+from app.agent.prompts import ANSWER_PROMPT, PLAN_PROMPT, SEED_PROMPT
 from app.infrastructure.config import get_settings
 from app.observability.events import correlation_headers, emit
 
@@ -19,11 +19,16 @@ class LLMProvider(Protocol):
 
     async def answer(self, context: dict, results: list[dict]) -> dict: ...
 
+    async def identify_seed(self, context: dict) -> dict: ...
+
 
 class LocalLLMProvider:
     """Deterministic offline intent router, explicitly not a language model."""
 
     name = "local"
+
+    async def identify_seed(self, context: dict) -> dict:
+        return {"kind": "unknown", "title": None, "artist": None}
 
     async def plan(self, context: dict, tools: list[dict]) -> dict:
         message = context["message"].lower()
@@ -77,7 +82,7 @@ class OpenAICompatibleProvider:
         self.base_url, self.api_key, self.model = base_url.rstrip("/"), api_key, model
         self.transport = transport
 
-    async def _complete(self, prompt: str, data: dict) -> dict:
+    async def _complete(self, prompt: str, data: dict, operation: str | None = None) -> dict:
         started = perf_counter()
         usage = {}
         status = "error"
@@ -87,7 +92,7 @@ class OpenAICompatibleProvider:
             return result
         finally:
             emit("llm_call", provider=self.name, model=self.model,
-                 operation="plan" if "tools" in data else "answer", status=status,
+                 operation=operation or ("plan" if "tools" in data else "answer"), status=status,
                  latency_ms=round((perf_counter() - started) * 1000, 3), **usage,
                  level=logging.INFO if status == "ok" else logging.WARNING)
 
@@ -129,6 +134,9 @@ class OpenAICompatibleProvider:
 
     async def answer(self, context: dict, results: list[dict]) -> dict:
         return await self._complete(ANSWER_PROMPT, {"context": context, "results": results})
+
+    async def identify_seed(self, context: dict) -> dict:
+        return await self._complete(SEED_PROMPT, {"context": context}, "identify_seed")
 
 
 def get_llm_provider() -> LLMProvider:

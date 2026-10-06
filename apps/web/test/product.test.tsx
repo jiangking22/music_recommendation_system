@@ -61,7 +61,7 @@ const result: DiscoveryResponse = {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   api.bootstrap.mockResolvedValue({ deviceId: "device_1234567890" });
   api.profile.mockResolvedValue(emptyProfile);
   api.discover.mockResolvedValue(result);
@@ -268,6 +268,69 @@ describe("recommendation home", () => {
     fireEvent.change(screen.getByLabelText(/song or mood/i), { target: { value: "Another title" } });
     fireEvent.click(screen.getByRole("button", { name: /find music/i }));
     await waitFor(() => expect(api.discover).toHaveBeenLastCalledWith("Another title", 5, "en", undefined));
+  });
+
+  it("displays artist names while preserving candidate selection and feedback identity", async () => {
+    const seedTrack = { ...track, title: "匆匆那年", artist: { name: "Faye Wong", display_name: "王菲", provider_artist_id: null }, canonical_key: "匆匆那年::faye wong" };
+    const relatedTrack = { ...seedTrack, title: "红豆", canonical_key: "红豆::faye wong" };
+    const item = { ...result.items[0], id: relatedTrack.canonical_key, title: relatedTrack.title, artist: "Faye Wong", track: relatedTrack };
+    api.profile.mockResolvedValue({ ...emptyProfile, artists: [
+      { name: "faye wong", display_name: "王菲", weight: 1 },
+      { name: "Fleetwood Mac", weight: 0.5 },
+    ] });
+    api.discover.mockResolvedValueOnce({ ...result, items: [], seed_status: "ambiguous", seed_candidates: [seedTrack] })
+      .mockResolvedValueOnce({ ...result, items: [item], seed_status: "matched", seed_track: seedTrack, seed_resolution_source: "user" });
+    render(<ProductClient />);
+    await screen.findByText("Ready to discover");
+    fireEvent.change(screen.getByLabelText(/song or mood/i), { target: { value: "匆匆那年" } });
+    fireEvent.click(screen.getByRole("button", { name: /find music/i }));
+    expect(await screen.findByRole("button", { name: "匆匆那年 · 王菲" })).toBeInTheDocument();
+    expect(screen.getByText("王菲")).toBeInTheDocument();
+    expect(screen.getByText("Fleetwood Mac")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "切换为中文" }));
+    fireEvent.click(screen.getByRole("button", { name: "匆匆那年 · 王菲" }));
+    await screen.findByText("起点歌曲");
+    expect(api.discover).toHaveBeenLastCalledWith("匆匆那年", 5, "zh", "Faye Wong");
+    expect(screen.getByText("匆匆那年 · 王菲")).toBeInTheDocument();
+    expect(screen.getAllByText("王菲")).toHaveLength(2);
+    expect(screen.getByText(/以 匆匆那年 · 王菲 为起点/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "喜欢 红豆" }));
+    await waitFor(() => expect(api.feedback).toHaveBeenCalledWith(relatedTrack, "like"));
+    expect(api.feedback.mock.calls[0][0].artist.name).toBe("Faye Wong");
+    expect(api.feedback.mock.calls[0][0].canonical_key).toBe("红豆::faye wong");
+    fireEvent.click(screen.getByRole("button", { name: "Switch to English" }));
+    expect(screen.getByText("匆匆那年 · 王菲")).toBeInTheDocument();
+    expect(screen.getAllByText("王菲")).toHaveLength(2);
+    expect(screen.getByText("Fleetwood Mac")).toBeInTheDocument();
+  });
+
+  it("keeps the model identification marker when switching guidance language", async () => {
+    const seedTrack = { ...track, title: "匆匆那年", artist: { name: "Faye Wong", display_name: "王菲", provider_artist_id: null } };
+    api.discover.mockResolvedValueOnce({ ...result, seed_track: seedTrack, seed_status: "matched",
+      seed_resolution_source: "model", guidance: "MODEL GUIDANCE IN ENGLISH", guidance_provider: "openai_compatible" });
+    render(<ProductClient />);
+    await screen.findByText("Ready to discover");
+    fireEvent.change(screen.getByLabelText(/song or mood/i), { target: { value: "匆匆那年" } });
+    fireEvent.click(screen.getByRole("button", { name: /find music/i }));
+    expect(await screen.findByText("Model-assisted identification, matched in catalog.")).toBeInTheDocument();
+    expect(screen.queryByText(/original.artist/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "切换为中文" }));
+    expect(screen.getByText("模型辅助识别，已匹配曲库")).toBeInTheDocument();
+    expect(screen.queryByText("MODEL GUIDANCE IN ENGLISH")).not.toBeInTheDocument();
+    expect(screen.getByText(/以 匆匆那年 · 王菲 为起点/)).toBeInTheDocument();
+    expect(screen.queryByText(/原唱/)).not.toBeInTheDocument();
+    expect(api.discover).toHaveBeenCalledTimes(1);
+  });
+
+  it("labels an original artist only when the seed came from a verified hint", async () => {
+    api.discover.mockResolvedValueOnce({ ...result, seed_track: track, seed_status: "matched", seed_resolution_source: "verified_hint" });
+    render(<ProductClient />);
+    await screen.findByText("Ready to discover");
+    fireEvent.change(screen.getByLabelText(/song or mood/i), { target: { value: "Night Signal" } });
+    fireEvent.click(screen.getByRole("button", { name: /find music/i }));
+    expect(await screen.findByText("Verified original-artist recording.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "切换为中文" }));
+    expect(screen.getByText("已核实原唱歌手版本")).toBeInTheDocument();
   });
 
   it("retains local guidance on model failure and hides model prose after a language switch", async () => {

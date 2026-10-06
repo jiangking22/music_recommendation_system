@@ -1,3 +1,4 @@
+from app.domain.artist_names import enrich_track
 from app.domain.discovery import is_alternate, recording_title
 from app.domain.music import (
     Album,
@@ -36,6 +37,22 @@ class CatalogRegistry:
         return self.responses.get(query, result())
 
 
+def test_artist_alias_merge_keeps_related_metadata_and_original_feedback_identity():
+    seed = song("Anchor", "Other Artist", genres=("folk",), tags=("acoustic",))
+    first = song("Related", "Faye Wong", genres=("pop",))
+    second = song("Related", "王菲", tags=("acoustic",), provider="netease")
+    registry = CatalogRegistry({"Anchor": result([seed]), "Other Artist": result([first, second])})
+    discovery = discover("Anchor", 5, registry)
+    assert len(discovery.items) == 1
+    item = discovery.items[0]
+    assert item.key == first.canonical_key
+    assert item.track.artist.name == "Faye Wong"
+    assert item.track.artist.display_name == "王菲"
+    assert "acoustic" in item.track.tags
+    assert {source.provider for source in item.provenance} == {"itunes", "netease"}
+    assert item.score_breakdown["seed_tag"] > 0
+
+
 def test_known_original_beats_more_popular_cover_and_recalls_related_songs():
     original = song("我好想你", "蘇打綠", genres=("Mandopop",), popularity=10)
     cover = song("我好想你", "Cover Singer", genres=("Mandopop",), popularity=100)
@@ -62,6 +79,39 @@ def test_original_missing_from_initial_page_triggers_bounded_qualified_search():
     assert [item.track.title for item in discovery.items] == [related.title]
     assert len(registry.calls) == 3
     assert all(1 <= limit <= 25 and len(query) <= 120 for query, limit in registry.calls)
+
+
+def test_cong_cong_na_nian_resolves_faye_wong_before_unlabelled_covers():
+    original = song("匆匆那年", "Faye Wong", genres=("Mandopop",), popularity=1)
+    cover = song("匆匆那年", "TimoFeng", genres=("Mandopop",), popularity=100)
+    related = song("如愿", "王菲", genres=("Mandopop",))
+    registry = CatalogRegistry({"匆匆那年": result([cover, original]),
+                                "Faye Wong": result([original, related])})
+    discovery = discover("匆匆那年", 5, registry)
+    assert discovery.seed_status == "matched"
+    assert discovery.seed_track.artist.name == "Faye Wong"
+    assert [item.track.title for item in discovery.items] == ["如愿"]
+    assert discovery.items[0].score_breakdown["seed_artist"] > 0
+
+
+def test_cong_cong_na_nian_missing_original_searches_qualified_title_instead_of_using_cover():
+    original = song("匆匆那年", "Faye Wong")
+    related = song("红豆", "Faye Wong")
+    registry = CatalogRegistry({"匆匆那年": result([song("匆匆那年", "TimoFeng")]),
+                                "匆匆那年 王菲": result([original]),
+                                "Faye Wong": result([related])})
+    discovery = discover("匆匆那年", 5, registry)
+    assert discovery.seed_track == original
+    assert [item.track.title for item in discovery.items] == ["红豆"]
+    assert len(registry.calls) == 3
+
+
+def test_confirming_faye_wong_chinese_alias_matches_existing_english_metadata():
+    original = song("匆匆那年", "Faye Wong")
+    registry = CatalogRegistry({"匆匆那年": result([original, song("匆匆那年", "TimoFeng")])})
+    discovery = discover("匆匆那年", 5, registry, seed_artist="王菲")
+    assert discovery.seed_status == "matched"
+    assert discovery.seed_track == original
 
 
 def test_missing_verified_original_does_not_present_cover_or_demo_as_related():
@@ -138,7 +188,7 @@ def test_artist_qualified_translated_title_can_resolve_the_verified_chinese_reco
                                 "蘇打綠": result([related])})
     discovery = discover("I Miss You So by sodagreen", 5, registry)
     assert discovery.seed_track == original
-    assert [item.track for item in discovery.items] == [related]
+    assert [item.track for item in discovery.items] == [enrich_track(related)]
 
 
 def test_richer_live_metadata_never_hides_available_studio_recording():

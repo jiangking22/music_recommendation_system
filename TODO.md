@@ -1,6 +1,28 @@
 # TODO
 
-## DeepSeek startup compatibility / DeepSeek 启动兼容（当前任务）
+## Homepage recording identity / 首页原唱识别与歌手姓名
+
+- [x] Resolve `匆匆那年` to the verified 王菲/Faye Wong artist, show preferred Chinese/English
+  artist names separately from stored identity, and use one optional structured model hint for
+  uncertain song seeds. Validate every hint against real provider tracks, label model matches,
+  preserve deterministic ranking, and share the existing three-search/45-second limits.
+
+Scope: target API discovery/name projections, homepage displays/tests, and current-state docs.
+Verification: failing regressions first; API pytest/Ruff; web tests/lint/typecheck/build;
+browser/live configured-model and failure fallback checks; legacy help/HTTP smoke. Keep the stash.
+
+Acceptance 2026-10-06: failing regressions reproduced identity, display, model-transport,
+identification and alias-metadata failures before fixes. All 157 API and 26 web tests pass;
+Ruff/compile, ESLint/typecheck/production build, unchanged offline evaluation and independent
+review pass. Browser checks using the existing Docker stack verified `匆匆那年` → 王菲 with five
+different related tracks and preferred names across EN/中文; real configured DeepSeek-flash
+identified `Shape of You` → Ed Sheeran and the UI marked the catalog match. Real model connection
+failures retained local guidance or artist confirmation. Mocked regressions cover timeout,
+hallucinated/malformed results, search/model budgets, manual override and unchanged feedback keys.
+Legacy help and isolated HTTP 200 pass. No migration, credential or generated output is staged;
+the prior stash remains intact. Existing-stack checks do not claim general model accuracy.
+
+## DeepSeek startup compatibility / DeepSeek 启动兼容
 
 - [x] Preserve the configured DeepSeek integration when rebuilding the merged homepage:
   explicitly disable thinking for the official DeepSeek host, keep JSON output and strict

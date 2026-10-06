@@ -21,6 +21,7 @@ def canonical_key(title: str, artist: str) -> str:
 
 class Artist(BaseModel):
     name: str = Field(min_length=1)
+    display_name: str | None = Field(default=None, min_length=1, max_length=200)
     provider_artist_id: str | None = None
 
 

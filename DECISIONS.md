@@ -1,5 +1,69 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-022: Ground homepage seed identification and keep display names separate from identity
+
+**Status:** Accepted; supersedes ADR-020 only for seed identification and metadata display
+**Date:** 2026-10-06
+
+### Context / 背景
+
+The source name `Faye Wong` obscures 王菲 in the homepage candidate list, while prose-only model
+guidance cannot help an ambiguous or empty seed. A lone unlabelled recording is not proof of an
+original artist. / 来源英文姓名与仅解释结果的模型调用无法解决起点歧义；单个未注明翻唱的版本不证明原唱。
+
+### Decision / 决策
+
+Keep reviewed original-artist hints for `我好想你` / 苏打绿 and `匆匆那年` / 王菲, with explicit
+user selection taking precedence. For other homepage inputs, including one unverified version,
+reuse the shared model adapter for strict `kind`/`title`/`artist` identification. Suggestions must
+match real canonical catalog title/artist results; model output cannot create tracks, register
+aliases, change scores or rank results. Unknown/invalid/unavailable identification retains artist
+confirmation or unresolved state. A `model` source is labelled as catalog-matched assistance,
+never original certification. Explicit themes retain fallback even during model outages; a model `theme` permits it
+only when no recording title matched.
+
+保留两首歌的已审核原唱提示，用户歌手选择优先。其他首页输入，即使只有一个未核实版本，也可通过共享模型
+适配器返回严格 `kind`/`title`/`artist`，并与真实统一曲库标题/歌手匹配。模型不生成曲目、不登记别名、不改
+评分与排序；未知、不合法或不可用时保留确认或未解析状态。模型结果注明已匹配曲库，不认证原唱。明确主题
+在模型故障时仍保留降级，模型主题必须没有录音标题匹配才允许降级。
+
+Use a small source-reviewed artist alias map for matching and optional presentation fields:
+`Artist.display_name`, profile artist `display_name`, recent-feedback `artist_display_name`.
+王菲 and 苏打绿 prefer Chinese labels in both locales; reviewed foreign names use English and
+unknown names preserve source spelling. Merge alias recall metadata without replacing representative identity.
+Preserve raw names, provider IDs, persisted affinity keys and canonical track keys; no migration.
+Expose `seed_resolution_source` values `verified_hint`, `user`, `model`, `catalog`, `none` and keep
+the source label visible across locale switches.
+
+已核对来源的小型歌手别名表用于匹配和可选显示字段。王菲、苏打绿在两种界面语言下优先中文，已审核外国
+歌手用英文，未知姓名保留来源写法；合并别名召回元数据，原始姓名、来源 ID、画像键与歌曲 key 不变，无迁移。
+新增识别来源字段，切换语言保留标记。
+
+Each homepage request shares at most three registry operations, one eight-second model call,
+37 seconds of cumulative compute waiting and a 45-second total deadline; four active requests are
+allowed. Identification
+attempts use local guidance afterward (`guidance_provider=local`), avoiding a second model call.
+Existing synchronous recommendation, Agent and MCP tools keep the deterministic core and do not
+invoke this identification model. ADR-020's ranking, version filtering and legacy-runtime decisions
+remain in force; ADR-021's shared DeepSeek transport behavior remains unchanged.
+
+每个首页请求共用最多三次曲库查询、一次 8 秒模型调用、累计 37 秒计算等待和 45 秒总限时，并发上限四个。
+尝试识别后使用本地说明，不追加第二次模型调用。同步推荐接口、Agent 与 MCP 工具继续使用确定性核心，
+不调用识别模型；ADR-020 的排序、版本过滤与旧版保留决策及 ADR-021 的 DeepSeek 传输行为继续有效。
+
+### Consequences / 影响
+
+Reviewed evidence identifies the intended 王菲 artist without model availability; a matching
+provider recording is still required. Other model
+suggestions remain bounded and catalog-grounded, but catalog presence does not establish historical
+authorship, and the alias table does not guarantee every artist's preferred name. Missing upstream
+recordings can still require confirmation or yield fewer tracks. No dependency, credential or
+database migration is added; offline tests do not establish live-model accuracy.
+
+王菲案例可依靠已审核资料确定歌手，仍需匹配真实来源录音；其他模型建议仍受限并核对曲库，但不证明历史原唱，别名表也不保证
+覆盖所有姓名。上游缺歌仍可能需要确认或返回较少曲目。没有新增依赖、凭据或数据库迁移；离线测试不证明
+真实模型准确性。
+
 ## ADR-021: Keep DeepSeek compatibility at the shared model adapter boundary
 
 **Status:** Accepted
@@ -17,7 +81,7 @@ structured output from unrelated providers. Mocked transport checks do not certi
 
 ## ADR-020: Resolve recording seeds before discovery; optional shared model guidance
 
-**Status:** Accepted
+**Status:** Accepted; seed identification and metadata display superseded by ADR-022
 **Date:** 2026-10-05
 
 ### Decision

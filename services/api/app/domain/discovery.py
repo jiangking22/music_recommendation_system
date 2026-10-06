@@ -5,6 +5,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Literal
 
+from app.domain.artist_names import artist_aliases, artist_identity
 from app.domain.music import Track, normalize_text
 from app.domain.pipeline import Candidate, RankedTrack, deduplicate, rank
 from app.domain.profile import PreferenceProfile
@@ -12,10 +13,11 @@ from app.domain.profile import PreferenceProfile
 SeedStatus = Literal["matched", "ambiguous", "unresolved"]
 SEED_WEIGHTS = {"seed_artist": 3.0, "seed_genre": 1.5, "seed_tag": 1.0, "seed_language": 0.4}
 
-# This is a small evidence-backed disambiguation hint, never a recommendation list.
+# These are small evidence-backed disambiguation hints, never recommendation lists.
 # Official MV: https://www.youtube.com/watch?v=Zs8TRQ4PTYk
 # Original recording: https://music.apple.com/us/song/1480717221
-ORIGINAL_HINTS = {"我好想你": ("苏打绿", "蘇打綠", "sodagreen", "Soda Green")}
+# 匆匆那年: https://music.apple.com/cn/album/966805714 (2014 Faye Productions Ltd.)
+ORIGINAL_HINTS = {"我好想你": artist_aliases("苏打绿"), "匆匆那年": artist_aliases("王菲")}
 TITLE_ALIASES = {"我好想你": ("我好想你", "I Miss You So")}
 
 _ALTERNATE = re.compile(
@@ -62,14 +64,6 @@ def original_hint(seed: str, seed_artist: str | None = None) -> tuple[str, tuple
     return None
 
 
-def artist_identity(artist: str) -> str:
-    normalized = normalize_text(artist)
-    for aliases in ORIGINAL_HINTS.values():
-        if normalized in {normalize_text(alias) for alias in aliases}:
-            return normalize_text(aliases[0])
-    return normalized
-
-
 def recording_title(title: str) -> str:
     title = unicodedata.normalize("NFKC", title)
     # Chinese suffixes can contain the original artist before the version marker.
@@ -108,9 +102,7 @@ def _matches_query(seed: str, track: Track, seed_artist: str | None = None) -> b
     hinted_titles = {normalize_text(value) for value in TITLE_ALIASES.get(hint[0], (hint[0],))} if hint else set()
     if query == title or title in hinted_titles:
         return True
-    aliases = next((aliases for aliases in ORIGINAL_HINTS.values()
-                    if artist_identity(track.artist.name) == artist_identity(aliases[0])),
-                   (track.artist.name,))
+    aliases = artist_aliases(track.artist.name)
     return any(query in (normalize_text(f"{title} {artist}"), normalize_text(f"{artist} {title}"),
                         normalize_text(f"{title} by {artist}"))
                for artist in aliases)

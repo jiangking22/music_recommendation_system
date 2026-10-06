@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { streamAgentChat } from "../lib/agent";
 import { getDeviceId } from "../lib/device";
+import { artistDisplayName } from "../lib/i18n";
 import { safeExternalUrl } from "../lib/url";
 import type { AgentResponse, AgentStatus, ToolName } from "../types/agent";
 
@@ -89,7 +90,7 @@ export default function AgentClient() {
           const link = safeExternalUrl(item.track.source.external_url);
           return <article className="agent-track" key={item.id}><span className="agent-track-number">{i + 1}</span>
             <div className="agent-artwork">{artwork ? <Image src={artwork} width={80} height={80} alt={`${item.title} 封面`} unoptimized /> : <span aria-hidden="true">♪</span>}</div>
-            <div><h3>{item.title}</h3><p>{item.artist}</p><p className="agent-track-reason">{item.explanation}</p>
+            <div><h3>{item.title}</h3><p>{artistDisplayName(item.track.artist)}</p><p className="agent-track-reason">{item.explanation}</p>
               <div className="providers">{[...new Set(item.provenance.map((source) => source.provider))].map((name) => <span key={name}>{name}</span>)}</div></div>
             {link ? <a className="open-link" href={link} target="_blank" rel="noopener noreferrer">播放 ↗</a> : null}</article>;
         })}</div>

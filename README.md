@@ -103,39 +103,64 @@ Embeddings and RAG do not silently enter ranking. No LLM ranks songs. / 向量�
 
 ### Homepage discovery / 首页歌曲推荐
 
-The homepage resolves a song recording first, shows it separately as the seed, then recalls
-the artist and available genre/tag context. Related results exclude alternate recordings and
-other versions of the seed. A small source-backed hint resolves `我好想你` to 苏打绿 / 蘇打綠 /
-sodagreen. Unknown titles with multiple artist matches ask you to choose an artist; a single
-unlabelled match is a seed candidate, not proof of original authorship. Resolved songs, known
-originals, explicit artist selections and matches containing only alternate recordings do not
-get filled with unrelated demo songs. Unmatched inputs are treated as mood/genre prompts and
-retain local fallback; the API has no separate song-versus-mood selector.
+The homepage identifies a recording before recalling related songs from its artist and available
+genre/tag context. Source-backed hints identify `我好想你` with 苏打绿 and `匆匆那年` with 王菲;
+your explicit artist selection takes precedence. Other song inputs, including a single unverified
+version, use optional model identification or ask for artist confirmation. The model returns only
+strict `kind`/`title`/`artist` fields; a song suggestion must match a real canonical catalog recording.
+The UI labels this as model-assisted identification, not certified original authorship. The
+deterministic recommender still owns related-song recall and ranking, excludes seed versions and
+alternate recordings, and never fills a song request with unrelated demo tracks. Explicit
+mood/genre inputs retain catalog fallback even when model identification is unavailable. A model's `theme` classification permits that
+fallback only when no recording title matched; an unknown song does not silently become a theme.
 
-首页先识别起点歌曲并单独显示，再按歌手与已有风格/标签召回相关音乐，排除起点的同名版本与翻唱、现场等
-替代录音。《我好想你》使用已核对来源的苏打绿提示；未知歌曲出现多个歌手时提供确认按钮。
-单个未注明翻唱的结果不等于已证实原唱。已识别歌曲、已知原唱、明确指定歌手或只找到替代录音时，
-不会用无关演示歌曲补数；完全没有匹配的输入会按心情/风格线索保留本地降级，接口尚未区分歌曲与心情输入类型。
+首页先识别起点歌曲，再按歌手与已有曲风/标签召回相关音乐。已核对来源的提示将《我好想你》对应苏打绿、
+《匆匆那年》对应王菲；用户明确选择的歌手优先。其他歌曲输入，即使只找到一个未核实版本，也会尝试可选的
+模型识别，或要求确认歌手。模型只能返回严格校验的 `kind`/`title`/`artist`，歌曲建议必须匹配真实统一曲库录音，
+界面注明“模型辅助识别，已匹配曲库”，不视为原唱认证。确定性推荐器继续负责相关曲目召回与排序，排除起点
+的同名版本和替代录音，不用无关演示歌曲补数。模型不可用时仍保留明确心情/风格输入的曲库降级；模型判为 `theme`
+时也只有未匹配歌曲标题才允许降级，未知歌曲不会自动变成主题。
 
-Use **EN / 中文** in the header to switch and remember interface copy. Music titles, artists,
-albums and English theme headings remain unchanged. The additive
-`POST /v1/recommendations/discover` accepts `seed`, `limit`, `language` (`en`/`zh`) and an optional
-`seed_artist`, and returns canonical results, seed candidates and short discovery guidance.
+Use **EN / 中文** to switch and remember interface copy. Reviewed 王菲 / Faye Wong and
+苏打绿 / 蘇打綠 / sodagreen aliases display their preferred Chinese names in either locale;
+reviewed foreign artists such as Taylor Swift retain English names. Unknown names retain the
+source spelling. This is a small reviewed alias set, not universal name
+translation. Raw artist names, provider IDs and canonical keys remain unchanged for selection and
+stored feedback; no database migration is needed. Titles, albums and English theme headings stay
+intact. Additive `POST /v1/recommendations/discover` accepts `seed`, `limit`, `language` (`en`/`zh`)
+and optional `seed_artist`; it returns seed candidates and `seed_resolution_source`
+(`verified_hint`, `user`, `model`, `catalog`, `none`) alongside results and guidance. Optional
+`Track.artist.display_name`, profile artist `display_name` and recent-feedback `artist_display_name`
+are presentation labels, not identity replacements.
 
-顶部 **EN / 中文** 按钮切换并记住界面语言；歌曲名、歌手、专辑和英文主题标题保持原样。
-新增发现接口返回起点、歧义候选、统一推荐结果与简短说明。
+顶部 **EN / 中文** 切换并记住界面语言。王菲 / Faye Wong、苏打绿 / 蘇打綠 / sodagreen 等已审核别名在两种
+界面语言下均优先显示中文姓名；Taylor Swift 等已审核外国歌手使用英文名。未知姓名保留来源写法，不保证所有
+歌手的名称转换。候选确认与持久反馈仍保留
+原始姓名、来源 ID 和 canonical key，无需数据库迁移；歌名、专辑和英文主题标题保持原样。新增发现接口接收
+`seed`、`limit`、`language` 与可选 `seed_artist`，返回起点候选、推荐结果、说明及 `seed_resolution_source`
+（`verified_hint`、`user`、`model`、`catalog`、`none`）。可选的 `Track.artist.display_name`、画像歌手
+`display_name` 和最近反馈 `artist_display_name` 仅用于显示，不替换身份字段。
 
-Homepage guidance uses the same server-only `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY` and
-`LLM_MODEL` as `/agent`; see the existing [.env.example](.env.example). No extra browser key is
-needed. The model explains measured results without changing recall or ranking. Missing keys
-use local guidance; model errors/timeouts keep the music results and fall back to local text.
-Model guidance is generated in the selected interface language; after switching language,
-search again for new model prose. On 2026-10-05, the configured DeepSeek-flash completed live
-homepage guidance and Agent chat in local Docker. Other providers and general quality remain unverified.
+Identification and guidance reuse `/agent`'s server-only `LLM_PROVIDER`, `LLM_BASE_URL`,
+`LLM_API_KEY` and `LLM_MODEL`; see [.env.example](.env.example). A homepage request shares at
+most three catalog queries and one model call, with an eight-second model deadline, 37 seconds
+of cumulative compute waiting, a 45-second total deadline and four active requests. After an
+identification attempt, guidance is local (`guidance_provider=local`); otherwise optional model
+prose explains measured results. Missing keys, invalid output and model failures leave confirmation
+or local guidance available. Locale switching retains the identification label; search again for
+model prose in the new language. The existing synchronous recommendation, Agent and MCP tools do
+not call the seed-identification model. On 2026-10-06, the existing Docker stack and configured
+DeepSeek-flash successfully identified `Shape of You` / Ed Sheeran in the browser and matched real
+catalog tracks. The browser also verified `匆匆那年` / 王菲 and failure fallback. Intermittent upstream
+connection failures were observed; these checks do not establish general model accuracy.
 
-首页与助手复用同一套服务端 `LLM_*` 环境变量，不在浏览器输入 Key。模型仅解释推荐器给出的结果；
-无 Key 时使用本地说明，模型失败或超时也保留推荐结果。切换语言后重新搜索可生成对应语言的模型说明。
-2026-10-05 已在本机 Docker 验证现有 DeepSeek-flash 的首页说明与助手对话；其他模型与整体输出质量仍未验证。
+识别与说明复用助手的服务端 `LLM_*` 配置，不在浏览器输入 Key。每个首页请求共用最多三次曲库查询和一次模型
+调用；模型限时 8 秒，计算等待累计 37 秒，请求总限时 45 秒，最多四个并发请求。尝试模型识别后使用本地说明
+（`guidance_provider=local`）；其他已解析请求可使用模型解释实测因素。无 Key、输出不合法或模型失败时，仍可
+确认歌手或查看本地说明。切换语言保留识别标记，重新搜索可生成新语言的模型说明。现有同步推荐接口、Agent
+与 MCP 工具不调用歌曲识别模型。2026-10-06 在现有 Docker 环境与 DeepSeek-flash 配置下，浏览器成功识别
+`Shape of You` / Ed Sheeran 并匹配真实曲库；同时验证《匆匆那年》/王菲与失败降级。实测也遇到上游间歇性
+连接失败，这些检查不代表模型整体准确性。
 
 If the assistant is already configured, keep the main checkout's `.env`; both pages reuse it.
 After updating code, run `docker compose up -d --build --wait --wait-timeout 180` in that checkout,
@@ -155,7 +180,7 @@ results. PostgreSQL retains six turns and a derived preference summary per conve
 
 Agent 验证一次计划，只能执行 1–4 个不同的白名单工具；默认 30 秒期限、四个并发请求和四个工作槽。
 工具不写反馈、不执行命令、不抓取任意 URL、不修改排序。会话保存最近六轮与来自反馈的偏好摘要。
-缺少 Key 时使用确定性本地路由，它不是语言模型；真实模型兼容性与效果尚未实测。
+缺少 Key 时使用确定性本地路由。2026-10-05 已用现有 DeepSeek 配置验证助手对话，尚未进行整体效果评估。
 
 RAG uses four versioned bilingual documents, local hash vectors, pgvector candidates and a lexical
 guard. It grounds answers and never supplies new ranking policy. / RAG 使用四篇固定资料与词汇重合校验，仅辅助解释。

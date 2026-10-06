@@ -8,6 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.agent.providers import LocalLLMProvider, get_llm_provider
+from app.domain.music import Artist, ProviderSource, SearchResult, Track, canonical_key
 from app.infrastructure.database import get_session
 from app.main import app
 from app.providers.registry import ProviderRegistry, get_provider_registry
@@ -38,6 +39,29 @@ def client(tmp_path: Path):
 
 
 BODY = {"message": "推荐适合学习的歌", "device_id": "device_1234567890"}
+
+
+def test_real_recommendation_tool_emits_display_name_without_replacing_identity(client):
+    class FayeRegistry:
+        def search_tracks(self, query, limit):
+            return SearchResult(tracks=[Track(title=title, artist=Artist(name="Faye Wong"),
+                source=ProviderSource(provider="itunes", provider_track_id=title),
+                canonical_key=canonical_key(title, "Faye Wong")) for title in ("匆匆那年", "红豆")],
+                sources={})
+
+    class FixedSeed(LocalLLMProvider):
+        async def plan(self, context, tools):
+            return {"calls": [{"name": "recommend_tracks", "arguments": {"seed": "匆匆那年"}}]}
+
+    app.dependency_overrides[get_provider_registry] = FayeRegistry
+    app.dependency_overrides[get_llm_provider] = FixedSeed
+    response = client.post("/v1/agent/chat", json=BODY)
+    assert response.status_code == 200
+    item = response.json()["recommended_tracks"][0]
+    assert item["title"] == "红豆"
+    assert item["artist"] == "Faye Wong"
+    assert item["track"]["artist"]["display_name"] == "王菲"
+    assert item["id"] == canonical_key("红豆", "Faye Wong")
 
 
 def test_chat_and_follow_up_route(client):

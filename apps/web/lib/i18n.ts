@@ -44,6 +44,8 @@ const en = {
   noTracks: "No tracks found",
   noTracksDescription: "Try another song or mood to start a different search.",
   basedOn: "Based on",
+  modelSeed: "Model-assisted identification, matched in catalog.",
+  verifiedSeed: "Verified original-artist recording.",
   confirmArtist: "Which artist did you mean?",
   confirmDescription: "Several recordings share this title. Confirm the artist to discover related songs.",
   guidanceTitle: "Listening direction",
@@ -93,6 +95,8 @@ const zh: Copy = {
   noTracks: "暂未找到歌曲",
   noTracksDescription: "换一首歌或一种心情，再试一次。",
   basedOn: "起点歌曲",
+  modelSeed: "模型辅助识别，已匹配曲库",
+  verifiedSeed: "已核实原唱歌手版本",
   confirmArtist: "你想听哪位歌手的版本？",
   confirmDescription: "找到多个同名录音，请确认歌手后继续发现相关歌曲。",
   guidanceTitle: "聆听方向",
@@ -117,6 +121,10 @@ const zh: Copy = {
 
 export function copyFor(language: InterfaceLanguage): Copy {
   return language === "zh" ? zh : en;
+}
+
+export function artistDisplayName(artist: { name: string; display_name?: string | null }): string {
+  return artist.display_name?.trim() || artist.name;
 }
 
 const factors: Record<string, [string, string]> = {
@@ -169,6 +177,6 @@ export function localGuidance(result: DiscoveryResponse, language: InterfaceLang
       : `Found ${result.items.length} tracks using your input and feedback, in recommender order.`;
   }
   return language === "zh"
-    ? `以 ${seed.title} · ${seed.artist.name} 为起点，结合曲风、标签和你的偏好探索其他歌曲；已排除起点歌曲的重复版本。`
-    : `Start from ${seed.title} · ${seed.artist.name} and explore other songs through genre, tags and your preferences. Repeated versions of the seed are excluded.`;
+    ? `以 ${seed.title} · ${artistDisplayName(seed.artist)} 为起点，结合曲风、标签和你的偏好探索其他歌曲；已排除起点歌曲的重复版本。`
+    : `Start from ${seed.title} · ${artistDisplayName(seed.artist)} and explore other songs through genre, tags and your preferences. Repeated versions of the seed are excluded.`;
 }

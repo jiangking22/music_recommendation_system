@@ -138,35 +138,64 @@ track from each default provider; future availability remains unverified.
 
 ## Service boundaries / 服务边界
 
-### Homepage seeded discovery (2026-10-05) / 首页歌曲发现
+### Homepage seeded discovery (2026-10-06) / 首页歌曲发现
 
 The homepage now calls additive `POST /v1/recommendations/discover`. Typed inputs bound seed to
 120 characters, artist confirmation to 200, result limit to 1–10, and UI language to `en`/`zh`.
-The deterministic service resolves exact recording titles before recalling artist and available
-genre/tag context, with at most three registry operations and 25 results/provider/operation.
-Verified title/artist hints for `我好想你` distinguish the 苏打绿 recording and its title/artist
-aliases. Other multi-artist matches expose at most five canonical choices. Alternate recordings
-are filtered before merging; song mode excludes the seed's versions and unrelated fixture fill.
-Generic mood/genre requests retain the existing local catalog fallback and policy.
+The request first searches canonical recordings. Reviewed hints cover `我好想你` / 苏打绿 and
+`匆匆那年` / 王菲; explicit user artist selection takes precedence. Other inputs, even a single
+unverified version, may use strict model identification containing only `kind`, `title`, `artist`.
+A suggested song must match the requested recording and artist in canonical provider results;
+an optional qualified search consumes the same request budget. Unknown or failed suggestions
+retain up to five artist-confirmation choices or an unresolved state. Matching proves catalog
+presence, not original authorship; `model` seeds carry a separate UI label. Explicit themes retain
+fallback even during model outages; a model `theme` result permits fallback only without matched recording titles.
 
-The seed is separate from ranked results. Explicit seed artist/genre/tag/language weights in
-`app/domain/discovery.py` supplement the existing profile/source/popularity policy. The existing
-recommendation REST/Agent/MCP entry points share the corrected deterministic service. Scores,
-provenance and per-source errors remain visible; followup failures do not erase successful recall.
+The seed stays separate from ranked results. Deterministic artist/genre/tag recall and weights
+supplement the existing profile/source/popularity policy. Alternate recordings are filtered before
+merging; seed versions and unrelated fixture fill are excluded from song discovery. Reviewed artist
+aliases merge only within request-local recording candidates while preserving representative keys
+and provenance, unioning genre/tag recall metadata and filling missing metadata from alias matches.
+The synchronous recommendation REST/Agent/MCP tools share this deterministic core
+without invoking seed-identification models; their existing theme behavior remains separate.
+Scores, provenance and per-source errors stay visible.
 
 The discovery API permits four active requests/event loop and uses the existing four-slot worker
-pool. Workers own their database sessions until completion, including after cancellation. Recall
-has a 37-second waiting deadline; optional model guidance has eight seconds, within a 45-second
-request deadline. Structured busy/timeout errors reveal no payloads. Guidance reuses the assistant's
-`get_llm_provider` configuration and strict prose-only Answer schema. It receives bounded canonical
-track summaries/factors and the current seed, without device IDs, private chat or full profiles.
-No key uses local guidance; malformed/unavailable/timed-out model prose preserves ranked results.
+pool. Workers own their database sessions until completion, including after cancellation. All
+identification and recall stages share three registry operations and 25 results/provider/operation.
+Compute waiting has a cumulative 37-second budget; at most one model call has eight seconds inside
+the 45-second request deadline. Identification reuses the assistant's `get_llm_provider` and sends
+only the seed and bounded candidate title/artist summaries. After an identification attempt, local
+guidance is returned with `guidance_provider=local`; otherwise optional prose uses the strict Answer
+schema and measured factors. No private device/chat/profile data enters these prompts. Missing keys
+retain local confirmation/theme handling; invalid or unavailable model responses preserve local
+confirmation or guidance. Structured busy/timeout errors reveal no payloads.
 
 The homepage stores only the selected interface language alongside its existing random device ID.
-It translates UI labels, statuses, feedback and measured explanation factors, keeping canonical
-music metadata and English theme headings intact. The shared card/profile components default to
-English for existing consumers. Locale changes update existing states without reranking; model
-prose in the previous language is replaced by local guidance until another search.
+It translates UI labels, statuses, feedback and measured explanation factors. A small reviewed
+artist alias map enriches optional `Track.artist.display_name`, profile artist `display_name` and
+recent-feedback `artist_display_name`; 王菲 and 苏打绿 prefer Chinese names regardless of locale,
+reviewed foreign names such as Taylor Swift use English, and unknown artists preserve source names.
+Raw artist names, provider IDs, stored affinities and
+canonical keys are unchanged; no database migration is introduced. Titles, albums and English
+theme headings stay intact. `seed_resolution_source` adds the contract values `verified_hint`,
+`user`, `model`, `catalog`, `none`. Locale changes retain that source label without reranking;
+old-language model prose yields to local guidance until another search.
+
+首页先搜索统一录音；已审核提示覆盖《我好想你》/苏打绿与《匆匆那年》/王菲，用户明确选择的歌手优先。
+其他输入即使只有一个未核实版本，也可使用只含 `kind`、`title`、`artist` 的严格模型识别。模型建议必须
+匹配真实曲库中的标题和歌手，必要的限定搜索共用查询预算；未知或失败时保留最多五个确认候选或未解析状态。
+匹配曲库不等于认证原唱，模型起点单独标记。明确主题在模型故障时仍保留降级；模型判为主题也必须没有录音标题匹配。
+确定性领域服务继续负责召回、评分与重排，排除起点版本和歌曲模式下的无关演示补数；同步推荐接口、Agent
+与 MCP 工具不调用识别模型，保留原有主题处理。
+
+首页最多四个并发请求与四个工作槽；查询总计最多三次，每次每来源最多 25 首。计算等待累计限时 37 秒，
+一次模型调用限时 8 秒，总请求 45 秒；模型识别只接收输入与有界标题/歌手候选，不含设备、聊天或完整画像。
+尝试识别后返回本地说明（`guidance_provider=local`），其他请求可生成经严格校验的因素说明。失败保留确认
+或本地说明。可选姓名显示字段只由已审核别名派生；王菲、苏打绿在两种界面语言下优先中文，Taylor Swift 等
+已审核外国歌手使用英文，未知姓名保留
+来源写法，不保证完整姓名覆盖。原始身份、画像、canonical key 不变，无数据库迁移。识别来源契约包括
+`verified_hint`、`user`、`model`、`catalog`、`none`；切换语言保留来源标记，不重新排序。
 
 ### Phase 3 recommendation core (implemented)
 

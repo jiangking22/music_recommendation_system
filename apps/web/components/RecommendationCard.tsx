@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { safeExternalUrl } from "../lib/url";
-import { copyFor, factorLabel, recommendationExplanation } from "../lib/i18n";
+import { artistDisplayName, copyFor, factorLabel, recommendationExplanation } from "../lib/i18n";
 import type { FeedbackValue, InterfaceLanguage, RecommendationItem } from "../types/music";
 
 type Props = {
@@ -53,7 +53,7 @@ export default function RecommendationCard({
           <div>
             <h3>{item.title}</h3>
             <p>
-              {item.artist}
+              {artistDisplayName(item.track.artist)}
               {item.track.album ? (
                 <span className="album"> · {item.track.album.name}</span>
               ) : null}

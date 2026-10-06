@@ -20,6 +20,7 @@ from app.api.schemas import (
     RecommendationResponse,
     TrackSearchResponse,
 )
+from app.domain.artist_names import preferred_artist_name
 from app.domain.device import DEVICE_ID_PATTERN
 from app.infrastructure.cache import get_redis
 from app.infrastructure.database import get_session
@@ -93,7 +94,7 @@ def feedback(
     return FeedbackResponse(track_key=key, value=request.value)
 
 
-@router.get("/v1/profile", response_model=ProfileResponse)
+@router.get("/v1/profile", response_model=ProfileResponse, response_model_exclude_none=True)
 def profile(
     session: Annotated[Session, Depends(get_session)],
     x_device_id: Annotated[str, Header(alias="X-Device-Id", min_length=16, max_length=128,
@@ -101,17 +102,23 @@ def profile(
 ) -> ProfileResponse:
     snapshot = load_profile(session, x_device_id)
 
-    def preferred(values: dict[str, float]) -> list[ProfileAffinity]:
+    def display_name(name: str) -> str | None:
+        preferred = preferred_artist_name(name)
+        return preferred if preferred != name else None
+
+    def preferred(values: dict[str, float], artists: bool = False) -> list[ProfileAffinity]:
         ranked = sorted(((name, weight) for name, weight in values.items() if weight > 0),
                         key=lambda pair: (-pair[1], pair[0]))
-        return [ProfileAffinity(name=name, weight=weight) for name, weight in ranked[:5]]
+        return [ProfileAffinity(name=name, display_name=display_name(name) if artists else None,
+                                weight=weight) for name, weight in ranked[:5]]
 
     return ProfileResponse(
-        artists=preferred(snapshot.artist_affinity),
+        artists=preferred(snapshot.artist_affinity, artists=True),
         genres=preferred(snapshot.genre_affinity),
         tags=preferred(snapshot.tag_affinity),
         languages=preferred(snapshot.language_affinity),
-        recent_feedback=[RecentFeedback(track_key=item.track_key, artist=item.artist, value=item.value)
+        recent_feedback=[RecentFeedback(track_key=item.track_key, artist=item.artist,
+                                        artist_display_name=display_name(item.artist), value=item.value)
                          for item in recent_feedback(session, x_device_id)],
     )
 

@@ -1,4 +1,4 @@
-import { copyFor } from "../lib/i18n";
+import { artistDisplayName, copyFor } from "../lib/i18n";
 import type { InterfaceLanguage, PreferenceProfile } from "../types/music";
 
 export default function ProfilePanel({
@@ -41,7 +41,7 @@ export default function ProfilePanel({
                 <div className="chips">
                   {values.slice(0, 5).map((value) => (
                     <span className="chip" key={value.name}>
-                      {value.name}
+                      {label === copy.artists ? artistDisplayName(value) : value.name}
                     </span>
                   ))}
                 </div>

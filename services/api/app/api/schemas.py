@@ -66,6 +66,7 @@ class DiscoveryResponse(RecommendationResponse):
     seed_track: Track | None = None
     seed_candidates: list[Track] = Field(default_factory=list, max_length=5)
     seed_status: Literal["matched", "ambiguous", "unresolved"]
+    seed_resolution_source: Literal["verified_hint", "user", "model", "catalog", "none"] = "none"
     guidance: str = Field(max_length=2000)
     guidance_provider: Literal["local", "openai_compatible"]
     guidance_status: Literal["ready", "unavailable"]
@@ -98,12 +99,14 @@ class FeedbackResponse(BaseModel):
 
 class ProfileAffinity(BaseModel):
     name: str
+    display_name: str | None = Field(default=None, min_length=1, max_length=200)
     weight: float
 
 
 class RecentFeedback(BaseModel):
     track_key: str
     artist: str
+    artist_display_name: str | None = Field(default=None, min_length=1, max_length=200)
     value: Literal["like", "dislike"]
 
 

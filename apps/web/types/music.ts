@@ -6,7 +6,7 @@ export type ProviderSource = {
 };
 export type Track = {
   title: string;
-  artist: { name: string; provider_artist_id: string | null };
+  artist: { name: string; provider_artist_id: string | null; display_name?: string | null };
   album: { name: string; provider_album_id: string | null } | null;
   duration_ms: number | null;
   artwork_url: string | null;
@@ -42,11 +42,12 @@ export type DiscoveryResponse = RecommendationResponse & {
   seed_track: Track | null;
   seed_candidates: Track[];
   seed_status: "matched" | "ambiguous" | "unresolved";
+  seed_resolution_source?: "verified_hint" | "user" | "model" | "catalog" | "none";
   guidance: string;
   guidance_provider: "local" | "openai_compatible";
   guidance_status: "ready" | "unavailable";
 };
-export type ProfileAffinity = { name: string; weight: number };
+export type ProfileAffinity = { name: string; weight: number; display_name?: string | null };
 export type PreferenceProfile = {
   artists: ProfileAffinity[];
   genres: ProfileAffinity[];
@@ -55,6 +56,7 @@ export type PreferenceProfile = {
   recent_feedback: {
     track_key: string;
     artist: string;
+    artist_display_name?: string | null;
     value: FeedbackValue;
   }[];
 };

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createApiClient, type ApiClient } from "../lib/api";
 import { getDeviceId } from "../lib/device";
-import { copyFor, localGuidance, readLanguage, saveLanguage } from "../lib/i18n";
+import { artistDisplayName, copyFor, localGuidance, readLanguage, saveLanguage } from "../lib/i18n";
 import type {
   FeedbackValue,
   PreferenceProfile,
@@ -290,7 +290,9 @@ export default function ProductClient() {
                 <div className="discovery-context">
                   {result.seed_track ? (
                     <p className="seed-track"><span>{copy.basedOn}</span>
-                      <strong>{result.seed_track.title} · {result.seed_track.artist.name}</strong>
+                      <strong>{result.seed_track.title} · {artistDisplayName(result.seed_track.artist)}</strong>
+                      {result.seed_resolution_source === "model" ? <span>{copy.modelSeed}</span> : null}
+                      {result.seed_resolution_source === "verified_hint" ? <span>{copy.verifiedSeed}</span> : null}
                     </p>
                   ) : null}
                   {result.seed_status === "ambiguous" ? (
@@ -303,7 +305,7 @@ export default function ProductClient() {
                             setSeed(resultSeed);
                             setSelectedArtist(candidate.artist.name);
                             void findMusic(undefined, candidate.artist.name, resultSeed);
-                          }}>{candidate.title} · {candidate.artist.name}</button>
+                          }}>{candidate.title} · {artistDisplayName(candidate.artist)}</button>
                         ))}
                       </div>
                     </div>
