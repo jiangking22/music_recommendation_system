@@ -7,15 +7,15 @@ quality is being demonstrated in this mode. / 用固定曲库演示工程链路�
 
 ## Recommendation flow / 推荐与反馈
 
-1. Open `http://localhost:3000`; enter **calm jazz**, select **3**, press **Find music**.
-   Blue Window appears first with a new device's empty profile. Cards expose deterministic score
-   factors and fixture provenance. / 空画像首曲为 Blue Window，查看理由和来源。
-2. Like the first track. The API upserts the device rating, recomputes affinities and vectors,
+1. Open `http://localhost:3000`, register a new account, then enter **focus**, select **3**, press **Find music**.
+   A new account starts with an empty profile. Cards expose deterministic score
+   factors and fixture provenance. / 空画像使用固定曲库，查看理由和来源。
+2. Like the first track. The API upserts the account rating, recomputes affinities and vectors,
    and the preference panel refreshes. / 喜欢后画像与向量持久化。
 3. Choose **Refresh recommendations**. Compare score factors before/after; personalization may
    change scores without changing the first title. / 对比偏好分数，不要求每次第一名都改变。
-4. Reload the browser: the device identifier remains in localStorage and profile loads from the
-   database. Clearing browser storage creates a new profile link. / 刷新保留偏好，清空存储则失去链接。
+4. Sign in to the same account in another browser/device: refresh to see the same profile.
+   Register another account to verify an empty profile. / 同账号跨设备同步；不同账号偏好隔离。
 5. If enabling live sources, observe canonical metadata and a partial-source notice when a
    provider fails. Their current availability is independent of fixture tests. / 外网来源只作独立演示。
 
@@ -34,8 +34,8 @@ used tool names, canonical results, factor explanations and citations. Continue 
 The server remembers six turns; page refresh starts a new UI conversation because there is no
 history loader. / 会话持久化，但刷新页面会开始新会话；不宣称已实现历史会话 UI。
 
-No Key uses the local rule router. A configured real-model failure returns an explicit safe
-error. JSON/SSE/tool-selection tests validate the adapter contract using mocks; no live LLM result
+No Key uses the local rule router. A configured model HTTP failure returns an explicitly labelled local fallback; malformed output/timeouts remain safe
+errors. JSON/SSE/tool-selection tests validate the adapter contract using mocks; no live LLM result
 or benchmark is claimed. / 真实模型未实测，不能把 mock 成功当真实效果。
 
 ## MCP flow / 标准协议演示
@@ -67,8 +67,8 @@ real-user benchmark. No latency, throughput or live-model accuracy benchmark is 
   / 为什么保留传统排序：策略可解释、可验证。
 - Why small embeddings/RAG? No downloads or keys; acknowledge collision/semantic limits.
   / 小向量降低运行成本，明确语义能力边界。
-- Why anonymous linkage? Demonstrates durable feedback with limited product scope; it is not auth.
-  / 匿名标识缩小产品范围，不能保证安全身份隔离。
+- Why accounts? Preferences follow a verified account; revocable Cookies and server ownership protect isolation.
+  / 账号让偏好跨设备可用，服务端身份与会话撤销保证隔离。
 - Why stdio MCP and JSON logs? Real interoperability and diagnosis with minimal operational stack.
   / 用最小运行成本展示标准工具调用与问题定位。
 

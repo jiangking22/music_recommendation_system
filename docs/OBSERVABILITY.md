@@ -22,6 +22,7 @@ distributed tracing system. Logs can be collected by the host; no alerting/aggre
 | `agent_tool` | allowlisted tool name, status, latency_ms |
 | `llm_call` | provider, configured model, operation plan/answer, status, latency_ms; optional token counts |
 | `agent_error` / `agent_failed` | stable code and status |
+| `auth_event` | operation and safe status only; no username, password, Cookie or token |
 | `mcp_tool` | read-only tool name, status, latency_ms |
 
 All events include timestamp, level, request_id, trace_id and route. Correlation from a valid
@@ -43,7 +44,7 @@ is marked `provider=local`, `model=rule-router`, with no token counts because it
 ## Redaction and boundaries / 脱敏边界
 
 Events use an explicit field allowlist and log aggregates instead of payloads. No seed, query,
-device/conversation identifier, chat/history, LLM prompt/answer, tool arguments, provider payload,
+account/session/device/conversation identifier, password, Cookie/CSRF/session token, chat/history, LLM prompt/answer, tool arguments, provider payload,
 API key, Authorization header, raw URL or exception message is emitted. `httpx`/`httpcore` logs are
 suppressed; the documented Uvicorn command disables access logs (which otherwise contain query URLs).
 Do not enable transport debug logging or SQL echo when collecting private traffic.
@@ -70,6 +71,7 @@ there is no in-process histogram endpoint. / 按 ID 串联事件，以单次耗�
 | Agent error with SSE HTTP 200 | `agent_error` and final SSE error / 流终止原因 |
 | `agent_busy` | active request/worker saturation; retry after current work / 有界并发 |
 | `agent_timeout` | provider/tool durations; synchronous jobs may still finish / 超时后工作可能完成 |
+| `auth_rate_limited` / `auth_unavailable` | Retry-After; Redis availability/source bucket / 认证限流与 Redis |
 | `database_unavailable` | readiness, migration/startup and DB connectivity / 数据库依赖 |
 | invalid model output | inspect mocked fixture validation first; never log full private payload / 模型结构校验 |
 

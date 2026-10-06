@@ -50,7 +50,7 @@ def cookie(response: Response, name: str, value: str, age: int) -> None:
 
 def public(identity: Identity) -> AuthResponse:
     return AuthResponse(user=PublicUser(user_id=identity.user_id, username=identity.username),
-                        session_id=identity.session_id)
+                        session_id=identity.session_id, expires_at=identity.expires_at)
 
 
 def establish(response: Response, db: Session, account: Account, remember: bool) -> AuthResponse:

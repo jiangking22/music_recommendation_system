@@ -2,8 +2,8 @@ services:
   web:
     build:
       context: ./apps/web
-      args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    environment:
+      API_INTERNAL_URL: http://api:8000
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
@@ -21,6 +21,11 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
+      APP_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      AUTH_LOGIN_ACCOUNT_LIMIT: ${AUTH_LOGIN_ACCOUNT_LIMIT:-10}
+      AUTH_LOGIN_SOURCE_LIMIT: ${AUTH_LOGIN_SOURCE_LIMIT:-60}
+      AUTH_REGISTER_SOURCE_LIMIT: ${AUTH_REGISTER_SOURCE_LIMIT:-5}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
       ENABLE_MUSIC_PROVIDERS: ${ENABLE_MUSIC_PROVIDERS:-true}
       ENABLE_QQ_PROVIDER: ${ENABLE_QQ_PROVIDER:-true}

@@ -1,10 +1,14 @@
 from logging.config import fileConfig
 
 from alembic import context
+from sqlalchemy.dialects.postgresql.base import ischema_names
 
 from app.infrastructure.config import get_settings
 from app.infrastructure.database import get_engine
 from app.repository.models import Base
+from app.repository.vector import Vector16
+
+ischema_names["vector"] = Vector16
 
 config = context.config
 if config.config_file_name and config.get_section("loggers"):

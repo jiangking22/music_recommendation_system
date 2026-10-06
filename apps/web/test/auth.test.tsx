@@ -12,6 +12,30 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 beforeEach(() => { vi.clearAllMocks(); invalidateSession(false); });
 
 describe("account lifecycle", () => {
+  it("allows long Unicode passwords within the 128-character limit", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => Promise.resolve(
+      url.endsWith("/csrf") ? json({ csrf_token: "csrf-test" }) : json(session, 201))));
+    render(<AuthForm mode="register" />);
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "UnicodeListener" } });
+    const password = "🎵".repeat(100);
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: password } });
+    fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: password } });
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/"));
+  });
+
+  it("clears a visible profile at the server's session expiry without another user action", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json({ ...session, expires_at: new Date(Date.now() + 60000).toISOString() }))
+      .mockImplementation(() => new Promise(() => {})));
+    try {
+      await act(async () => { render(<AuthGate><p>Private profile</p></AuthGate>); });
+      expect(screen.getByText("Private profile")).toBeInTheDocument();
+      await act(async () => { await vi.advanceTimersByTimeAsync(60001); });
+      expect(screen.queryByText("Private profile")).not.toBeInTheDocument();
+    } finally { vi.useRealTimers(); }
+  });
+
   it("binds logout and password changes to the visible login session", async () => {
     setSession(session);
     const fetcher = vi.fn().mockImplementation((url: string) => Promise.resolve(

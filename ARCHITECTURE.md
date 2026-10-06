@@ -2,7 +2,7 @@
 
 ## Purpose / 目标
 
-Account addition (API and web implemented; deployment verification pending): authenticated HTTP business access,
+Account addition (implemented; verification recorded in docs/DEPLOYMENT.md): authenticated HTTP business access,
 PostgreSQL accounts/revocable sessions, Redis authentication limits and same-origin web transport.
 Account feedback/profiles replace anonymous device linkage for new requests. Assistant context
 belongs to account plus login session; anonymous rows remain archived. See ADR-029 and
@@ -63,8 +63,8 @@ and explanation composition should be migrated as independently tested domain fu
 Next.js web (apps/web)
         | REST + Server-Sent Events
 FastAPI API (services/api)
-        |-- PostgreSQL + pgvector: catalog, anonymous users, feedback, embeddings
-        |-- Redis: readiness dependency; cache/session use is future work
+        |-- PostgreSQL + pgvector: accounts, sessions, account feedback/profile, embeddings, archived anonymous rows
+        |-- Redis: readiness and authentication rate-limit counters; caching is future work
         |-- Provider plugins: canonical adapters with partial-failure handling
         |-- Recommender: recall -> feature scoring -> reranking -> explanations
         |-- Agent: intent -> approved tool calls -> streamed response
@@ -74,13 +74,14 @@ FastAPI API (services/api)
 
 ```mermaid
 flowchart TB
-  Web[Next.js + TypeScript] -->|REST / SSE| API[FastAPI]
+  Web[Next.js + TypeScript] -->|Same-origin /api/v1 REST + SSE| Proxy[Next server proxy]
+  Proxy -->|Cookie + CSRF| API[FastAPI]
   API --> Rec[Recommendation domain\nrecall → features → rerank]
   API --> Agent[One Agent\nallow-listed tools]
   API --> Providers[Provider adapters]
   Rec --> PG[(PostgreSQL + pgvector)]
   API --> PG
-  API --> Redis[(Redis: readiness only)]
+  API --> Redis[(Redis: authentication limits + readiness)]
   Agent --> Tools[Recommend · Profile · Knowledge · Explain]
   Tools --> Rec
   Tools --> Knowledge[RAG knowledge store]
@@ -258,12 +259,13 @@ diversity penalties, and produces factor-based explanations. `POST /v1/recommend
 pipeline and returns canonical tracks, provenance, scores, breakdowns and per-source errors.
 The local catalog supplies results when upstream providers fail. The core never calls an LLM.
 
-`POST /v1/feedback` validates `X-Device-Id`, canonical track metadata, and like/dislike. The
-PostgreSQL `track_feedback` primary key is `(device_id, track_key)`; an atomic upsert means the
-latest rating replaces the earlier one. `user_preference_profiles` stores bounded, recency
-weighted artist, genre, tag, and language affinity maps. Recommendations with a device header
-load this profile and penalize disliked track keys. Migration `0002_feedback_profiles` creates
-both tables; SQLite is used only for offline API/repository tests.
+`POST /v1/feedback` validates canonical tracks and like/dislike, deriving `user_id` only from
+its authenticated Cookie. `account_feedback` has primary key `(user_id, track_key)`; latest rating
+wins. The account row is locked before feedback/profile rebuild, so concurrent device writes are
+serialized in one transaction (3s lock and 5s SQL deadlines). `account_profiles` contains affinity
+maps and vector(16); algorithms are unchanged. Migrations 0007/0008 add account identity,
+revocable sessions, feedback/profile and account/login-scoped Agent tables. Old anonymous tables
+remain untouched archives; no new HTTP request reads/writes them or claims their rows.
 
 Migration `0003_embeddings` adds pgvector `vector(16)` columns to profile snapshots and the
 `song_embeddings` table. A local SHA-256 feature hash creates deterministic song and preference
@@ -275,11 +277,13 @@ precision at the case limit, rank lift, attribute diversity, and catalog coverag
 
 ### Phase 4 product client (implemented)
 
-`apps/web` is now a client-side Next.js recommendation experience. `lib/device.ts` creates a
-random UUID-based ID once in browser localStorage; `lib/api.ts` sends it on every request and
-centralizes JSON parsing, timeout, base URL, and structured errors. It is a preference linkage
-identifier, not authentication. The browser calls the FastAPI service directly; local default
-is `http://localhost:8000`, configurable at build time with `NEXT_PUBLIC_API_BASE_URL`.
+`apps/web` uses `/login`, `/register`, an identity gate and username menu. The browser uses
+same-origin `/api/v1/*`; a bounded Next route handler forwards only allowlisted headers to the
+fixed server-only `API_INTERNAL_URL` (Compose `http://api:8000`), preserving all Set-Cookie headers,
+streaming SSE and cancellation. `lib/auth.ts` manages CSRF bootstrap, non-secret session guards,
+request lifetimes and BroadcastChannel/storage events. Tokens never enter browser storage.
+Private components remount on login-session changes, discarding preference/chat content and late
+responses. Focus and business actions refresh preferences; language stays in local browser storage.
 
 The homepage submits a bounded seed and one of 3/5/10 result limits, renders canonical tracks
 with source provenance and factor explanations, and treats individual provider failures as a
@@ -440,8 +444,8 @@ disposable local database clean start.
 
 | Area | Responsibility | Must not do |
 | --- | --- | --- |
-| Web | Present UI, persist anonymous device ID, consume REST/SSE | Rank songs or store secrets |
-| API | Validate requests, coordinate use cases, expose OpenAPI | Embed provider-specific HTTP details in routes |
+| Web | Present authenticated UI, consume same-origin REST/SSE | Rank songs or store secrets |
+| API | Authenticate, validate, coordinate use cases; dev-only OpenAPI | Embed provider-specific HTTP details in routes |
 | Provider | Convert an external source into the canonical song model | Make recommendation policy decisions |
 | Recommender | Candidate recall, feature scoring, reranking, offline evaluation | Call an LLM |
 | Agent | Intent extraction, tool choice, result composition | Invent song metadata or bypass access checks |
@@ -449,18 +453,23 @@ disposable local database clean start.
 
 ## Data ownership / 数据归属
 
-- PostgreSQL stores device users, feedback/profiles, song vectors, Agent conversations,
-  preference summaries and knowledge documents/chunks/vectors. Recommendation events are planned.
-- Redis currently has a readiness check; future cache/rate-limit data is discardable.
-- The browser retains a random anonymous device identifier. It is sent as `X-Device-Id`
-  and is not an authentication credential.
-- API keys are environment variables only. `.env` is never committed.
+- PostgreSQL stores accounts, session token digests, account feedback/profiles/vectors, login-scoped
+  conversations, summaries and shared knowledge. Anonymous tables are retained archives.
+- Redis holds atomic 15-minute registration/source and login/account/source counters. No raw
+  username/IP is stored in rate-limit keys. Login/register return retryable 503 on Redis failure.
+- Argon2id uses 19 MiB, two passes and parallelism one; four hash worker slots bound CPU/memory.
+  Random session tokens (256 bits) use HttpOnly, SameSite=Lax, host-only Cookies, Secure in production.
+- CSRF uses an HttpOnly double-submit cookie and exact allowed Origin validation on all writes,
+  including pre-login forms. Forwarded client IP headers are ignored; proxy clients share source limits.
+- API keys are environment variables only. `.env` is never committed. API docs are disabled in production.
+- Password change/reset locks the account, updates the hash and revokes all sessions atomically;
+  login takes the same lock. Admin reset is interactive local CLI with hidden password input.
 
 ## Request paths / 关键请求路径
 
 ### Recommendation
 
-1. The client sends `seed`, `limit`, and an anonymous device header to `POST /v1/recommendations`.
+1. The client sends `seed` and `limit` through `/api/v1/recommendations` with Cookie/CSRF/session guard.
 2. The API resolves the user preference profile and asks provider plugins plus local catalog
    for candidates.
 3. The recommender deduplicates candidates, applies feature scores and diversity reranking.
@@ -468,9 +477,9 @@ disposable local database clean start.
 
 ### Agent chat
 
-1. The client sends `message`, `device_id` and optional `conversation_id` to
+1. The client sends `message` and optional `conversation_id` through the same-origin proxy to
    `POST /v1/agent/chat` (JSON) or `/v1/agent/chat/stream` (SSE).
-2. The Agent loads the current session plus durable preference summary.
+2. The API passes verified account/login-session context; Agent loads six turns for that login and account preferences.
 3. It validates one bounded plan, then invokes approved profile/recommend/knowledge/explain
    tools. Tool traces contain names and statuses; logs contain no chat content or credentials.
 4. SSE sends `status` (分析需求 / 查询偏好 / 调用工具 / 返回结果), `tool_result`,

@@ -6,9 +6,32 @@
 - [x] 2. Accounts, revocable sessions, auth API, CSRF, Redis limits and local reset CLI.
 - [x] 3. Business authentication, account feedback/profile and isolated Agent ownership.
 - [x] 4. Same-origin transport, bilingual login/register/account UI and lifecycle guards.
-- [ ] 5. PostgreSQL/Compose/browser verification, deployment/CI and bilingual current-state docs.
+- [x] 5. PostgreSQL/Compose/browser verification, deployment/CI and bilingual current-state docs.
 
-Current checked-out item: 5 (after frontend checkpoint commit).
+Current checked-out item: none; all five account-login items completed sequentially.
+
+Acceptance 2026-10-06: 276 API tests and 67 web tests pass; Ruff/compile, ESLint/types/build,
+pip check, unchanged deterministic evaluation and legacy smoke pass. Failing regressions preceded
+all behavior fixes. Real PostgreSQL checks cover restoration of the existing 0006 backup into a
+separate project, 0006→0008 upgrade/rollback/upgrade, empty-database base→head, schema drift,
+intentional vector(8) drift rejection, concurrent feedback and exact account-vector values.
+Anonymous archives match the restored pre-upgrade copy. Original .env and four legacy files unchanged.
+
+Real Compose Cookie/CSRF, two-device preferences, account/login-session isolation, JSON/SSE,
+429/Retry-After and Redis-outage 503 checks pass. Interactive hidden-input admin reset revokes two
+real sessions. Real Edge desktop and 390px cover registration→recommendation→feedback→logout→
+another-device login, keyboard/remember login, Chinese UI, password-change revocation, cross-tab
+clearing, isolated assistant history, Unicode passwords and automatic expiry; no page errors or
+overflow. Local frontend/API are upgraded together at localhost:3000, all four services healthy.
+Pre/post-upgrade database dumps and browser evidence stay outside Git in the local backup folder.
+
+source-map-js is patched to 1.2.2; production npm audit is clean. Full audit retains five linked
+high findings from the single unpatched development-only braces advisory. ADR-030 and tested audit
+policy permit only that precise dev chain; other high/critical findings and audit failures block CI.
+One existing Starlette/httpx test-client deprecation warning remains. Remote CI has not been run
+for this local branch; no public HTTPS deployment or provider/model quality claim is made.
+
+Follow-up (not started): remove the ADR-030 exception when upstream releases a braces patch.
 Frontend checkpoint: 60 tests, lint, types and production build pass; login/register/protected
 page HTTP smoke passes. Same-origin cookie/SSE proxy, bilingual forms, request cancellation and
 cross-tab identity guards are implemented. Real container/browser verification follows in item 5.

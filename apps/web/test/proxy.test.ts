@@ -4,6 +4,21 @@ import { GET, POST } from "../app/api/v1/[...path]/route";
 const params = (path: string[]) => ({ params: Promise.resolve({ path }) });
 
 describe("fixed API proxy", () => {
+  it("cancels a stalled incoming body when the browser disconnects", async () => {
+    const controller = new AbortController();
+    const cancelled = vi.fn();
+    const request = new Request("http://localhost:3000/api/v1/feedback", { method: "POST",
+      body: new ReadableStream({ cancel: cancelled }), signal: controller.signal, duplex: "half" } as RequestInit);
+    const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+    const pending = POST(request, params(["feedback"]));
+    await Promise.resolve();
+    controller.abort();
+    const result = await pending;
+    expect(result.status).toBe(408);
+    expect(cancelled).toHaveBeenCalled();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it("forwards cookie/origin/CSRF and preserves multiple cookies and SSE chunks", async () => {
     const upstream = new Response("event: done\ndata: {}\n\n", { headers: { "Content-Type": "text/event-stream" } });
     upstream.headers.append("Set-Cookie", "sonora_session=placeholder; HttpOnly; Path=/");

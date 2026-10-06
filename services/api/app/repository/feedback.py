@@ -83,7 +83,7 @@ def save_feedback(session: Session, user_id: str, track: Track, value: str) -> s
         statement = statement.on_conflict_do_update(index_elements=["user_id"], set_=profile_columns)
         session.execute(statement)
         if session.get_bind().dialect.name == "postgresql":
-            session.execute(text("UPDATE user_preference_profiles "
+            session.execute(text("UPDATE account_profiles "
                                  "SET embedding = CAST(:embedding AS vector) WHERE user_id = :user_id"),
                             {"embedding": Vector16().bind_processor(None)(embed_user(profile)),
                              "user_id": user_id})

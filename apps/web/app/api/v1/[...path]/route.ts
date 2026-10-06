@@ -12,12 +12,20 @@ async function proxy(request: Request, context: { params: Promise<{ path: string
     let body: Uint8Array<ArrayBuffer> | undefined;
     if (request.method === "POST" && request.body) {
       const reader = request.body.getReader(); const chunks: Uint8Array[] = []; let length = 0;
-      while (true) {
-        const { value, done } = await reader.read(); if (done) break;
-        length += value.length;
-        if (length > 65536) { await reader.cancel(); return Response.json({ error: { code: "request_too_large", message: "Request too large." } }, { status: 413 }); }
-        chunks.push(value);
-      }
+      const deadline = AbortSignal.any([request.signal, AbortSignal.timeout(10000)]);
+      const cancel = () => { void reader.cancel().catch(() => {}); };
+      deadline.addEventListener("abort", cancel, { once: true });
+      if (deadline.aborted) cancel();
+      try {
+        while (true) {
+          const { value, done } = await reader.read(); if (done) break;
+          length += value.length;
+          if (length > 65536) { await reader.cancel(); return Response.json({ error: { code: "request_too_large", message: "Request too large." } }, { status: 413 }); }
+          chunks.push(value);
+        }
+      } finally { deadline.removeEventListener("abort", cancel); }
+      if (deadline.aborted) return Response.json({ error: { code: "request_timeout", message: "Request cancelled or timed out." } },
+        { status: 408, headers: { "Cache-Control": "no-store" } });
       body = new Uint8Array(length); let offset = 0;
       for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.length; }
     }

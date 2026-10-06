@@ -1,6 +1,6 @@
 import { ApiError } from "./errors";
 
-export type AuthSession = { user: { user_id: string; username: string }; session_id: string };
+export type AuthSession = { user: { user_id: string; username: string }; session_id: string; expires_at?: string | null };
 let identity: AuthSession | null = null;
 let lifetime = new AbortController();
 let csrfToken: string | null = null;

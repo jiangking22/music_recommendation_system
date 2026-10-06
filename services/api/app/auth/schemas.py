@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, StringConstraints
@@ -27,6 +28,7 @@ class PublicUser(BaseModel):
 class AuthResponse(BaseModel):
     user: PublicUser
     session_id: str
+    expires_at: datetime | None = None
 
 
 class CsrfResponse(BaseModel):

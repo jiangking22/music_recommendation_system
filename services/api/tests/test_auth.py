@@ -60,6 +60,7 @@ def test_register_login_cookie_and_case_insensitive_uniqueness(auth_env):
     registered = register(client)
     assert registered.status_code == 201
     assert registered.json()["user"]["username"] == "Listener"
+    assert datetime.fromisoformat(registered.json()["expires_at"]) > datetime.now(UTC)
     cookie = registered.headers["set-cookie"]
     assert "HttpOnly" in cookie and "SameSite=lax" in cookie
     assert client.get("/v1/auth/me").status_code == 200
@@ -76,6 +77,42 @@ def test_register_login_cookie_and_case_insensitive_uniqueness(auth_env):
                          json={"username": "LISTENER", "password": PASSWORD, "remember": True})
     assert logged.status_code == 200
     assert "Max-Age=2592000" in logged.headers["set-cookie"]
+
+
+@pytest.mark.parametrize("origin", ["*", "http://*", "https://*.example.com", "https://example.com/"])
+def test_allowed_origins_require_exact_hostnames(origin):
+    from pydantic import ValidationError
+
+    from app.infrastructure.config import Settings
+
+    with pytest.raises(ValidationError):
+        Settings(database_url="sqlite+pysqlite:///:memory:", redis_url="redis://localhost:6379/0",
+                 allowed_origins=origin)
+
+
+def test_production_configuration_secure_cookies_and_disabled_documentation():
+    import os
+    import subprocess
+    import sys
+
+    environment = os.environ.copy() | {"APP_ENVIRONMENT": "production", "AUTH_COOKIE_SECURE": "false",
+                                       "ALLOWED_ORIGINS": "https://sonora.example"}
+    failed = subprocess.run([sys.executable, "-c", "import app.main"], env=environment,
+                            capture_output=True, text=True, timeout=15, check=False)
+    assert failed.returncode != 0 and "secure auth cookies" in failed.stderr
+    environment["AUTH_COOKIE_SECURE"] = "true"
+    program = """
+from fastapi.testclient import TestClient
+from app.main import app
+with TestClient(app) as client:
+    for path in ['/docs', '/redoc', '/openapi.json']:
+        assert client.get(path).status_code == 404
+    cookie = client.get('/v1/auth/csrf').headers['set-cookie']
+    assert 'Secure' in cookie and 'HttpOnly' in cookie and 'SameSite=lax' in cookie
+"""
+    passed = subprocess.run([sys.executable, "-c", program], env=environment,
+                            capture_output=True, text=True, timeout=15, check=False)
+    assert passed.returncode == 0
 
 
 def test_invalid_login_is_generic_and_csrf_origin_required(auth_env):
@@ -144,3 +181,11 @@ def test_registration_validation(auth_env, username, password):
     client, _, _ = auth_env
     assert client.post("/v1/auth/register", headers=csrf(client),
                        json={"username": username, "password": password}).status_code == 422
+
+
+def test_password_counts_unicode_characters_and_preserves_spaces(auth_env):
+    client, _, _ = auth_env
+    password = " 🎵" * 50
+    payload = {"username": "UnicodeUser", "password": password}
+    assert client.post("/v1/auth/register", headers=csrf(client), json=payload).status_code == 201
+    assert client.post("/v1/auth/login", headers=csrf(client), json=payload).status_code == 200

@@ -1,5 +1,19 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-030: Specific development-only dependency audit exception
+
+**Status:** Accepted (bounded release validation policy)
+**Date:** 2026-10-06
+
+The release audit found source-map-js GHSA-68fv-2mgg-jv7q in the existing Next/PostCSS tree;
+update the lockfile from 1.2.1 to its patched 1.2.2 release without changing Next/React versions.
+The existing ESLint glob tree has GHSA-vfj7-8cjw-p6xm, with no patched braces version available.
+Allow only this exact advisory and its known five-package dependency chain, only where every
+installed node is marked development-only in the lockfile. All other high/critical advisories,
+any runtime occurrence and unavailable/malformed audits fail CI. The exception remains visible
+in audit output and deployment docs; it is not a clean full-audit claim. Glob patterns come from
+trusted repository tooling, not HTTP users. Revisit when upstream publishes a patch.
+
 ## ADR-029: Mandatory account login and portable music preferences
 
 **Status:** Accepted (user-approved implementation plan)
@@ -16,6 +30,12 @@ not portable history. Public recording knowledge and deterministic ranking are u
 Local administrator CLI handles password resets and revokes sessions. No email, OAuth or admin UI.
 Legacy runtime and local public-data stdio MCP remain independent. Deployment requires a database
 backup and isolated migration/rollback checks. See `docs/specs/account-login.md` for acceptance.
+
+Implementation boundary: the fixed Next proxy ignores client IP forwarding headers, so source
+limits conservatively aggregate proxied clients; account limits remain independent. No untrusted
+header may select a data owner or bypass a limiter. `X-Session-Id` is a non-secret stale-tab guard,
+not an authentication credential. `/auth/me` includes expiry so the UI can clear content at expiry.
+Vector reflection retains database dimensions, allowing Alembic to detect pgvector schema drift.
 
 ## ADR-028: Confirm every model-derived artist before recommendation
 

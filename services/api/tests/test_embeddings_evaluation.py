@@ -11,6 +11,13 @@ from app.repository.embedding import similar_songs, store_song_embedding
 from app.repository.models import Base
 
 
+def test_vector_reflection_retains_dimensions_for_migration_drift():
+    from app.repository.vector import Vector16
+
+    assert Vector16().get_col_spec() == "vector(16)"
+    assert Vector16(8).get_col_spec() == "vector(8)"
+
+
 def test_local_embedding_is_deterministic_and_has_similarity() -> None:
     song = Track(title="Blue Window", artist=Artist(name="Demo Quartet"),
                  source=ProviderSource(provider="fixture", provider_track_id="blue"),

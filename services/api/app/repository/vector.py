@@ -9,8 +9,12 @@ from app.domain.embedding import DIMENSIONS
 class Vector16(UserDefinedType):
     cache_ok = True
 
+    def __init__(self, dimensions: int = DIMENSIONS):
+        # Retain reflected dimensions so Alembic can detect vector type drift.
+        self.dimensions = dimensions
+
     def get_col_spec(self, **_kwargs: object) -> str:
-        return f"vector({DIMENSIONS})"
+        return f"vector({self.dimensions})"
 
     def bind_processor(self, _dialect):
         def process(value: list[float] | None) -> str | None:

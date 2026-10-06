@@ -29,6 +29,7 @@ class Identity:
     user_id: str
     username: str
     session_id: str
+    expires_at: datetime | None = None
 
 
 def digest(token: str) -> str:
@@ -67,7 +68,7 @@ def issue_session(db: Session, account: Account, remember: bool) -> tuple[Identi
     row = LoginSession(session_id=str(uuid4()), user_id=account.user_id, token_digest=digest(token),
                        expires_at=datetime.now(UTC) + timedelta(seconds=lifetime))
     db.add(row)
-    return Identity(account.user_id, account.username, row.session_id), token, lifetime
+    return Identity(account.user_id, account.username, row.session_id, row.expires_at), token, lifetime
 
 
 def read_identity(db: Session, token: str | None) -> Identity:
@@ -79,7 +80,8 @@ def read_identity(db: Session, token: str | None) -> Identity:
     if not row:
         raise AuthError("authentication_required", 401, "Please sign in.")
     login, account = row
-    return Identity(account.user_id, account.username, login.session_id)
+    expires_at = login.expires_at if login.expires_at.tzinfo else login.expires_at.replace(tzinfo=UTC)
+    return Identity(account.user_id, account.username, login.session_id, expires_at)
 
 
 def reset_password(db: Session, username: str, password: str) -> None:

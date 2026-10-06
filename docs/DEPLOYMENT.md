@@ -1,117 +1,142 @@
-# Deployment and clean start / 部署与启动验收
+# Deployment and account operations / 部署与账号维护
 
-## Supported runtime / 支持环境
+## Runtime and configuration / 环境与配置
 
-Python 3.12; Node.js 24/npm 11; PostgreSQL 16 with pgvector; Redis 7; Docker Compose v2.
-The reference setup is local Compose. Web/API bind to loopback on ports 3000/8000; database and
-Redis are internal. This is a portfolio demo without authentication, not a public multi-tenant service.
+Python 3.12, Node.js 24, PostgreSQL 16/pgvector, Redis 7 and Docker Compose v2.
+Copy `.env.example` to `.env`, set a database password and matching URL-encoded `DATABASE_URL`.
+Never commit credentials. Existing `.env` and provider/model settings are preserved during upgrades.
 
-参考运行环境为本地 Compose。无认证的匿名标识不提供安全隔离；公开部署需要入口认证、HTTPS、
-限流、备份和聊天保留/删除策略，这些不在当前实现范围。
+新版所有 HTTP 业务接口必须登录，账号在网页自助注册；无需邮箱、手机号或第三方登录。
+旧版 `python server.py` 仍是独立演示，不使用新版账号。旧匿名数据保留且不自动认领。
 
-## Configure / 配置
+| Variable | Purpose / 用途 |
+| --- | --- |
+| `APP_ENVIRONMENT=development` | Explicit local HTTP mode / 本地开发模式 |
+| `AUTH_COOKIE_SECURE=false` | Local HTTP only; production must use true / 生产必须为 true |
+| `ALLOWED_ORIGINS=http://localhost:3000` | Exact browser Origin(s), no wildcard or trailing slash / 精确网页来源 |
+| `API_INTERNAL_URL=http://127.0.0.1:8000` | Server-only web proxy target; Compose fixes `http://api:8000` / 服务端固定转发地址 |
+| `AUTH_LOGIN_ACCOUNT_LIMIT=10` | Login attempts per username per 15 min / 每账号登录限流 |
+| `AUTH_LOGIN_SOURCE_LIMIT=60` | Login attempts per source per 15 min / 每来源登录限流 |
+| `AUTH_REGISTER_SOURCE_LIMIT=5` | Registration attempts per source per 15 min / 每来源注册限流 |
+| `ENABLE_MUSIC_PROVIDERS=false`, `LLM_PROVIDER=local` | Offline business acceptance / 离线验收 |
 
-Copy `.env.example` to `.env` at repository root. Replace `POSTGRES_PASSWORD` and its matching
-value in `DATABASE_URL`. Use a URL-safe password or percent-encode it in the URL. Template names
-`postgres` and `redis` resolve inside Compose only. Never commit `.env` or keys.
+Browsers always call same-origin `/api/v1/*`; no `NEXT_PUBLIC_API_BASE_URL` is used.
+The proxy preserves Cookie, CSRF/session guards, correlation headers, Set-Cookie and SSE;
+request bodies are capped at 64 KiB/10s, upstream lifetime at 70s with disconnect cancellation.
+The API checks Cookie authentication and CSRF/Origin independently of frontend routing.
+Redis login/register limits fail closed with retryable 503; 429 includes Retry-After.
+Forwarded client IP headers are deliberately ignored: clients behind the Next proxy share its
+source bucket, while the username bucket remains separate. Configure limits for expected traffic;
+a future trusted-proxy policy must explicitly establish which forwarding hop can be trusted.
 
-复制模板，设置密码并同步连接 URL；密码若有 URL 保留字符需编码。模板主机名仅用于容器网络。
-`ENABLE_MUSIC_PROVIDERS=false` disables all outbound music requests for an offline catalog demo.
-`ENABLE_QQ_PROVIDER` takes effect only when music providers are enabled. `LLM_PROVIDER=local`
-is the deterministic default. `openai_compatible` with no Key uses local routing. Model HTTP
-failures during Agent planning/answer composition return explicitly labelled basic-mode results
-from the same deterministic tools. Malformed output and whole-turn timeouts remain safe errors.
-
-Model HTTPS uses the runtime system certificate store with verification enabled. If logs contain
-`tls_verification_failed`, check the API container's CA store and network certificate chain.
-Install only operator-reviewed CA certificates through the deployment's normal trust-store
-process; never disable verification. Host and container certificate stores can differ.
-The adapter retains `trust_env=false` for HTTPX proxy discovery. No `.env` change is needed for
-the default system-trust behavior.
-
-模型 HTTP 故障会切换并标注基础模式，复用推荐器结果。若日志记录 `tls_verification_failed`，检查
-API 运行环境的系统证书库与网络链路；主机和容器信任库可能不同，应按部署流程安装经核验的 CA，
-保持证书校验开启。默认系统信任行为无需修改 `.env`。
-
-`NEXT_PUBLIC_API_BASE_URL` is a web **build-time**, browser-reachable URL, not the internal API
-service name. `ALLOWED_ORIGINS` is a comma-separated explicit origin list; default localhost:3000.
-Container LLM credentials are read only by the API. / 浏览器 URL 需构建时配置；密钥仅进入 API 容器。
+注册及登录使用 Redis 原子限流；故障时不会跳过限流。代理用户共享来源桶，客户端伪造 IP 不会绕过限制。
+密码使用 Argon2id（19 MiB、2 次、并行度 1），最多四个并发哈希工作；会话令牌只存摘要。
+Cookie 为 HttpOnly、SameSite=Lax、host-only；24 小时或保持登录 30 天。所有写操作校验来源及 CSRF。
 
 ## Start and acceptance / 启动与验收
-
-For a fresh clone with no existing volumes / 新克隆且没有旧数据卷：
 
 ```bash
 docker compose config --quiet
 docker compose up --build --wait --wait-timeout 180
-# With ENABLE_MUSIC_PROVIDERS=false and LLM_PROVIDER=local:
+# Disposable offline stack only:
 docker compose exec -T api python scripts/docker_smoke.py
+docker compose exec -T api python scripts/account_postgres_check.py
 docker compose exec -T api alembic current
 docker compose exec -T api alembic check
 ```
 
-The API runs `alembic upgrade head` before Uvicorn. Health ordering is PostgreSQL/Redis → API → web.
-The smoke checks revision 0005, pgvector extension and a real cosine query, four seeded RAG chunks,
-Redis ping, readiness, both web pages, recommendations, feedback/profile/personalized result,
-local Agent/RAG and persisted follow-up conversation. It writes an isolated `smoke_...` device
-and a fixture embedding to the local database. It makes no external business calls in offline mode.
+Open `http://localhost:3000/register`. Choose a 3–32 character ASCII username (letters/digits/_)
+and 15–128 character password. Registration signs in automatically. The username menu supports
+password change and logout. Password changes revoke every login; all devices must sign in again.
+No default account/password is shipped. Forgot-password text directs users to the administrator.
 
-迁移失败会阻止 API 启动。验收脚本覆盖真实数据库向量查询与业务链路，会写入独立 smoke 设备记录。
-脚本必须在禁用音乐外网且启用本地助手的环境运行。Dependency/package/image downloads still need network
-on first build; “offline” here means no music/LLM business API calls.
+打开注册页自行创建账号；无默认账户。喜欢、不喜欢、画像及向量随账号跨设备可用；助手历史与语言不跨设备同步。
+账号切换、退出或检测到失效时清空私有内容，取消旧请求；页面加载、焦点恢复与业务操作刷新画像。
 
-Inspect logs / 排错：
+Startup upgrades Alembic before serving; ordering is PostgreSQL/Redis → API → web. Current head is
+`0008_account_preferences`; `0007_accounts`/`0008_account_preferences` are additive to
+`0006_recording_resolution`. The smoke uses two Cookie jars through the real Next proxy and tests
+401 access, registration/login, shared preferences, different-account isolation, Agent JSON/SSE,
+login-session isolation and logout. The PostgreSQL check tests concurrent feedback, vector equality
+and untouched anonymous archives. Both scripts write uniquely named test accounts and fixture rows;
+use a disposable offline environment. First image/package downloads still require network.
+
+## Local administrator password reset / 本地管理员重置
 
 ```bash
-docker compose ps
-docker compose logs --tail 100 api
-docker compose logs --tail 100 web
+# Interactive TTY required. Never pass a password as a CLI argument.
+docker compose exec api python -m app.auth.reset USERNAME
+# Or from services/api with the configured environment:
+python -m app.auth.reset USERNAME
 ```
 
-JSON event codes and request IDs identify provider failures and deadlines. See [observability](OBSERVABILITY.md).
-A port conflict requires changing host mappings and rebuilding the browser API URL accordingly.
+Enter and confirm the new password at hidden prompts. The CLI updates the hash and revokes all
+account sessions in one transaction; it does not log passwords or tokens. No web admin endpoint.
 
-## Manual services / 不使用 Docker 的开发运行
+必须在交互终端输入并确认新密码，输入隐藏；不可用命令行参数或管道传密码。重置后所有设备重新登录。
 
-Provision PostgreSQL/pgvector and Redis yourself. Run the following from `services/api`, after
-creating/activating `.venv` and installing `python -m pip install -e '.[dev,mcp]'`:
+## Upgrade, backup and rollback / 升级、备份与回退
 
-```powershell
-$env:DATABASE_URL='postgresql+psycopg://music:YOUR_URL_ENCODED_PASSWORD@localhost:5432/music_recommendation'
-$env:REDIS_URL='redis://localhost:6379/0'
-$env:ENABLE_MUSIC_PROVIDERS='false'
-$env:LLM_PROVIDER='local'
-python -m alembic upgrade head
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log
+Before touching the existing database, create a PostgreSQL custom-format backup outside the repo
+and verify restoration into a **separate** database. Stop serving old web/API traffic, validate
+`0006_recording_resolution` → head, migration drift and a round-trip back to 0006 in that disposable
+copy. Downgrade drops new account tables and is **only** an isolated validation operation.
+
+```bash
+# Use these only in the disposable verification Compose project:
+docker compose exec -T api alembic downgrade 0006_recording_resolution
+docker compose exec -T api alembic upgrade head
+docker compose exec -T api alembic check
 ```
 
-In a second shell at `apps/web`: `npm ci`, `npm run dev`. Bash users use `export NAME=value`
-in place of PowerShell `$env:NAME=...`. SQLite tests are not a replacement for target PostgreSQL;
-no PostgreSQL server is required for pytest or the offline MCP stdio demo.
+Deploy frontend and backend together; old anonymous clients are incompatible with authenticated
+business routes. For rollback, enter a maintenance window and restore the verified pre-upgrade
+application/database backup. Preserve a separate post-upgrade backup so new account data is not
+silently discarded. Never downgrade a live database containing user accounts as a shortcut.
+`docker compose down` retains data. Remove volumes only for an explicitly disposable test project.
 
-## Stop, reset, rollback / 停止与回退
+部署前备份并验证独立库恢复；前后端同时切换。正式回退使用维护窗口与匹配的应用/数据库备份，
+另存新增账号数据；不要直接删除正式账号表。现有匿名表、公共曲库和确定性排序策略保持原状。
 
-`docker compose down` stops the stack and keeps data. Only for your disposable demo project,
-`docker compose down --volumes` removes its database/Redis data permanently; back up valued data first.
-For a separate clean project use a distinct `COMPOSE_PROJECT_NAME`, avoiding unrelated stacks.
+## Production and manual development / 生产与手动开发
 
-停止保留数据；删除卷仅用于可丢弃演示环境。CI 使用每次运行独有项目名与随机密码，结束后删除自己的卷。
-数据库回退有 downgrade SQL，但会删除相关表；部署回退优先恢复已备份数据库和匹配的代码版本。
-上述命令仅启动本地环境，不会部署到公网。
+Production requires HTTPS termination, `APP_ENVIRONMENT=production`, `AUTH_COOKIE_SECURE=true`
+and exact HTTPS `ALLOWED_ORIGINS`; unsafe production configuration fails startup. Public
+`/docs`, `/redoc`, `/openapi.json` are disabled in production. Keep PostgreSQL/Redis internal;
+provide routine backups and a retention policy for login-scoped chat and expired session rows.
+This task does not configure a public domain, certificates or an external deployment.
 
-## Verification status / 验证状态
+生产必须启用 HTTPS 与 Secure Cookie，精确允许来源，关闭公开文档。数据库和 Redis 不暴露公网。
+本次提供本地 Compose 与生产配置约束，不安装公网域名/证书，不新增会话清理或聊天历史管理功能。
 
-Author Windows host, 2026-09-30: **Docker CLI absent, clean start not executed / 未实机执行**.
-Static Compose topology/environment/health dependencies, Dockerfiles/build boundaries, editable
-install/wheel assets, and complete offline PostgreSQL upgrade/downgrade SQL were checked locally.
-These do not prove container or PostgreSQL runtime success.
+For manual development, provision PostgreSQL/pgvector and Redis, install `.[dev,mcp]` in
+`services/api`, set `DATABASE_URL`, `REDIS_URL`, development auth settings and allowed web Origin,
+then run `python -m alembic upgrade head` and
+`python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log`.
+In `apps/web`, set server-only `API_INTERNAL_URL=http://127.0.0.1:8000`, then `npm ci; npm run dev`.
+SQLite is for tests only. Local stdio MCP keeps public music lookup without account preferences.
 
-[GitHub Actions](../.github/workflows/ci.yml) runs a fresh stack and the smoke on an Ubuntu Docker
-host. Refer to the actual workflow run and commit SHA for remote runtime evidence; the author's
-local absence of Docker remains a separate fact. Image tags and transitive Python packages are
-not locked by digest/hash, so this setup is reproducible at the command level, not fully hermetic.
+Model HTTPS verifies certificates against the system trust store. Keep verification enabled;
+operator-reviewed CA installation may be needed on some networks. See [observability](OBSERVABILITY.md)
+for safe event codes and correlation; never enable request/SQL/transport debug logs with credentials.
 
-Release audit, 2026-10-02: [main CI run 36971477031](https://github.com/jiangking22/music_recommendation_system/actions/runs/36971477031)
-at `4c54239a46d1cc32a813d3f841c3d0ca0d5c7c30` passed API, web and clean-start.
-Compose build/start, the live PostgreSQL/pgvector/Redis smoke and Alembic current/check all passed.
-发布审查已核实该提交的真实容器验收；本机仍未运行 Docker，后续提交需核对各自 CI。
+## Verification record / 验证记录
+
+2026-10-06 local acceptance: 276 API and 67 web tests, static/build checks, legacy smoke and
+unchanged evaluation pass. Existing 0006 backup restored into the isolated music-account-verify
+project; upgrade/rollback/upgrade, empty-database migration, drift (including intentional vector
+mismatch) and concurrent account writes pass. Original anonymous archives remain identical.
+Real Redis 429/outage-503, Cookie/CSRF/SSE proxy and hidden-input CLI reset pass. Real Edge at
+1440px/390px passes full registration/music/feedback/two-device/login/logout/change-password,
+account/history isolation, keyboard/remember, Chinese layout, Unicode and automatic expiry checks.
+Local services are updated at localhost:3000 with 0008 head and four healthy containers.
+Backups/evidence are outside Git at the operator's local Codex backups directory; credentials
+and existing provider/model configuration were preserved. Public HTTPS deployment was not performed. Historical 2026-10-02 main CI evidence belongs to its own commit, not this branch.
+Image tags and transitive Python dependencies remain unlocked by digest/hash.
+
+
+Dependency audit: source-map-js is patched to 1.2.2. `npm audit --omit=dev --audit-level=high`
+has no findings. The full audit still reports the development ESLint glob chain's unpatched
+[braces advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm); `npm run audit` allows only
+that exact development-only chain and blocks every other high/critical finding (ADR-030).
+完整审计仍有已记录的开发工具告警，不宣称零告警；不影响生产依赖审计，等待上游补丁后移除此例外。

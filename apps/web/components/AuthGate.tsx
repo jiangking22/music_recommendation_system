@@ -21,11 +21,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
     let validation: AbortController | null = null;
+    let expiry: ReturnType<typeof setTimeout> | undefined;
     // Browser language is unavailable during the server's initial render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLanguage(readLanguage());
     async function check() {
       validation?.abort();
+      clearTimeout(expiry);
       const controller = new AbortController(); validation = controller;
       setChecking(true); setFailed(false);
       try {
@@ -33,6 +35,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         if (!active || controller.signal.aborted) return;
         if (!value.user?.user_id || !value.user.username || !value.session_id) throw new Error("Invalid account");
         setSession(value); current.current = value; update(value); setChecking(false);
+        const expires = value.expires_at ? Date.parse(value.expires_at) : NaN;
+        if (Number.isFinite(expires)) {
+          const expire = () => {
+            const remaining = expires - Date.now();
+            if (remaining <= 0) invalidateSession();
+            // 30-day sessions exceed the browser's maximum timer delay.
+            else expiry = setTimeout(expire, Math.min(remaining, 86400000));
+          };
+          expiry = setTimeout(expire, Math.max(0, Math.min(expires - Date.now(), 86400000)));
+        }
       } catch (error) {
         if (!active || controller.signal.aborted || (error instanceof Error && error.name === "AbortError")) return;
         current.current = null; update(null); setChecking(false);
@@ -49,7 +61,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     window.addEventListener("focus", focus);
     document.addEventListener("visibilitychange", visibility);
     void check();
-    return () => { active = false; validation?.abort(); unsubscribe(); window.removeEventListener("focus", focus);
+    return () => { active = false; validation?.abort(); clearTimeout(expiry); unsubscribe(); window.removeEventListener("focus", focus);
       document.removeEventListener("visibilitychange", visibility); };
   }, [pathname, router, attempt]);
   const copy = authCopy[language];

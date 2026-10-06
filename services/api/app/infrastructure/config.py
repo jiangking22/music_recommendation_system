@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     def valid_origins(cls, value: str) -> str:
         origins = [item.strip() for item in value.split(",")]
         if not origins or any(urlparse(item).scheme not in ("http", "https") or
-                              not urlparse(item).netloc or urlparse(item).path or
+                              not urlparse(item).hostname or "*" in item or urlparse(item).path or
                               urlparse(item).query or urlparse(item).fragment or
                               urlparse(item).username for item in origins):
             raise ValueError("ALLOWED_ORIGINS requires exact HTTP(S) origins")
