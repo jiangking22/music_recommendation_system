@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { ApiClient } from "../lib/api";
 import { artistDisplayName, copyFor } from "../lib/i18n";
-import type { InterfaceLanguage, OriginalIdentificationResponse, Track } from "../types/music";
+import { safeExternalUrl } from "../lib/url";
+import type { InterfaceLanguage, OriginalIdentificationResponse, Track, VerifiedStorefront } from "../types/music";
 
 type LookupState =
   | { status: "idle" | "loading" }
@@ -15,7 +16,7 @@ export default function ArtistConfirmation({ query, candidates, language, identi
   candidates: Track[];
   language: InterfaceLanguage;
   identifyOriginal: ApiClient["identifyOriginal"];
-  onSelect: (artist: string, modelSuggested: boolean) => void;
+  onSelect: (artist: string, modelSuggested: boolean, storefront?: VerifiedStorefront) => void;
 }) {
   const [lookup, setLookup] = useState<LookupState>({ status: "idle" });
   const controller = useRef<AbortController | null>(null);
@@ -51,6 +52,7 @@ export default function ArtistConfirmation({ query, candidates, language, identi
   };
   const identified = lookup.status === "ready" ? lookup.result : null;
   const suggestedTrack = identified?.matched_track;
+  const verificationUrl = safeExternalUrl(suggestedTrack?.source.external_url);
 
   return (
     <div className="seed-confirmation">
@@ -79,11 +81,19 @@ export default function ArtistConfirmation({ query, candidates, language, identi
             <h4>{copy.modelSuggestion}</h4>
             <p><strong>{identified.suggestion.title} · {suggestedTrack
               ? artistDisplayName(suggestedTrack.artist) : identified.suggestion.artist}</strong></p>
-            <p>{identified.status === "matched" ? copy.catalogMatched : copy.catalogUnverified}</p>
+            <p>{identified.status === "matched"
+              ? identified.verified_storefront ? copy.onlineVerified : copy.catalogMatched
+              : copy.catalogUnverified}</p>
+            {identified.verified_storefront && verificationUrl ? (
+              <a href={verificationUrl} target="_blank" rel="noopener noreferrer">
+                {copy.verificationSource}
+              </a>
+            ) : null}
             {Object.values(identified.sources).some(source => source.error) ? <p>{copy.partialSources}</p> : null}
             {identified.status === "matched" && suggestedTrack ? (
               <button type="button" className="text-button"
-                onClick={() => onSelect(suggestedTrack.artist.name, true)}>{copy.confirmAndRecommend}</button>
+                onClick={() => onSelect(suggestedTrack.artist.name, true,
+                  identified.verified_storefront ?? undefined)}>{copy.confirmAndRecommend}</button>
             ) : null}
           </>
         ) : null}

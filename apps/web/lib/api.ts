@@ -7,6 +7,7 @@ import type {
   PreferenceProfile,
   RecommendationResponse,
   Track,
+  VerifiedStorefront,
 } from "../types/music";
 
 export class ApiError extends Error {
@@ -83,12 +84,13 @@ export function createApiClient(
         seed,
         limit,
       }),
-    discover: (seed: string, limit: number, language: InterfaceLanguage, seedArtist?: string) =>
+    discover: (seed: string, limit: number, language: InterfaceLanguage, seedArtist?: string, seedStorefront?: VerifiedStorefront) =>
       request<DiscoveryResponse>("/v1/recommendations/discover", "POST", {
         seed,
         limit,
         language,
         ...(seedArtist ? { seed_artist: seedArtist } : {}),
+        ...(seedStorefront ? { seed_storefront: seedStorefront } : {}),
       }, 60000),
     identifyOriginal: (seed: string, language: InterfaceLanguage, rejectedCandidates: SongIdentity[], signal?: AbortSignal) =>
       request<OriginalIdentificationResponse>("/v1/recommendations/identify-original", "POST", {

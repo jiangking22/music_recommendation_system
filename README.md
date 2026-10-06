@@ -158,6 +158,9 @@ If none of the artist choices is correct, choose **None of the above**. The serv
 call to the configured model with the original query and rejected title/artist summaries.
 It rejects repeated artists (including reviewed aliases) and unrelated titles, and checks for
 a canonical recording with bounded qualified searches and reviewed artist spellings.
+If default sources miss it, remaining search capacity verifies the recording online against
+Apple's Taiwan catalog, then Hong Kong when budget allows. Regional matches show an evidence link;
+confirmation and feedback refresh revalidate and recommend using the verified storefront.
 A catalog match offers **Confirm and recommend**; recommendations begin only after confirmation
 and a fresh catalog check. Unmatched answers appear as unverified suggestions without a playback
 link or recommendation action. A catalog match establishes recording presence, not independently
@@ -168,14 +171,18 @@ switching language does not call the model again.
 当候选中没有正确选项时，点击 **以上均没有**。服务端将产生该列表的原始输入与被否定的歌名/歌手摘要
 发送给现有大模型 API，每次点击最多调用一次。重复歌手（含已审核别名）、无关歌曲或无法确认的答案不会
 变成新候选；有效建议通过限定曲库查询核对，必要时使用已审核的歌手姓名写法。匹配后显示 **确认并推荐**，
-用户确认后重新核查录音并生成推荐；未匹配时显示“模型建议，尚未经曲库核实”，不提供播放链接或据此推荐。
+默认曲库未匹配时，在剩余查询预算内联网核查 Apple 台湾区、必要时香港区，匹配后显示“已联网核实官方曲库录音”
+与来源链接。用户确认后在同一地区重新核查并生成推荐，反馈刷新继续使用该地区；修改输入清除地区。
+全部查询仍未匹配时显示“模型建议，尚未经曲库核实”，不提供播放链接或据此推荐。
 曲库匹配不代表独立认证原唱。未配置模型、繁忙、超时、连接失败和无效输出均有明确提示，可手动重试。
 新搜索会取消尚未完成的识别，切换语言只更新文案，不重新调用模型。
 
 Additive `POST /v1/recommendations/identify-original` accepts `seed` (1–120 trimmed characters),
 `language` (`en`/`zh`) and 1–5 `rejected_candidates` with bounded `title`/`artist` strings (1–200).
 It returns `request_id`, `status` (`matched`/`unverified`/`unknown`), nullable `suggestion`, nullable
-`matched_track` and `sources`. It returns no ranked items and uses no profile or database writes.
+`matched_track`, nullable `verified_storefront` (`TW`/`HK`) and `sources`. Discovery accepts optional
+`seed_storefront` (`TW`/`HK`, requires `seed_artist`) and returns it only for a matched Apple seed.
+Identification returns no ranked items and uses no profile or database writes.
 It shares discovery's four-request capacity, four-worker pool and 45-second deadline;
 the model gets eight seconds and catalog work gets 37 seconds and at most three queries. Errors
 use the existing envelope with `identification_not_configured`, `identification_busy`,
@@ -183,6 +190,8 @@ use the existing envelope with `identification_not_configured`, `identification_
 
 新增 `/v1/recommendations/identify-original` 接收最多 120 字符的输入、界面语言和 1～5 个歌名/歌手摘要
 （各最多 200 字符），返回识别状态、可空建议、可空统一录音与来源状态，不执行排序或写入画像。
+新增可空 `verified_storefront` 表示 Apple 地区核实；发现接口可携带 `seed_storefront=TW|HK`，必须同时提供
+`seed_artist`。曲库地区核查沿用原总查询预算，不增加模型调用；未成功核实则不返回地区标记。
 它与发现接口共享四个请求槽和工作池；模型 8 秒、曲库工作 37 秒、总计 45 秒，最多三次曲库查询。
 
 Identification and guidance reuse `/agent`'s server-only `LLM_PROVIDER`, `LLM_BASE_URL`,

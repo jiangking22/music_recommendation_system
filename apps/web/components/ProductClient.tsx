@@ -11,6 +11,7 @@ import type {
   DiscoveryResponse,
   InterfaceLanguage,
   RecommendationItem,
+  VerifiedStorefront,
 } from "../types/music";
 import ProfilePanel from "./ProfilePanel";
 import RecommendationCard from "./RecommendationCard";
@@ -29,6 +30,7 @@ export default function ProductClient() {
   const [resultLanguage, setResultLanguage] = useState<InterfaceLanguage>("en");
   const [resultSeed, setResultSeed] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<string | undefined>();
+  const [selectedStorefront, setSelectedStorefront] = useState<VerifiedStorefront | null>(null);
   const [confirmedModelArtist, setConfirmedModelArtist] = useState<string | null>(null);
   const discoveryRequest = useRef(0);
   const discoveryPending = useRef(false);
@@ -101,7 +103,8 @@ export default function ProductClient() {
     };
   }, []);
 
-  async function findMusic(event?: React.FormEvent, artist = selectedArtist, query = seed, modelSuggested = false) {
+  async function findMusic(event?: React.FormEvent, artist = selectedArtist, query = seed, modelSuggested = false,
+    storefront = selectedStorefront) {
     event?.preventDefault();
     if (!api.current || !query.trim() || discoveryPending.current) return;
     const currentRequest = ++discoveryRequest.current;
@@ -112,7 +115,9 @@ export default function ProductClient() {
     setNotice(null);
     setFeedbackError(false);
     try {
-      const response = await api.current.discover(query.trim(), limit, language, artist);
+      const response = storefront
+        ? await api.current.discover(query.trim(), limit, language, artist, storefront)
+        : await api.current.discover(query.trim(), limit, language, artist);
       if (currentRequest !== discoveryRequest.current) return;
       setResult(response);
       setResultLanguage(language);
@@ -218,7 +223,9 @@ export default function ProductClient() {
                     <input
                       id="seed"
                       value={seed}
-                      onChange={(event) => { setSeed(event.target.value); setSelectedArtist(undefined); }}
+                      onChange={(event) => {
+                        setSeed(event.target.value); setSelectedArtist(undefined); setSelectedStorefront(null);
+                      }}
                       placeholder={copy.seedPlaceholder}
                       maxLength={120}
                       required
@@ -308,6 +315,7 @@ export default function ProductClient() {
                       {result.seed_resolution_source === "model" ? <span>{copy.modelSeed}</span> : null}
                       {result.seed_resolution_source === "verified_hint" ? <span>{copy.verifiedSeed}</span> : null}
                       {confirmedModelArtist ? <span>{copy.modelConfirmed}</span> : null}
+                      {result.seed_storefront ? <span>{copy.onlineVerified}</span> : null}
                     </p>
                   ) : null}
                   {result.seed_status === "ambiguous" ? (
@@ -317,10 +325,11 @@ export default function ProductClient() {
                         if (!api.current) return Promise.reject(new Error("Music service is not ready."));
                         return api.current.identifyOriginal(...args);
                       }}
-                      onSelect={(artist, modelSuggested) => {
+                      onSelect={(artist, modelSuggested, storefront) => {
                         setSeed(resultSeed);
                         setSelectedArtist(artist);
-                        void findMusic(undefined, artist, resultSeed, modelSuggested);
+                        setSelectedStorefront(storefront ?? null);
+                        void findMusic(undefined, artist, resultSeed, modelSuggested, storefront ?? null);
                       }} />
                   ) : (
                     <div className="discovery-guidance">

@@ -94,7 +94,8 @@ async def discovery(
         # The worker owns its session until completion, including request cancellation.
         with Session(engine) as worker_session:
             profile = load_profile(worker_session, x_device_id) if x_device_id else None
-            return begin_discovery(request.seed, request.limit, registry, profile, request.seed_artist)
+            sources = registry.for_storefront(request.seed_storefront) if request.seed_storefront else registry
+            return begin_discovery(request.seed, request.limit, sources, profile, request.seed_artist)
 
     try:
         async with slots, asyncio.timeout(45):
@@ -136,6 +137,8 @@ async def discovery(
                 seed_track=enrich_track(result.seed_track) if result.seed_track else None,
                 seed_candidates=[enrich_track(track) for track in result.seed_candidates[:5]],
                 seed_status=result.seed_status, seed_resolution_source=source,
+                seed_storefront=(request.seed_storefront if result.seed_track
+                                 and result.seed_track.source.provider == "itunes" else None),
                 guidance="", guidance_provider="local", guidance_status="ready")
             if attempted:
                 response.guidance = local_guidance(response, request.language)

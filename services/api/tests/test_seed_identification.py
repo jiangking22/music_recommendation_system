@@ -35,6 +35,14 @@ class IdentificationRegistry:
     def __init__(self, responses):
         self.responses = responses
         self.calls = []
+        self.storefront_responses = {}
+        self.storefront_calls = []
+
+    def for_storefront(self, storefront):
+        self.storefront_calls.append(storefront)
+        regional = IdentificationRegistry(self.storefront_responses.get(storefront, {}))
+        regional.calls = self.calls
+        return regional
 
     def search_tracks(self, query, limit):
         self.calls.append((query, limit))
@@ -553,3 +561,80 @@ def test_original_identification_cannot_verify_live_or_cover_recordings(identifi
     assert body["suggestion"] == {"title": "Shared Title", "artist": "Second"}
     assert len(model.identify_calls) == 1
     assert len(registry.calls) <= 3
+
+
+def test_online_storefront_verifies_missing_recording_and_confirmation_returns_related_tracks(identification_case):
+    second = track("Shared Title", "Second").model_copy(update={"source": ProviderSource(
+        provider="itunes", provider_track_id="123", external_url="https://music.apple.com/tw/song/123")})
+    client, registry, model = identification_case({})
+    registry.storefront_responses["TW"] = {
+        "Shared Title Second": [second], "Shared Title": [second], "Second": [track("Neighbour", "Second")]}
+    body = identify_original(client).json()
+    assert body["status"] == "matched"
+    assert body["verified_storefront"] == "TW"
+    assert body["matched_track"] == second.model_dump(mode="json")
+    assert len(registry.calls) <= 3
+    assert len(model.identify_calls) == 1
+    assert registry.storefront_calls == ["TW"]
+    confirmed = discover(client, seed_artist="Second", seed_storefront="TW")
+    assert confirmed["seed_status"] == "matched"
+    assert confirmed["seed_storefront"] == "TW"
+    assert [item["title"] for item in confirmed["items"]] == ["Neighbour"]
+    assert len(model.identify_calls) == 1
+
+
+def test_online_verification_can_use_hong_kong_without_exceeding_three_searches(identification_case):
+    client, registry, model = identification_case({})
+    registry.storefront_responses["HK"] = {"Shared Title Second": [track("Shared Title", "Second")]}
+    body = identify_original(client).json()
+    assert body["status"] == "matched"
+    assert body["verified_storefront"] == "HK"
+    assert registry.storefront_calls == ["TW", "HK"]
+    assert len(registry.calls) == 3
+    assert len(model.identify_calls) == 1
+
+
+def test_additional_source_match_is_not_attributed_to_the_apple_storefront(identification_case):
+    other = track("Shared Title", "Second").model_copy(update={
+        "source": ProviderSource(provider="netease", provider_track_id="456")})
+    client, registry, model = identification_case({})
+    registry.storefront_responses["TW"] = {"Shared Title Second": [other]}
+    body = identify_original(client).json()
+    assert body["status"] == "matched"
+    assert body["matched_track"]["source"]["provider"] == "netease"
+    assert body["verified_storefront"] is None
+    assert_identification_budget(registry, model)
+
+
+def test_online_confirmed_recording_is_revalidated_when_the_storefront_loses_it(identification_case):
+    client, registry, model = identification_case({})
+    registry.storefront_responses["TW"] = {"Shared Title Second": [track("Shared Title", "Second")]}
+    assert identify_original(client).json()["verified_storefront"] == "TW"
+    registry.storefront_responses["TW"] = {"Second": [track("Neighbour", "Second")]}
+    body = discover(client, seed_artist="Second", seed_storefront="TW")
+    assert body["seed_status"] == "unresolved"
+    assert body["seed_storefront"] is None
+    assert body["items"] == []
+    assert len(model.identify_calls) == 1
+
+
+@pytest.mark.parametrize("tracks", [[track("Shared Title", "Wrong Artist")],
+    [track("Other Title", "Second")], [track("Shared Title (Live)", "Second")]])
+def test_online_verification_never_uses_an_unrelated_artist_or_alternate(identification_case, tracks):
+    client, registry, model = identification_case({})
+    registry.storefront_responses["TW"] = {"Shared Title Second": tracks}
+    body = identify_original(client).json()
+    assert body["status"] == "unverified"
+    assert body["verified_storefront"] is None
+    assert body["matched_track"] is None
+    assert len(registry.calls) <= 3
+    assert len(model.identify_calls) == 1
+
+
+@pytest.mark.parametrize("extra", [{"seed_storefront": "ZZ", "seed_artist": "Second"},
+                                    {"seed_storefront": "TW"}])
+def test_discovery_bounds_storefront_and_requires_artist_confirmation(identification_case, extra):
+    client, registry, model = identification_case({})
+    response = client.post("/v1/recommendations/discover", json={"seed": "Shared Title", **extra})
+    assert response.status_code == 422
+    assert registry.calls == model.identify_calls == []

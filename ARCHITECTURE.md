@@ -144,8 +144,10 @@ Explicit candidate rejection: additive `POST /v1/recommendations/identify-origin
 bounded seed/language and 1–5 title/artist rejection summaries. It makes one configured model call,
 validates the strict seed-identification schema, rejects themes/unknowns, rejected artist identities
 (including reviewed aliases), and titles unrelated to the requested recording. Canonical provider
-searches verify the suggestion; reviewed artist spellings may use the remaining three-operation
-budget. Successful responses distinguish matched/unverified/unknown and include a nullable
+searches verify the suggestion. Default qualified artist/alias queries use at most two operations;
+remaining operations query Apple Taiwan, then Hong Kong when capacity remains. The request-local
+registry changes only the iTunes storefront, preserves configured sources/offline mode and never
+mutates the shared default US provider. Successful responses distinguish matched/unverified/unknown and include a nullable
 suggestion/recording and per-source status. Configuration, transport, malformed output, busy and
 timeout failures use distinct safe identification errors. No synthetic Track, ranking, profile
 access, persistence, Agent tool or migration is added.
@@ -156,12 +158,18 @@ model retries. The extracted ArtistConfirmation component owns an abortable look
 original choices on failure. A new discovery unmounts and cancels the lookup, preventing late results
 from replacing a new query. Matched suggestions require confirmation before the existing
 discover/seed_artist path revalidates and ranks; a UI marker retains model origin after confirmation.
+Regional Apple matches include `verified_storefront=TW|HK` and the canonical recording's evidence
+link. Confirmation sends optional `seed_storefront` (allowed only with an explicit artist); recall
+and refresh use that same region and revalidate the seed. Discovery returns the region only for
+an actual Apple seed recording. Input edits clear region selection. No arbitrary URL fetching,
+HTML scraping or model-supplied Track metadata is introduced; default discovery remains US.
 Unverified suggestions remain plain title/artist text without playback or a recommendation action.
 A catalog match does not certify original authorship. Only seed and bounded rejection metadata enter
 the model context; structured status/duration/error events contain no song, profile or credentials.
 
 候选列表末尾的“以上均没有”使用现有模型配置重新识别；拒绝同一歌手别名与无关歌曲，并在最多三次查询内核查
-统一曲库录音。模型结果与曲库匹配区分展示：匹配后先确认，再由现有发现接口重新核查并推荐；未匹配时仅显示
+统一曲库录音。默认查询未匹配时，剩余预算查询 Apple 台湾区、必要时香港区；匹配后显示核实来源链接。
+确认与刷新携带同一地区，重新验证录音并使用确定性推荐器；新输入清除地区。模型结果与曲库匹配区分展示：未匹配时仅显示
 待核实歌名/歌手。新搜索取消旧识别，识别失败保留原候选；无数据库迁移、画像写入或排名规则变更。
 
 The homepage now calls additive `POST /v1/recommendations/discover`. Typed inputs bound seed to

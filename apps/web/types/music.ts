@@ -38,18 +38,21 @@ export type RecommendationResponse = {
   sources: Record<string, ProviderResult>;
 };
 export type InterfaceLanguage = "en" | "zh";
+export type VerifiedStorefront = "TW" | "HK";
 export type SongIdentity = { title: string; artist: string };
 export type OriginalIdentificationResponse = {
   request_id: string;
   status: "matched" | "unverified" | "unknown";
   suggestion: SongIdentity | null;
   matched_track: Track | null;
+  verified_storefront?: VerifiedStorefront | null;
   sources: Record<string, ProviderResult>;
 };
 export type DiscoveryResponse = RecommendationResponse & {
   seed_track: Track | null;
   seed_candidates: Track[];
   seed_status: "matched" | "ambiguous" | "unresolved";
+  seed_storefront?: VerifiedStorefront | null;
   seed_resolution_source?: "verified_hint" | "user" | "model" | "catalog" | "none";
   guidance: string;
   guidance_provider: "local" | "openai_compatible";

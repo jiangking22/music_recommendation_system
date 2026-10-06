@@ -10,7 +10,12 @@ from app.api.schemas import (
     OriginalIdentificationResponse,
     SongIdentity,
 )
-from app.domain.artist_names import artist_aliases, artist_identity, enrich_track
+from app.domain.artist_names import (
+    artist_aliases,
+    artist_identity,
+    enrich_track,
+    preferred_artist_name,
+)
 from app.domain.discovery import SeedResolution, resolve_seed, title_matches_query
 from app.domain.music import normalize_text
 from app.domain.profile import PreferenceProfile
@@ -58,24 +63,34 @@ async def identify_original(request: OriginalIdentificationRequest, provider: LL
         # No profile or recommendation work: only the existing bounded catalog matcher.
         state = DiscoverySearch(request.seed, 3, registry, PreferenceProfile(), suggestion.artist,
                                 SeedResolution(None, [], "unresolved"))
-        # Sources may index a Chinese artist under a different reviewed spelling from the model.
+        # Reserve a registry operation for online verification beyond the default US catalog.
         queried = set()
         for artist in (suggestion.artist, *artist_aliases(suggestion.artist)):
             query = f"{suggestion.title} {artist}"[:120]
             key = normalize_text(query)
             if key in queried:
                 continue
-            if len(queried) == MAX_DISCOVERY_OPERATIONS:
+            if len(queried) == MAX_DISCOVERY_OPERATIONS - 1:
                 break
             queried.add(key)
             state.query(query)
             resolution = resolve_seed(state.seed, state.search.tracks, suggestion.artist)
             if resolution.track:
-                return resolution.track, state.search.sources
-        return None, state.search.sources
+                return resolution.track, state.search.sources, None
+        query = f"{suggestion.title} {preferred_artist_name(suggestion.artist)}"[:120]
+        for storefront in ("TW", "HK"):
+            if len(state.searches) == MAX_DISCOVERY_OPERATIONS:
+                break
+            state.registry = registry.for_storefront(storefront)
+            state.query(query)
+            resolution = resolve_seed(state.seed, state.search.tracks, suggestion.artist)
+            if resolution.track:
+                verified_storefront = storefront if resolution.track.source.provider == "itunes" else None
+                return resolution.track, state.search.sources, verified_storefront
+        return None, state.search.sources, None
 
     async with asyncio.timeout(37):
-        track, response.sources = await run_blocking(verify)
+        track, response.sources, response.verified_storefront = await run_blocking(verify)
     response.status = "matched" if track else "unverified"
     response.matched_track = enrich_track(track) if track else None
     return response

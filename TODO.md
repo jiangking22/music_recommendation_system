@@ -1,5 +1,27 @@
 # TODO
 
+## Online recording verification / 未匹配模型建议的联网核实与推荐
+
+- [x] Verify model suggestions missing from default sources against additional official Apple
+  storefronts, expose the evidence link, and carry the verified storefront through confirmation
+  and recommendation refresh. Keep ranking deterministic and bound all lookups.
+
+Scope: iTunes adapter/registry, original identification and discovery schemas/routes, homepage
+confirmation/client/tests and current-state docs. Verification: regressions first; API pytest/
+Ruff/compile/evaluation; web tests/lint/typecheck/build; live model/catalog/browser confirmation
+and responsive checks; legacy help/HTTP. One active task, no migration or credential change.
+
+Acceptance 2026-10-06: failing regressions preceded regional verification and storefront propagation.
+All 216 API and 40 web tests pass; Ruff/compile, ESLint/typecheck/build, unchanged evaluation and
+legacy help/isolated HTTP 200 pass. Existing Docker API/web services were rebuilt. An isolated real
+Edge browser verified evidence links, confirmation before recommendation, cancellation/error retry
+and 390px layout; screenshots were inspected. With the configured live model, 晴天 / 周杰伦 matched
+Apple TW track 535824738; confirmation returned five real recommendations. Source attribution was
+reviewed and corrected so non-Apple matches never claim an Apple storefront. Query count remains
+three; all-source misses remain unverified, not forced recommendations. No migration, dependency,
+credential, generated output or ranking change; the existing stash is preserved. This is evidence
+for the observed catalog gap, not a general accuracy or worldwide coverage guarantee.
+
 ## Original candidate rejection / 原唱候选全部否定后补充识别
 
 - [x] Add “以上均没有 / None of the above” to homepage artist choices. Use the configured

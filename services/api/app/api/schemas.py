@@ -1,6 +1,13 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from app.domain.music import (
     ProviderCapabilities,
@@ -55,6 +62,13 @@ class RecommendationResponse(BaseModel):
 class DiscoveryRequest(RecommendationRequest):
     language: Literal["en", "zh"] = "en"
     seed_artist: str | None = Field(default=None, min_length=1, max_length=200)
+    seed_storefront: Literal["TW", "HK"] | None = None
+
+    @model_validator(mode="after")
+    def require_confirmed_artist(self):
+        if self.seed_storefront and not self.seed_artist:
+            raise ValueError("A verification storefront requires an explicit artist")
+        return self
 
     @field_validator("seed_artist", mode="before")
     @classmethod
@@ -66,6 +80,7 @@ class DiscoveryResponse(RecommendationResponse):
     seed_track: Track | None = None
     seed_candidates: list[Track] = Field(default_factory=list, max_length=5)
     seed_status: Literal["matched", "ambiguous", "unresolved"]
+    seed_storefront: Literal["TW", "HK"] | None = None
     seed_resolution_source: Literal["verified_hint", "user", "model", "catalog", "none"] = "none"
     guidance: str = Field(max_length=2000)
     guidance_provider: Literal["local", "openai_compatible"]
@@ -92,6 +107,7 @@ class OriginalIdentificationResponse(BaseModel):
     status: Literal["matched", "unverified", "unknown"]
     suggestion: SongIdentity | None = None
     matched_track: Track | None = None
+    verified_storefront: Literal["TW", "HK"] | None = None
     sources: dict[str, ProviderResult] = Field(default_factory=dict)
 
 

@@ -1,5 +1,7 @@
 from collections.abc import Mapping
 
+import httpx
+
 from app.domain.music import (
     Album,
     Artist,
@@ -50,6 +52,12 @@ def map_itunes_track(value: object) -> Track | None:
 class ITunesProvider(HTTPMusicProvider):
     name = "itunes"
 
+    def __init__(self, client: httpx.Client | None = None, *, storefront: str = "US") -> None:
+        if storefront not in {"US", "TW", "HK"}:
+            raise ValueError("Unsupported Apple storefront")
+        super().__init__(client)
+        self.storefront = storefront
+
     def capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities(provider=self.name, search_tracks=True, search_artist_tracks=True,
                                     stability="documented", max_results=25)
@@ -58,7 +66,7 @@ class ITunesProvider(HTTPMusicProvider):
         term = self._bounded_query(term)
         payload: Mapping[str, object] = self._request(
             "GET", "https://itunes.apple.com/search",
-            params={"term": term, "country": "US", "media": "music", "entity": "song", "limit": limit},
+            params={"term": term, "country": self.storefront, "media": "music", "entity": "song", "limit": limit},
         )
         items = require_list(payload.get("results"))
         tracks = [track for value in items[:limit] if (track := map_itunes_track(value))]

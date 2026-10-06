@@ -30,6 +30,16 @@ class ProviderRegistry:
     def health(self) -> dict[str, ProviderHealth]:
         return {name: provider.health() for name, provider in self._providers.items()}
 
+    def for_storefront(self, storefront: str) -> "ProviderRegistry":
+        """Request-local Apple region; retain configured sources and offline mode."""
+        if storefront not in {"TW", "HK"}:
+            raise ValueError("Unsupported verification storefront")
+        return ProviderRegistry([
+            ITunesProvider(client=provider.client, storefront=storefront)
+            if isinstance(provider, ITunesProvider) else provider
+            for provider in self._providers.values()
+        ])
+
     def search_tracks(self, query: str, limit: int) -> SearchResult:
         if not query.strip() or not 1 <= limit <= MAX_RESULTS:
             raise ValueError("invalid search query or limit")

@@ -1,5 +1,36 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-025: Verify missing model suggestions in bounded regional online catalogs
+
+**Status:** Accepted; extends ADR-024 catalog verification after the user's requested fallback
+**Date:** 2026-10-06
+
+### Decision
+
+The default US Apple catalog omitted 晴天 / 周杰伦, while Taiwan and Hong Kong returned real
+recordings. Use Apple's documented [Search API country parameter](https://performance-partners.apple.com/search-api)
+for additional online verification. Reserve at least one of the existing three search operations:
+at most two default artist/alias queries, followed by TW and, if budget remains, HK. Each lookup
+retains bounded provider timeouts/results and the existing shared capacity/deadline. Clone the
+registry per request, change only iTunes's country, retain other configured providers and offline
+mode, and preserve shared US defaults. Abstain if no valid title/artist recording is found.
+
+Expose nullable `verified_storefront` and a canonical provider evidence link for actual regional
+Apple matches. Retain user confirmation, passing an optional allowlisted `seed_storefront` with
+`seed_artist` to discovery. Revalidate the recording and recall/rank in that region; preserve the
+selection through feedback refresh and clear it on input edits. Never manufacture IDs, trust model
+URLs, scrape arbitrary web pages, or force unrelated songs into an unresolved recommendation.
+
+### Consequences
+
+Recording availability still does not certify original authorship. This closes the observed
+storefront coverage gap, not every missing recording worldwide; alias searches can leave only TW
+within the fixed budget. No new key, external search service, migration, knowledge base or ranking
+policy is required. Source failures remain visible and all-source misses stay unverified.
+
+默认曲库未匹配时增加有界官方地区联网核查；《晴天》在实际配置模型与浏览器中匹配台湾区录音，确认后返回五首
+推荐。地区只影响请求内曲库，保留原有用户确认与重新核验步骤；单次实测不构成原唱识别准确率保证。
+
 ## ADR-024: Explicitly reject artist candidates and confirm model suggestions before recommendation
 
 **Status:** Accepted; adds a user-triggered fallback to ADR-022 without changing initial discovery

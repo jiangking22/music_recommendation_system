@@ -39,6 +39,25 @@ def test_itunes_maps_canonical_track_and_artist_search() -> None:
     assert provider.search_artist_tracks("Demo Quartet", 5).tracks[0] == track
 
 
+def test_regional_registry_uses_fixed_official_storefront_without_changing_default():
+    countries = []
+    payload = json.loads((FIXTURES / "itunes.json").read_text(encoding="utf-8"))
+
+    def respond(request):
+        assert request.url.host == "itunes.apple.com"
+        countries.append(request.url.params["country"])
+        return httpx.Response(200, json=payload)
+
+    registry = ProviderRegistry([ITunesProvider(client=httpx.Client(transport=httpx.MockTransport(respond)))])
+    regional = registry.for_storefront("TW")
+    result = regional.search_tracks("Blue Window", 5)
+    assert result.tracks[0].source.provider == "itunes"
+    assert result.tracks[0].source.provider_track_id == "123"
+    registry.search_tracks("Blue Window", 5)
+    assert countries == ["TW", "US"]
+    assert ProviderRegistry([]).for_storefront("TW").search_tracks("Blue Window", 5).tracks == []
+
+
 def test_netease_maps_canonical_track() -> None:
     provider = NetEaseProvider(client=fixture_client("netease.json", "music.163.com"))
     result = provider.search_tracks("Blue Window", 5)

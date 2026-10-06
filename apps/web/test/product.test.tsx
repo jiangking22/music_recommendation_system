@@ -115,6 +115,29 @@ describe("original candidate rejection", () => {
     expect(api.discover).toHaveBeenCalledTimes(1);
   });
 
+  it("offers online evidence and uses the verified storefront for confirmation and refresh", async () => {
+    const verified = { ...newTrack, source: { ...newTrack.source,
+      external_url: "https://music.apple.com/tw/song/123" } };
+    api.identifyOriginal.mockResolvedValue({ ...identification, matched_track: verified, verified_storefront: "TW" });
+    await showChoices();
+    fireEvent.click(screen.getByRole("button", { name: "None of the above" }));
+    expect(await screen.findByText("Verified online against an official music catalog.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View verification source ↗" })).toHaveAttribute(
+      "href", "https://music.apple.com/tw/song/123");
+    api.discover.mockResolvedValue({ ...result, seed_status: "matched", seed_track: verified, seed_storefront: "TW" });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and recommend" }));
+    await screen.findByText("Night Signal");
+    expect(api.discover).toHaveBeenLastCalledWith("Shared Title", 5, "en", "Another Artist", "TW");
+    fireEvent.click(screen.getByRole("button", { name: /^like night signal$/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /refresh recommendations/i }));
+    await waitFor(() => expect(api.discover).toHaveBeenCalledTimes(3));
+    expect(api.discover).toHaveBeenLastCalledWith("Shared Title", 5, "en", "Another Artist", "TW");
+    await waitFor(() => expect(screen.getByRole("button", { name: /find music/i })).toBeEnabled());
+    fireEvent.change(screen.getByLabelText(/song or mood/i), { target: { value: "New Title" } });
+    fireEvent.click(screen.getByRole("button", { name: /find music/i }));
+    await waitFor(() => expect(api.discover).toHaveBeenLastCalledWith("New Title", 5, "en", undefined));
+  });
+
   it("keeps choices after a failure and allows a translated manual retry", async () => {
     api.identifyOriginal.mockRejectedValueOnce(Object.assign(new Error("safe"), {
       code: "identification_not_configured" })).mockResolvedValueOnce({ ...identification,
@@ -136,7 +159,7 @@ describe("original candidate rejection", () => {
     api.identifyOriginal.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
     await showChoices();
     fireEvent.click(screen.getByRole("button", { name: "None of the above" }));
-    expect(screen.getByText("Calling the model to identify the original artist…")).toBeInTheDocument();
+    expect(screen.getByText("Calling the model and verifying the recording online…")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "None of the above" }));
     expect(api.identifyOriginal).toHaveBeenCalledTimes(1);
     const signal = api.identifyOriginal.mock.calls[0][3];

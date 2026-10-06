@@ -4,6 +4,17 @@ import { ApiError, createApiClient } from "../lib/api";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("API client", () => {
+  it("carries the verified storefront only for explicit confirmation", async () => {
+    const fetcher = vi.fn().mockImplementation(() => Promise.resolve(new Response(
+      JSON.stringify({ items: [], sources: {} }), { status: 200 })));
+    const api = createApiClient("http://localhost:8000", "device_1234567890", fetcher);
+    await api.discover("晴天", 5, "zh", "周杰伦", "TW");
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({
+      seed: "晴天", limit: 5, language: "zh", seed_artist: "周杰伦", seed_storefront: "TW",
+    });
+    await api.discover("jazz", 5, "en");
+    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({ seed: "jazz", limit: 5, language: "en" });
+  });
   it("sends bounded rejection summaries and combines cancellation with the identification deadline", async () => {
     const deadline = vi.spyOn(AbortSignal, "timeout");
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: "unknown",
