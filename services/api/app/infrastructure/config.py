@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     database_url: str = Field(min_length=1)
     redis_url: str = Field(min_length=1)
     allowed_origins: str = "http://localhost:3000"
+    app_environment: Literal["development", "production"] = "development"
+    auth_cookie_secure: bool = False
+    auth_login_account_limit: int = Field(default=10, ge=1, le=100)
+    auth_login_source_limit: int = Field(default=60, ge=1, le=1000)
+    auth_register_source_limit: int = Field(default=5, ge=1, le=100)
     enable_qq_provider: bool = True
     enable_music_providers: bool = True
     enable_musicbrainz_provider: bool = True
@@ -55,6 +60,17 @@ class Settings(BaseSettings):
     @property
     def allowed_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
+    @field_validator("allowed_origins")
+    @classmethod
+    def valid_origins(cls, value: str) -> str:
+        origins = [item.strip() for item in value.split(",")]
+        if not origins or any(urlparse(item).scheme not in ("http", "https") or
+                              not urlparse(item).netloc or urlparse(item).path or
+                              urlparse(item).query or urlparse(item).fragment or
+                              urlparse(item).username for item in origins):
+            raise ValueError("ALLOWED_ORIGINS requires exact HTTP(S) origins")
+        return value
 
 
 @lru_cache

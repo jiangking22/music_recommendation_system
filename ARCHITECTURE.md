@@ -2,7 +2,7 @@
 
 ## Purpose / 目标
 
-Approved account addition (planned at this checkpoint): authenticated HTTP business access,
+Approved account addition (authentication foundation implemented; business/web switch pending): authenticated HTTP business access,
 PostgreSQL accounts/revocable sessions, Redis authentication limits and same-origin web transport.
 Account feedback/profiles replace anonymous device linkage for new requests. Assistant context
 belongs to account plus login session; anonymous rows remain archived. See ADR-029 and

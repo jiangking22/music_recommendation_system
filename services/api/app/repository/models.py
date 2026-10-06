@@ -19,6 +19,25 @@ class Base(DeclarativeBase):
     pass
 
 
+class Account(Base):
+    __tablename__ = "accounts"
+    user_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    username: Mapped[str] = mapped_column(String(32), nullable=False)
+    username_key: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class LoginSession(Base):
+    __tablename__ = "login_sessions"
+    session_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.user_id"), index=True)
+    token_digest: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class VerifiedRecording(Base):
     __tablename__ = "verified_recordings"
     knowledge_key: Mapped[str] = mapped_column(String(64), primary_key=True)

@@ -1,0 +1,146 @@
+from datetime import UTC, datetime, timedelta
+
+import pytest
+from fastapi.testclient import TestClient
+from redis.exceptions import ConnectionError
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session
+
+from app.infrastructure.cache import get_redis
+from app.infrastructure.database import get_session
+from app.main import app
+from app.repository.models import Base
+
+PASSWORD = "a long password with spaces"
+ORIGIN = "http://localhost:3000"
+
+
+class FakeRedis:
+    def __init__(self):
+        self.counts = {}
+
+    def eval(self, _script, _n, key, _window):
+        self.counts[key] = self.counts.get(key, 0) + 1
+        return [self.counts[key], 900]
+
+
+@pytest.fixture
+def auth_env(tmp_path):
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'auth.db'}")
+    Base.metadata.create_all(engine)
+
+    def sessions():
+        with Session(engine) as session:
+            yield session
+
+    redis = FakeRedis()
+    app.dependency_overrides[get_session] = sessions
+    app.dependency_overrides[get_redis] = lambda: redis
+    with TestClient(app) as client:
+        yield client, engine, redis
+    app.dependency_overrides.clear()
+    engine.dispose()
+
+
+def csrf(client):
+    response = client.get("/v1/auth/csrf")
+    assert response.status_code == 200
+    return {"Origin": ORIGIN, "X-CSRF-Token": response.json()["csrf_token"]}
+
+
+def register(client, username="Listener"):
+    return client.post("/v1/auth/register", headers=csrf(client),
+                       json={"username": username, "password": PASSWORD})
+
+
+def test_register_login_cookie_and_case_insensitive_uniqueness(auth_env):
+    from app.repository.models import Account, LoginSession
+
+    client, engine, _ = auth_env
+    registered = register(client)
+    assert registered.status_code == 201
+    assert registered.json()["user"]["username"] == "Listener"
+    cookie = registered.headers["set-cookie"]
+    assert "HttpOnly" in cookie and "SameSite=lax" in cookie
+    assert client.get("/v1/auth/me").status_code == 200
+    assert register(client, "listener").status_code == 409
+    with Session(engine) as db:
+        account = db.scalar(select(Account))
+        assert account.password_hash.startswith("$argon2id$")
+        assert PASSWORD not in account.password_hash
+        login = db.scalar(select(LoginSession))
+        assert login.token_digest != client.cookies["sonora_session"]
+    assert client.post("/v1/auth/logout", headers=csrf(client)).status_code == 200
+    assert client.get("/v1/auth/me").status_code == 401
+    logged = client.post("/v1/auth/login", headers=csrf(client),
+                         json={"username": "LISTENER", "password": PASSWORD, "remember": True})
+    assert logged.status_code == 200
+    assert "Max-Age=2592000" in logged.headers["set-cookie"]
+
+
+def test_invalid_login_is_generic_and_csrf_origin_required(auth_env):
+    client, _, _ = auth_env
+    register(client)
+    bodies = []
+    for username in ["Listener", "Unknown"]:
+        response = client.post("/v1/auth/login", headers=csrf(client),
+                               json={"username": username, "password": "wrong password long"})
+        assert response.status_code == 401
+        bodies.append(response.json())
+    assert bodies[0] == bodies[1]
+    payload = {"username": "Another", "password": PASSWORD}
+    assert client.post("/v1/auth/register", json=payload).status_code == 403
+    headers = csrf(client) | {"Origin": "https://evil.example"}
+    assert client.post("/v1/auth/register", headers=headers, json=payload).status_code == 403
+
+
+def test_change_password_and_admin_reset_revoke_all_sessions(auth_env):
+    from app.auth.service import reset_password
+
+    client, engine, _ = auth_env
+    register(client)
+    old_cookie = client.cookies["sonora_session"]
+    result = client.post("/v1/auth/change-password", headers=csrf(client),
+                         json={"old_password": PASSWORD, "new_password": "new long password here"})
+    assert result.status_code == 200
+    client.cookies.set("sonora_session", old_cookie)
+    assert client.get("/v1/auth/me").status_code == 401
+    with Session(engine) as db:
+        reset_password(db, "listener", PASSWORD)
+    assert client.post("/v1/auth/login", headers=csrf(client),
+                       json={"username": "Listener", "password": PASSWORD}).status_code == 200
+    with Session(engine) as db:
+        reset_password(db, "Listener", "a different long password")
+    assert client.get("/v1/auth/me").status_code == 401
+
+
+def test_expired_session_rate_limit_and_redis_failure(auth_env):
+    from app.repository.models import LoginSession
+
+    client, engine, redis = auth_env
+    register(client)
+    with Session(engine) as db:
+        row = db.scalar(select(LoginSession))
+        row.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        db.commit()
+    assert client.get("/v1/auth/me").status_code == 401
+    for _ in range(11):
+        limited = client.post("/v1/auth/login", headers=csrf(client),
+                              json={"username": "Unknown", "password": PASSWORD})
+    assert limited.status_code == 429
+    assert int(limited.headers["retry-after"]) > 0
+
+    def unavailable(*_args):
+        raise ConnectionError()
+
+    redis.eval = unavailable
+    assert client.post("/v1/auth/register", headers=csrf(client),
+                       json={"username": "NextUser", "password": PASSWORD}).status_code == 503
+
+
+@pytest.mark.parametrize("username,password", [("ab", PASSWORD), ("a-b", PASSWORD),
+                         ("valid", "short"), ("valid", "x" * 129)])
+def test_registration_validation(auth_env, username, password):
+    client, _, _ = auth_env
+    assert client.post("/v1/auth/register", headers=csrf(client),
+                       json={"username": username, "password": password}).status_code == 422
