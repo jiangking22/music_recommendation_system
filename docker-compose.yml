@@ -23,7 +23,7 @@ services:
       REDIS_URL: ${REDIS_URL}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
       ENABLE_MUSIC_PROVIDERS: ${ENABLE_MUSIC_PROVIDERS:-true}
-      ENABLE_QQ_PROVIDER: ${ENABLE_QQ_PROVIDER:-false}
+      ENABLE_QQ_PROVIDER: ${ENABLE_QQ_PROVIDER:-true}
       LLM_PROVIDER: ${LLM_PROVIDER:-local}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
       LLM_MODEL: ${LLM_MODEL:-gpt-4.1-mini}

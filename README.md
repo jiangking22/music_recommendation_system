@@ -56,7 +56,7 @@ flowchart TB
   Tools --> Rec
   Tools --> RAG[Small lexical-guarded RAG]
   Rec --> Registry[Canonical Provider Registry + local catalog]
-  Registry --> Sources[iTunes / NetEase / optional QQ]
+  Registry --> Sources[iTunes / NetEase / QQ]
   API --> PG[(PostgreSQL + pgvector)]
   RAG --> PG
   API --> Redis[(Redis readiness)]
@@ -78,7 +78,7 @@ Redis 当前只参与就绪检查，尚未实现缓存或限流。
 | --- | --- |
 | Web | Next.js 16, React 19, TypeScript; accessible request/empty/error states, responsive cards / 响应式产品页面 |
 | API | Python 3.12, FastAPI, Pydantic, SQLAlchemy 2, Alembic; versioned contracts and error envelopes / 版本化类型接口 |
-| Catalog | iTunes + NetEase defaults, QQ opt-in; timeouts, caps, partial failures, local fallback / 多源降级 |
+| Catalog | iTunes + NetEase + QQ defaults; timeouts, caps, partial failures, local fallback / 多源降级 |
 | Recommendation | Canonical deduplication, explicit scoring, diversity rerank, factor explanations / 确定性排序与解释 |
 | Personalization | Latest rating wins, durable bounded affinity snapshot, disliked-track penalties / 持久化偏好 |
 | Embeddings | Local 16D SHA-256 feature hashes, pgvector storage/cosine retrieval / 无模型下载的演示向量 |
@@ -90,6 +90,18 @@ Redis 当前只参与就绪检查，尚未实现缓存或限流。
 NetEase and QQ use undocumented public endpoints and carry `unverified` metadata. iTunes uses
 Apple's documented search API. No live provider availability is guaranteed. / 网易云、QQ 接口无稳定承诺；
 测试使用固定 payload，不代表真实服务永远可用。
+
+The default registry now queries iTunes, NetEase and QQ sequentially, so a missing Apple recording
+can still be resolved and recommended from a real domestic catalog. QQ is used by initial model
+identification, candidate-rejection verification, confirmation and feedback refresh alike; matched
+model suggestions show the canonical source link. Set `ENABLE_QQ_PROVIDER=false` to opt out, or
+`ENABLE_MUSIC_PROVIDERS=false` for offline mode. Existing `.env` files with QQ disabled need
+`ENABLE_QQ_PROVIDER=true` and API recreation. No new credential is required.
+
+默认来源现为 iTunes、网易云、QQ，依次有界查询。Apple 缺少录音时，可使用国内曲库的真实歌曲核实并推荐；
+首次模型识别、“以上均没有”、确认及刷新使用同一来源集合，匹配的模型建议展示实际歌曲来源链接。
+旧 `.env` 若设置了 `ENABLE_QQ_PROVIDER=false`，需改为 `true` 并重建 API；设为 `false` 仍可关闭 QQ，
+`ENABLE_MUSIC_PROVIDERS=false` 保持完全离线。无需新增密钥；每请求最多三轮、每轮最多三个来源。
 
 ## Recommendation pipeline / 推荐流程
 

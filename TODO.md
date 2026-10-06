@@ -1,5 +1,29 @@
 # TODO
 
+## Domestic catalog coverage / Apple 未命中时的国内曲库补充
+
+- [x] Enable the existing QQ catalog adapter by default alongside iTunes and NetEase; verify
+  宠爱 through real QQ recordings, and retain the same sources for recommendation and refresh.
+  Preserve explicit opt-out, offline mode, canonical validation and existing query/deadline caps.
+
+Scope: provider configuration/Compose, focused API regressions, evidence links on matched model
+suggestions, bilingual docs. Regressions first; API pytest/Ruff/compile/evaluation, web tests/lint/
+types/build, live 宠爱 browser and rejection/confirmation checks, legacy smoke. One active task;
+no model configuration, credentials, migration or deterministic scoring change.
+
+Acceptance 2026-10-06: failing API and UI regressions reproduced QQ-disabled misses and missing
+evidence links. All 218 API / 41 web tests pass, along with Ruff/compile, ESLint/typecheck/build,
+unchanged evaluation and legacy help/HTTP 200. Rebuilt existing Compose services are healthy;
+only the local QQ boolean changed in `.env`, with other settings preserved and the file unstaged.
+An isolated real Edge browser resolved 宠爱 / TFBOYS to QQ track 102210521 and returned five related
+tracks from Apple, QQ and NetEase. A separate harness injected only ambiguous initial choices;
+the following real configured-model rejection lookup and actual confirmed discovery matched QQ,
+showed its evidence link, and returned five recommendations. 390px layout and browser errors were
+checked; screenshots inspected. Review confirmed three-source/three-operation caps, canonical
+validation, explicit QQ opt-out, offline mode and deterministic ranking remain intact. Source
+availability/authorship accuracy is not guaranteed; no dependency, migration, secret or generated
+output is staged, and the existing stash remains intact.
+
 ## Online recording verification / 未匹配模型建议的联网核实与推荐
 
 - [x] Verify model suggestions missing from default sources against additional official Apple

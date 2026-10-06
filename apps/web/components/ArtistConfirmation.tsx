@@ -84,7 +84,7 @@ export default function ArtistConfirmation({ query, candidates, language, identi
             <p>{identified.status === "matched"
               ? identified.verified_storefront ? copy.onlineVerified : copy.catalogMatched
               : copy.catalogUnverified}</p>
-            {identified.verified_storefront && verificationUrl ? (
+            {identified.status === "matched" && verificationUrl ? (
               <a href={verificationUrl} target="_blank" rel="noopener noreferrer">
                 {copy.verificationSource}
               </a>

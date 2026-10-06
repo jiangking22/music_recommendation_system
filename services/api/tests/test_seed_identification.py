@@ -18,6 +18,7 @@ from app.domain.music import (
     Track,
     canonical_key,
 )
+from app.infrastructure.config import Settings
 from app.infrastructure.database import get_session
 from app.main import app
 from app.providers.registry import get_provider_registry
@@ -638,3 +639,59 @@ def test_discovery_bounds_storefront_and_requires_artist_confirmation(identifica
     response = client.post("/v1/recommendations/discover", json={"seed": "Shared Title", **extra})
     assert response.status_code == 422
     assert registry.calls == model.identify_calls == []
+
+
+def test_qq_only_original_can_be_identified_confirmed_and_recommended(identification_case, monkeypatch):
+    from app.providers.itunes import ITunesProvider
+    from app.providers.netease import NetEaseProvider
+    from app.providers.qq import QQProvider
+    from app.providers.registry import ProviderRegistry
+
+    calls = []
+    qq_songs = [
+        {"songid": 102210521, "songmid": "004AGa4s1SF7je", "songname": "宠爱",
+         "singer": [{"id": 34412, "name": "TFBOYS"}], "albumname": "大梦想家"},
+        {"songid": 999, "songmid": "fixture-related", "songname": "相关歌曲",
+         "singer": [{"id": 34412, "name": "TFBOYS"}]},
+    ]
+
+    def respond(request):
+        calls.append(request.url.host)
+        if request.url.host == "itunes.apple.com":
+            return httpx.Response(503)
+        if request.url.host == "music.163.com":
+            return httpx.Response(200, json={"result": {"songs": []}})
+        assert request.url.host == "c.y.qq.com"
+        return httpx.Response(200, json={"data": {"song": {"list": qq_songs}}})
+
+    monkeypatch.delenv("ENABLE_QQ_PROVIDER", raising=False)
+    settings = Settings(
+        _env_file=None, database_url="sqlite+pysqlite:///:memory:", redis_url="redis://localhost:6379/0")
+    transport = httpx.Client(transport=httpx.MockTransport(respond))
+    providers = [ITunesProvider(client=transport), NetEaseProvider(client=transport)]
+    if settings.enable_qq_provider:
+        providers.append(QQProvider(client=transport))
+    registry = ProviderRegistry(providers)
+    client, _, model = identification_case({}, {"kind": "song", "title": "宠爱", "artist": "TFBOYS"})
+    app.dependency_overrides[get_provider_registry] = lambda: registry
+
+    original = client.post("/v1/recommendations/identify-original", json={"seed": "宠爱", "language": "zh",
+        "rejected_candidates": [{"title": "宠爱", "artist": "Other Singer"}]}).json()
+    assert original["status"] == "matched"
+    assert original["matched_track"]["source"]["provider"] == "qq"
+    assert original["matched_track"]["source"]["external_url"] == "https://y.qq.com/n/ryqq/songDetail/004AGa4s1SF7je"
+    assert original["sources"]["itunes"]["error"]["code"] == "upstream_error"
+    assert "items" not in original
+    assert len(calls) <= 9
+    calls.clear()
+    confirmed = discover(client, "宠爱", seed_artist="TFBOYS")
+    assert confirmed["seed_track"]["source"]["provider"] == "qq"
+    assert [item["title"] for item in confirmed["items"]] == ["相关歌曲"]
+    assert len(calls) <= 9
+    assert len(model.identify_calls) == 1
+    calls.clear()
+    automatic = discover(client, "宠爱")
+    assert automatic["seed_resolution_source"] == "model"
+    assert automatic["seed_track"]["source"]["provider"] == "qq"
+    assert [item["title"] for item in automatic["items"]] == ["相关歌曲"]
+    assert len(calls) <= 9

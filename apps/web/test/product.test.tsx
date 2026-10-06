@@ -138,6 +138,21 @@ describe("original candidate rejection", () => {
     await waitFor(() => expect(api.discover).toHaveBeenLastCalledWith("New Title", 5, "en", undefined));
   });
 
+  it("offers the real QQ recording evidence and confirms through the existing multi-source discovery", async () => {
+    const qqTrack = { ...newTrack, source: { provider: "qq", provider_track_id: "102210521",
+      external_url: "https://y.qq.com/n/ryqq/songDetail/004AGa4s1SF7je" } };
+    api.identifyOriginal.mockResolvedValue({ ...identification, matched_track: qqTrack, verified_storefront: null });
+    await showChoices();
+    fireEvent.click(screen.getByRole("button", { name: "None of the above" }));
+    expect(await screen.findByRole("link", { name: "View verification source ↗" })).toHaveAttribute(
+      "href", qqTrack.source.external_url);
+    expect(api.discover).toHaveBeenCalledTimes(1);
+    api.discover.mockResolvedValue({ ...result, seed_status: "matched", seed_track: qqTrack });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and recommend" }));
+    await screen.findByText("Night Signal");
+    expect(api.discover).toHaveBeenLastCalledWith("Shared Title", 5, "en", "Another Artist");
+  });
+
   it("keeps choices after a failure and allows a translated manual retry", async () => {
     api.identifyOriginal.mockRejectedValueOnce(Object.assign(new Error("safe"), {
       code: "identification_not_configured" })).mockResolvedValueOnce({ ...identification,

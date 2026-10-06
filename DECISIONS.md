@@ -1,5 +1,32 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-026: Enable domestic catalog coverage in the shared registry by default
+
+**Status:** Accepted; supersedes the QQ opt-in default, retaining ADR-025 regional Apple fallback
+**Date:** 2026-10-06
+
+### Decision
+
+Live queries for 宠爱 / TFBOYS missed the default Apple/NetEase recording, while the existing QQ
+adapter returned track 102210521 with a real source link. Enable QQ by default in Settings, Compose
+and `.env.example`; update this host's boolean switch without changing its credentials. Preserve
+explicit `ENABLE_QQ_PROVIDER=false` and global offline mode. Reuse the same registry for initial
+model discovery, rejection verification and confirmed/refresh recommendations, so a verified QQ
+seed remains retrievable without a new source-selection API or parallel ranking policy. Display
+canonical evidence links for all matched model suggestions.
+
+### Consequences
+
+One query can now invoke three bounded sequential adapters; the existing three-operation budget
+permits at most nine upstream search calls. Four-second provider timeouts, 37-second cumulative
+compute waiting, 45-second request deadline, concurrency and result caps remain unchanged. QQ's
+public web endpoint remains `unverified` as an integration stability classification; a returned
+recording is evidence of catalog presence, not a general service/rights/authorship guarantee.
+No scraping, authentication workaround, dependency, migration or scoring-rule change is added.
+
+默认开启已有 QQ 来源，修复《宠爱》的真实曲库缺口；保留用户关闭与全局离线。首次查询、确认和刷新共用同一
+曲库集合，避免核实成功后再次丢失起点歌曲。失败仍按来源降级，不编造录音或永久保存原唱判断。
+
 ## ADR-025: Verify missing model suggestions in bounded regional online catalogs
 
 **Status:** Accepted; extends ADR-024 catalog verification after the user's requested fallback

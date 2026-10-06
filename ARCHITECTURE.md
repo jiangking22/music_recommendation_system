@@ -80,7 +80,7 @@ flowchart TB
   Tools --> Knowledge[RAG knowledge store]
   MCP[Standard MCP stdio + HTTP search façade] --> Providers
   MCP --> Rec
-  Providers --> Sources[iTunes / best-effort NetEase / optional QQ]
+  Providers --> Sources[iTunes / best-effort NetEase / QQ]
   API --> Obs[Structured logs · traces · metrics]
 ```
 
@@ -139,6 +139,18 @@ track from each default provider; future availability remains unverified.
 ## Service boundaries / 服务边界
 
 ### Homepage seeded discovery (2026-10-06) / 首页歌曲发现
+
+Current catalog coverage: QQ joins iTunes and NetEase by default (an explicit
+`ENABLE_QQ_PROVIDER=false` still disables it). This reuses the existing canonical adapter for
+initial discovery, model qualification, rejection verification, confirmation and related recall;
+no separate seed-provider contract is needed. Apple misses/failures can yield real QQ seeds and
+recommendations with QQ IDs/links. The registry remains sequential with at most three sources per
+operation and three operations/request; per-call deadlines, total deadlines and partial errors
+are unchanged. Global offline mode still creates an empty registry. Matched suggestions display
+their canonical evidence link for every source, without claiming independently certified authorship.
+
+当前默认曲库增加 QQ；显式关闭开关与离线模式保持有效。原有适配器直接参与首次识别、候选否定核实、确认和
+推荐召回，Apple 未命中时可匹配真实 QQ 录音。最多三轮、每轮三个来源；匹配建议展示对应曲库来源链接。
 
 Explicit candidate rejection: additive `POST /v1/recommendations/identify-original` accepts a
 bounded seed/language and 1–5 title/artist rejection summaries. It makes one configured model call,

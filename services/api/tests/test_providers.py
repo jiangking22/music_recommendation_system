@@ -4,6 +4,7 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
+from app.infrastructure.config import Settings
 from app.main import app
 from app.providers.itunes import ITunesProvider
 from app.providers.netease import NetEaseProvider
@@ -11,6 +12,29 @@ from app.providers.qq import QQProvider
 from app.providers.registry import ProviderRegistry, get_provider_registry
 
 FIXTURES = Path(__file__).parent / "fixtures" / "providers"
+
+
+def test_default_catalog_includes_qq_and_respects_opt_out_and_offline_mode(monkeypatch):
+    from app.providers import registry as module
+
+    monkeypatch.delenv("ENABLE_QQ_PROVIDER", raising=False)
+    settings = Settings(_env_file=None, database_url="sqlite+pysqlite:///:memory:",
+                        redis_url="redis://localhost:6379/0")
+    assert settings.enable_qq_provider is True
+    monkeypatch.setattr(module, "get_settings", lambda: settings)
+    module.get_provider_registry.cache_clear()
+    try:
+        registry = module.get_provider_registry()
+        assert [source.provider for source in registry.capabilities()] == ["itunes", "netease", "qq"]
+        settings.enable_qq_provider = False
+        module.get_provider_registry.cache_clear()
+        assert [s.provider for s in module.get_provider_registry().capabilities()] == ["itunes", "netease"]
+        settings.enable_music_providers = False
+        settings.enable_qq_provider = True
+        module.get_provider_registry.cache_clear()
+        assert module.get_provider_registry().capabilities() == []
+    finally:
+        module.get_provider_registry.cache_clear()
 
 
 def fixture_client(name: str, expected_host: str) -> httpx.Client:
