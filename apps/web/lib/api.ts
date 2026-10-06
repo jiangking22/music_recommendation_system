@@ -11,24 +11,17 @@ import type {
   RecordingResolveResponse,
 } from "../types/music";
 
-export class ApiError extends Error {
-  constructor(
-    public code: string,
-    message: string,
-    public status: number,
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
+import { ApiError } from "./errors";
+import { authFetch, sessionSignal } from "./auth";
+export { ApiError } from "./errors";
 
 export function createApiClient(
-  baseUrl: string,
-  deviceId: string,
+  baseUrl = "/api",
   fetcher: typeof fetch = fetch,
 ) {
   const root = baseUrl.replace(/\/$/, "");
   let discoveryController: AbortController | null = null;
+  const lifetime = new AbortController();
   async function request<T>(
     path: string,
     method = "GET",
@@ -36,19 +29,20 @@ export function createApiClient(
     timeoutMs = 12000,
     signal?: AbortSignal,
   ): Promise<T> {
+    const epoch = sessionSignal();
     let response: Response;
     try {
-      response = await fetcher(`${root}${path}`, {
+      response = await authFetch(`${root}${path}`, {
         method,
         headers: {
           "Content-Type": "application/json",
-          "X-Device-Id": deviceId,
         },
         body: body === undefined ? undefined : JSON.stringify(body),
-        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
+        signal: AbortSignal.any([lifetime.signal, AbortSignal.timeout(timeoutMs), ...(signal ? [signal] : [])]),
         cache: "no-store",
-      });
+      }, fetcher);
     } catch (error) {
+      if (error instanceof ApiError || (error instanceof Error && error.name === "AbortError")) throw error;
       throw new ApiError(
         "network_error",
         error instanceof Error && error.name === "TimeoutError"
@@ -67,6 +61,7 @@ export function createApiClient(
         response.status,
       );
     }
+    if (epoch.aborted || lifetime.signal.aborted) throw new DOMException("Session changed.", "AbortError");
     if (!response.ok) {
       const envelope = payload as {
         error?: { code?: string; message?: string };
@@ -81,7 +76,7 @@ export function createApiClient(
   }
   return {
     cancelDiscovery: () => discoveryController?.abort(),
-    bootstrap: () => request<{ deviceId: string }>("/v1/device"),
+    cancelAll: () => lifetime.abort(),
     recommend: (seed: string, limit: number) =>
       request<RecommendationResponse>("/v1/recommendations", "POST", {
         seed,

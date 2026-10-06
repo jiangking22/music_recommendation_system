@@ -4,7 +4,6 @@ import ProductClient from "../components/ProductClient";
 import type { DiscoveryResponse, PreferenceProfile } from "../types/music";
 
 const api = vi.hoisted(() => ({
-  bootstrap: vi.fn(),
   recommend: vi.fn(),
   discover: vi.fn(),
   identifyOriginal: vi.fn(),
@@ -12,7 +11,6 @@ const api = vi.hoisted(() => ({
   feedback: vi.fn(),
   profile: vi.fn(),
 }));
-vi.mock("../lib/device", () => ({ getDeviceId: () => "device_1234567890" }));
 vi.mock("../lib/api", () => ({ createApiClient: () => api }));
 
 const emptyProfile: PreferenceProfile = {
@@ -64,7 +62,6 @@ const result: DiscoveryResponse = {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  api.bootstrap.mockResolvedValue({ deviceId: "device_1234567890" });
   api.profile.mockResolvedValue(emptyProfile);
   api.discover.mockResolvedValue(result);
   api.feedback.mockResolvedValue({
@@ -573,7 +570,7 @@ describe("recommendation home", () => {
   });
 
   it("translates profile and feedback failures while preserving saved rating rollback", async () => {
-    api.profile.mockRejectedValueOnce(new Error("offline"));
+    api.profile.mockRejectedValue(new Error("offline"));
     api.feedback.mockRejectedValueOnce(new Error("offline"));
     render(<ProductClient />);
     await screen.findByText("Your profile is unavailable right now.");

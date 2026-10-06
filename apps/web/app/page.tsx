@@ -1,5 +1,6 @@
 import ProductClient from "../components/ProductClient";
+import { AuthGate } from "../components/AuthGate";
 
 export default function Home() {
-  return <ProductClient />;
+  return <AuthGate><ProductClient /></AuthGate>;
 }

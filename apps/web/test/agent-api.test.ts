@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { testSession, withCsrf } from "./auth-helpers";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { streamAgentChat } from "../lib/agent";
 
 function streamed(parts: string[]) {
@@ -11,8 +12,10 @@ function streamed(parts: string[]) {
   }), { headers: { "Content-Type": "text/event-stream" } });
 }
 
+beforeEach(testSession);
+
 describe("Agent SSE client", () => {
-  it("parses fragmented status frames and forwards device and conversation", async () => {
+  it("parses fragmented status frames and forwards authenticated session and conversation", async () => {
     const result = { conversation_id: "one", answer: "Found music", recommended_tracks: [],
       used_tools: [], explanation: "", citations: [], sources: {}, provider: "local" };
     const fetcher = vi.fn().mockResolvedValue(streamed([
@@ -21,11 +24,11 @@ describe("Agent SSE client", () => {
       JSON.stringify(result) + "\n\n",
     ]));
     const onStatus = vi.fn();
-    expect(await streamAgentChat("http://localhost:8000", "device_1234567890", "学习",
-      "previous", onStatus, undefined, fetcher)).toEqual(result);
+    expect(await streamAgentChat("/api", "学习",
+      "previous", onStatus, undefined, withCsrf(fetcher))).toEqual(result);
     expect(onStatus).toHaveBeenCalledWith({ stage: "analyzing", label: "分析需求" });
     expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({
-      message: "学习", device_id: "device_1234567890", conversation_id: "previous" });
+      message: "学习", conversation_id: "previous" });
   });
 
   it("rejects stream errors, missing done, and malformed terminal results", async () => {
@@ -33,8 +36,8 @@ describe("Agent SSE client", () => {
       'event: status\ndata: {"stage":"analyzing","label":"分析需求"}\n\n',
       'event: done\ndata: {"answer":"bad"}\n\n']) {
       const fetcher = vi.fn().mockResolvedValue(streamed([wire]));
-      await expect(streamAgentChat("http://localhost:8000", "device_1234567890", "学习",
-        undefined, vi.fn(), undefined, fetcher)).rejects.toThrow();
+      await expect(streamAgentChat("/api", "学习",
+        undefined, vi.fn(), undefined, withCsrf(fetcher))).rejects.toThrow();
     }
   });
 
@@ -49,8 +52,8 @@ describe("Agent SSE client", () => {
     } }), { headers: { "Content-Type": "text/event-stream" } });
     const status = vi.fn();
     const fetcher = vi.fn().mockResolvedValue(response);
-    expect((await streamAgentChat("http://localhost:8000", "device_1234567890", "学习",
-      undefined, status, undefined, fetcher)).answer).toBe("音乐");
+    expect((await streamAgentChat("/api", "学习",
+      undefined, status, undefined, withCsrf(fetcher))).answer).toBe("音乐");
     expect(status).toHaveBeenCalledWith({ stage: "tool", label: "调用工具" });
   });
 });

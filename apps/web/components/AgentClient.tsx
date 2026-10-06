@@ -5,14 +5,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { streamAgentChat } from "../lib/agent";
 import { ApiError } from "../lib/api";
-import { getDeviceId } from "../lib/device";
+import { AccountMenu } from "./AuthGate";
 import { artistDisplayName } from "../lib/i18n";
 import { safeExternalUrl } from "../lib/url";
 import type { AgentResponse, AgentStatus, ToolName } from "../types/agent";
 
 const LABELS: Record<ToolName, string> = { get_user_profile: "音乐偏好", recommend_tracks: "查找推荐",
   search_music_knowledge: "音乐知识", explain_recommendation: "推荐理由" };
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE = "/api";
 const ERRORS: Record<string, string> = {
   agent_timeout: "请求超时，请重试。",
   agent_busy: "音乐助手正忙，请稍后重试。",
@@ -47,7 +47,7 @@ export default function AgentClient() {
     setLoading(true); setError(null); setStatuses([]); setResult(null);
     setPending(text);
     try {
-      const next = await streamAgentChat(API_BASE, getDeviceId(), text, conversation.current,
+      const next = await streamAgentChat(API_BASE, text, conversation.current,
         (status) => { if (!signal.aborted) setStatuses((items) => [...items, status].slice(-8)); }, signal);
       if (signal.aborted) return;
       conversation.current = next.conversation_id;
@@ -67,7 +67,7 @@ export default function AgentClient() {
   return <div className="site-shell agent-shell">
     <header className="site-header">
       <Link href="/" className="brand" aria-label="Sonora home"><span className="brand-icon">◉</span> sonora<span className="brand-dot">.</span></Link>
-      <Link href="/" className="agent-nav">探索音乐 ↗</Link>
+      <div className="header-actions"><Link href="/" className="agent-nav">探索音乐 ↗</Link><AccountMenu language="zh" /></div>
     </header>
     <main className="agent-main">
       <div className="agent-intro"><span className="eyebrow">SONORA / MUSIC ASSISTANT</span>
@@ -102,7 +102,7 @@ export default function AgentClient() {
             : result.provider === "local" ? "本地助手" : "音乐助手"}</span>
             <ul className="agent-tools">{result.used_tools.map((tool) => <li key={tool.name}>
               {LABELS[tool.name]} · {tool.status === "ok" ? "完成" : "未完成"}</li>)}</ul></> : null}
-          <p className="agent-footnote">你的音乐偏好与当前设备关联。</p>
+          <p className="agent-footnote">音乐偏好随账号同步，对话仅限当前登录会话。</p>
         </aside>
       </div>
       {result?.recommended_tracks.length ? <section className="agent-mix" aria-labelledby="mix-title">

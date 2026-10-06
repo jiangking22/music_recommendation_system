@@ -1,4 +1,5 @@
-import { ApiError } from "./api";
+import { ApiError } from "./errors";
+import { authFetch, sessionSignal } from "./auth";
 import type { AgentResponse, AgentStatus } from "../types/agent";
 
 function validateResult(value: unknown): AgentResponse {
@@ -21,15 +22,16 @@ function validateResult(value: unknown): AgentResponse {
 }
 
 export async function streamAgentChat(
-  baseUrl: string, deviceId: string, message: string, conversationId: string | undefined,
+  baseUrl: string, message: string, conversationId: string | undefined,
   onStatus: (status: AgentStatus) => void, signal?: AbortSignal, fetcher: typeof fetch = fetch,
 ): Promise<AgentResponse> {
-  const response = await fetcher(`${baseUrl.replace(/\/$/, "")}/v1/agent/chat/stream`, {
-    method: "POST", headers: { "Content-Type": "application/json", "X-Device-Id": deviceId },
-    body: JSON.stringify({ message, device_id: deviceId, conversation_id: conversationId }),
+  const epoch = sessionSignal();
+  const response = await authFetch(`${baseUrl.replace(/\/$/, "")}/v1/agent/chat/stream`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, conversation_id: conversationId }),
     signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(65000)]) : AbortSignal.timeout(65000),
     cache: "no-store",
-  });
+  }, fetcher);
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new ApiError(body.error?.code ?? "http_error", body.error?.message ?? "Music assistant unavailable.", response.status);
@@ -43,6 +45,7 @@ export async function streamAgentChat(
   try {
     while (true) {
       const { value, done } = await reader.read();
+      if (epoch.aborted) throw new DOMException("Session changed.", "AbortError");
       if (done) break;
       size += value.byteLength;
       if (size > 1024 * 1024) throw new ApiError("invalid_response", "Response exceeds limit.", 502);

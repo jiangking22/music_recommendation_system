@@ -5,7 +5,6 @@ import { ApiError } from "../lib/api";
 
 const api = vi.hoisted(() => ({ stream: vi.fn() }));
 vi.mock("../lib/agent", () => ({ streamAgentChat: api.stream }));
-vi.mock("../lib/device", () => ({ getDeviceId: () => "device_1234567890" }));
 const result = { conversation_id: "one", answer: "为你找到学习音乐。", recommended_tracks: [],
   used_tools: [{ name: "recommend_tracks", status: "ok" }], explanation: "", citations: [],
   sources: {}, provider: "local" };
@@ -13,7 +12,7 @@ const result = { conversation_id: "one", answer: "为你找到学习音乐。", 
 beforeEach(() => { vi.clearAllMocks(); api.stream.mockResolvedValue(result); });
 
 it("shows history, statuses and sends follow-up in the same conversation", async () => {
-  api.stream.mockImplementationOnce(async (_url, _device, _message, _conversation, onStatus) => {
+  api.stream.mockImplementationOnce(async (_url, _message, _conversation, onStatus) => {
     onStatus({ stage: "preferences", label: "查询偏好", tool: "get_user_profile" });
     return result;
   });
@@ -26,7 +25,7 @@ it("shows history, statuses and sends follow-up in the same conversation", async
   fireEvent.change(screen.getByLabelText("想听什么？"), { target: { value: "再来几首" } });
   fireEvent.click(screen.getByRole("button", { name: "发送" }));
   await waitFor(() => expect(api.stream).toHaveBeenLastCalledWith(
-    expect.any(String), "device_1234567890", "再来几首", "one", expect.any(Function), expect.any(AbortSignal)));
+    expect.any(String), "再来几首", "one", expect.any(Function), expect.any(AbortSignal)));
 });
 
 it("shows recoverable request errors", async () => {

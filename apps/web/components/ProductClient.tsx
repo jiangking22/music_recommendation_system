@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createApiClient, type ApiClient } from "../lib/api";
-import { getDeviceId } from "../lib/device";
+import { AccountMenu } from "./AuthGate";
 import { artistDisplayName, copyFor, localGuidance, readLanguage, saveLanguage } from "../lib/i18n";
 import type {
   FeedbackValue,
@@ -20,8 +20,7 @@ import RecordingRecovery from "./RecordingRecovery";
 import SearchReport from "./SearchReport";
 import { safeExternalUrl } from "../lib/url";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE = "/api";
 
 export default function ProductClient() {
   const api = useRef<ApiClient | null>(null);
@@ -41,7 +40,7 @@ export default function ProductClient() {
   const discoveryPending = useRef(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [notice, setNotice] = useState<"deviceUnavailable" | "partialSources" | null>(null);
+  const [notice, setNotice] = useState<"partialSources" | null>(null);
   const [profile, setProfile] = useState<PreferenceProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState(false);
@@ -70,19 +69,10 @@ export default function ProductClient() {
   }
 
   useEffect(() => {
-    const client = createApiClient(API_BASE, getDeviceId());
+    const client = createApiClient(API_BASE);
     api.current = client;
     let active = true;
-    client
-      .bootstrap()
-      .catch(() => {
-        if (active)
-          setNotice("deviceUnavailable");
-      })
-      .finally(() => {
-        if (active) setReady(true);
-      });
-    client
+    const refresh = () => client
       .profile()
       .then((value) => {
         if (!active) return;
@@ -100,12 +90,17 @@ export default function ProductClient() {
         if (active) setProfileError(true);
       })
       .finally(() => {
-        if (active) setProfileLoading(false);
+        if (active) { setProfileLoading(false); setReady(true); }
       });
+    void refresh();
+    const focus = () => { void refresh(); };
+    window.addEventListener("focus", focus);
     return () => {
+      window.removeEventListener("focus", focus);
       active = false;
       discoveryRequest.current += 1;
       client.cancelDiscovery?.();
+      client.cancelAll?.();
     };
   }, []);
 
@@ -122,6 +117,9 @@ export default function ProductClient() {
     setNotice(null);
     setFeedbackError(false);
     try {
+      void api.current.profile().then((value) => {
+        if (currentRequest === discoveryRequest.current) { setProfile(value); setProfileError(false); }
+      }).catch(() => { if (currentRequest === discoveryRequest.current) setProfileError(true); });
       const response = resolutionId
         ? await api.current.discover(query.trim(), limit, language, artist, storefront ?? undefined, resolutionId)
         : storefront
@@ -197,6 +195,7 @@ export default function ProductClient() {
             <span lang="zh-CN" className={language === "zh" ? "active-language" : undefined}>中文</span>
           </button>
           <Link href="/agent" className="agent-nav">{copy.assistant}</Link>
+          <AccountMenu language={language} />
         </div>
       </header>
       <main>

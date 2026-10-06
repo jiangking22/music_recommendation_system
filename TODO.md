@@ -5,10 +5,13 @@
 - [x] 1. Record approved specification and identity ADR (documentation checkpoint).
 - [x] 2. Accounts, revocable sessions, auth API, CSRF, Redis limits and local reset CLI.
 - [x] 3. Business authentication, account feedback/profile and isolated Agent ownership.
-- [ ] 4. Same-origin transport, bilingual login/register/account UI and lifecycle guards.
+- [x] 4. Same-origin transport, bilingual login/register/account UI and lifecycle guards.
 - [ ] 5. PostgreSQL/Compose/browser verification, deployment/CI and bilingual current-state docs.
 
-Current checked-out item: 4 (after business-identity checkpoint commit).
+Current checked-out item: 5 (after frontend checkpoint commit).
+Frontend checkpoint: 60 tests, lint, types and production build pass; login/register/protected
+page HTTP smoke passes. Same-origin cookie/SSE proxy, bilingual forms, request cancellation and
+cross-tab identity guards are implemented. Real container/browser verification follows in item 5.
 Business checkpoint: all 269 API tests pass, including real-cookie anonymous route rejection,
 cross-account/session isolation, portable preferences, concurrent feedback and credential-safe logs.
 Ruff/compile/evaluation pass; migrations 0007/0008 preserve anonymous archives. Web integration next.
