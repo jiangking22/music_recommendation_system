@@ -31,3 +31,27 @@ def test_seed_identification_reuses_bounded_deepseek_json_transport():
 def test_local_seed_identification_abstains_instead_of_inventing_facts():
     result = asyncio.run(LocalLLMProvider().identify_seed({"message": "Unknown Title"}))
     assert result == {"kind": "unknown", "title": None, "artist": None}
+
+
+def test_original_rejection_context_reuses_transport_with_explicit_abstention_rules():
+    sent = []
+
+    def respond(request):
+        payload = json.loads(request.content)
+        sent.append(payload)
+        context = json.loads(payload["messages"][1]["content"])["context"]
+        assert context == {"task": "identify_original", "message": "Shared Title",
+                           "rejected_candidates": [{"title": "Shared Title", "artist": "First"}]}
+        prompt = payload["messages"][0]["content"]
+        assert "rejected ALL" in prompt
+        assert "Return song or unknown only" in prompt
+        assert payload["thinking"] == {"type": "disabled"}
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({
+            "kind": "song", "title": "Shared Title", "artist": "Second"})}}]})
+
+    provider = OpenAICompatibleProvider("https://api.deepseek.com/v1", "mock-key", "fixture",
+                                        httpx.MockTransport(respond))
+    result = asyncio.run(provider.identify_seed({"task": "identify_original", "message": "Shared Title",
+        "rejected_candidates": [{"title": "Shared Title", "artist": "First"}]}))
+    assert result["artist"] == "Second"
+    assert len(sent) == 1

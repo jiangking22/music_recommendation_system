@@ -1,5 +1,36 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-024: Explicitly reject artist candidates and confirm model suggestions before recommendation
+
+**Status:** Accepted; adds a user-triggered fallback to ADR-022 without changing initial discovery
+**Date:** 2026-10-06
+
+### Decision
+
+Add “以上均没有 / None of the above” after ambiguous homepage artist choices and a dedicated
+`POST /v1/recommendations/identify-original` contract. Send the original query and 1–5 rejected
+title/artist summaries through the existing configured model once. Validate structure and song
+title, exclude rejected artist identities using reviewed aliases, and verify via canonical providers
+within three bounded queries. Reviewed spelling variants may improve catalog retrieval without
+registering model-generated aliases. Share discovery's request semaphore, worker pool and deadlines.
+
+Separate model suggestion from catalog recording presence. A matched suggestion requires explicit
+user confirmation and a fresh `discover` call with `seed_artist` before deterministic recommendation.
+Unmatched suggestions remain visible as unverified text with no synthetic Track or recommendation.
+Unknown, repeated or unrelated suggestions abstain. Distinct safe errors allow manual retry; pending
+lookups abort on new searches/unmount, and interface language changes do not cause a model call.
+
+### Consequences
+
+Catalog presence does not prove original authorship; the UI says so and retains model origin after
+confirmation. Provider coverage may leave a correct model suggestion unverified. Rejected candidates
+are request-scoped user input, not persistent music facts. No migration, durable authorship store,
+ranking change, new model configuration or browser credential is needed. Content-free correlated
+events expose status, timing and error codes without prompts, identities or credentials.
+
+候选全部否定后仅调用一次已有模型；曲库匹配成功也必须先确认再推荐，未匹配时仅展示待核实建议。
+原唱判断和录音存在性分开说明，不将模型输出写入永久知识库或改变确定性排序。
+
 ## ADR-023: Keep assistant recommendations available during model transport failures
 
 **Status:** Accepted; refines ADR-014 model-failure behavior; homepage identification rules in ADR-022 remain unchanged

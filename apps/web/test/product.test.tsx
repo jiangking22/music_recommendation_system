@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ProductClient from "../components/ProductClient";
 import type { DiscoveryResponse, PreferenceProfile } from "../types/music";
 
@@ -7,6 +7,7 @@ const api = vi.hoisted(() => ({
   bootstrap: vi.fn(),
   recommend: vi.fn(),
   discover: vi.fn(),
+  identifyOriginal: vi.fn(),
   feedback: vi.fn(),
   profile: vi.fn(),
 }));
@@ -68,6 +69,114 @@ beforeEach(() => {
   api.feedback.mockResolvedValue({
     track_key: result.items[0].id,
     value: "like",
+  });
+});
+
+describe("original candidate rejection", () => {
+  const candidate = { ...track, title: "Shared Title" };
+  const newTrack = { ...candidate, artist: { name: "Another Artist", provider_artist_id: null },
+    canonical_key: "shared title::another artist" };
+  const identification = { request_id: "identify", status: "matched", suggestion: {
+    title: "Shared Title", artist: "Another Artist" }, matched_track: newTrack, sources: {} };
+
+  async function showChoices() {
+    api.discover.mockResolvedValueOnce({ ...result, items: [], seed_status: "ambiguous",
+      seed_candidates: [candidate] });
+    render(<ProductClient />);
+    await screen.findByText("Ready to discover");
+    fireEvent.change(screen.getByLabelText(/song or mood/i), { target: { value: "Shared Title" } });
+    fireEvent.click(screen.getByRole("button", { name: /find music/i }));
+    await screen.findByText("Which artist did you mean?");
+  }
+
+  it("identifies from the original query and waits for confirmation before recommending", async () => {
+    api.identifyOriginal.mockResolvedValue(identification);
+    await showChoices();
+    fireEvent.change(screen.getByLabelText(/song or mood/i), { target: { value: "Edited Input" } });
+    fireEvent.click(screen.getByRole("button", { name: "None of the above" }));
+    expect(await screen.findByText("Shared Title · Another Artist")).toBeInTheDocument();
+    expect(api.identifyOriginal).toHaveBeenCalledWith("Shared Title", "en", [
+      { title: "Shared Title", artist: "Mira Vale" }], expect.any(AbortSignal));
+    expect(api.discover).toHaveBeenCalledTimes(1);
+    api.discover.mockResolvedValueOnce({ ...result, seed_status: "matched", seed_track: newTrack });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and recommend" }));
+    await screen.findByText("Night Signal");
+    expect(api.discover).toHaveBeenLastCalledWith("Shared Title", 5, "en", "Another Artist");
+    expect(screen.getByText("Model suggestion, confirmed by you.")).toBeInTheDocument();
+  });
+
+  it("shows unmatched suggestions without a confirmation or playback button", async () => {
+    api.identifyOriginal.mockResolvedValue({ ...identification, status: "unverified", matched_track: null });
+    await showChoices();
+    fireEvent.click(screen.getByRole("button", { name: "None of the above" }));
+    expect(await screen.findByText("Model suggestion; not verified in the music catalog.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm and recommend" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /open track/i })).not.toBeInTheDocument();
+    expect(api.discover).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps choices after a failure and allows a translated manual retry", async () => {
+    api.identifyOriginal.mockRejectedValueOnce(Object.assign(new Error("safe"), {
+      code: "identification_not_configured" })).mockResolvedValueOnce({ ...identification,
+      status: "unknown", suggestion: null, matched_track: null });
+    await showChoices();
+    fireEvent.click(screen.getByRole("button", { name: "None of the above" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("No model API is configured on the server.");
+    expect(screen.getByRole("button", { name: "Shared Title · Mira Vale" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "切换为中文" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("服务端尚未配置大模型 API。");
+    fireEvent.click(screen.getByRole("button", { name: "重试识别" }));
+    expect(await screen.findByText("暂未找到其他可靠候选，请修改歌名或补充歌手。" )).toBeInTheDocument();
+    expect(api.identifyOriginal).toHaveBeenCalledTimes(2);
+    expect(api.discover).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks duplicate clicks and aborts identification when a new search starts", async () => {
+    let finish!: (value: typeof identification) => void;
+    api.identifyOriginal.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    await showChoices();
+    fireEvent.click(screen.getByRole("button", { name: "None of the above" }));
+    expect(screen.getByText("Calling the model to identify the original artist…")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "None of the above" }));
+    expect(api.identifyOriginal).toHaveBeenCalledTimes(1);
+    const signal = api.identifyOriginal.mock.calls[0][3];
+    fireEvent.change(screen.getByLabelText(/song or mood/i), { target: { value: "New Search" } });
+    fireEvent.click(screen.getByRole("button", { name: /find music/i }));
+    await screen.findByText("Night Signal");
+    expect(signal.aborted).toBe(true);
+    await act(async () => finish(identification));
+    expect(screen.queryByText("Shared Title · Another Artist")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["identification_unavailable", "The model API is unavailable. Please try again."],
+    ["identification_timeout", "Identification timed out. Please try again."],
+    ["identification_invalid_output", "The model returned invalid identification data. Please try again."],
+    ["identification_busy", "The music service is busy. Please try again later."],
+  ])("shows the specific %s error without losing artist choices", async (code, message) => {
+    api.identifyOriginal.mockRejectedValueOnce(Object.assign(new Error("safe"), { code }));
+    await showChoices();
+    fireEvent.click(screen.getByRole("button", { name: "None of the above" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(screen.getByRole("button", { name: "Shared Title · Mira Vale" })).toBeEnabled();
+    expect(api.identifyOriginal).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves confirmed model origin through a failed recommendation retry and language change", async () => {
+    api.identifyOriginal.mockResolvedValue(identification);
+    await showChoices();
+    fireEvent.click(screen.getByRole("button", { name: "None of the above" }));
+    await screen.findByRole("button", { name: "Confirm and recommend" });
+    api.discover.mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({ ...result, seed_status: "matched", seed_track: newTrack });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and recommend" }));
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Model suggestion, confirmed by you.")).toBeInTheDocument();
+    expect(api.discover).toHaveBeenLastCalledWith("Shared Title", 5, "en", "Another Artist");
+    fireEvent.click(screen.getByRole("button", { name: "切换为中文" }));
+    expect(screen.getByText("模型建议，经用户确认")).toBeInTheDocument();
+    expect(api.identifyOriginal).toHaveBeenCalledTimes(1);
   });
 });
 

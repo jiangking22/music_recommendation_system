@@ -8,7 +8,13 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.agent.providers import LLMProvider, get_llm_provider
-from app.api.schemas import DiscoveryRequest, DiscoveryResponse, RecommendationItem
+from app.api.schemas import (
+    DiscoveryRequest,
+    DiscoveryResponse,
+    OriginalIdentificationRequest,
+    OriginalIdentificationResponse,
+    RecommendationItem,
+)
 from app.domain.artist_names import enrich_track
 from app.domain.device import DEVICE_ID_PATTERN
 from app.domain.discovery import original_hint
@@ -18,6 +24,7 @@ from app.observability.events import emit, request_id
 from app.providers.registry import ProviderRegistry, get_provider_registry
 from app.repository.feedback import load_profile
 from app.services.discovery_guidance import add_guidance, local_guidance
+from app.services.original_identification import IdentificationError, identify_original
 from app.services.recommendation import (
     begin_discovery,
     finish_discovery,
@@ -34,6 +41,40 @@ router = APIRouter(prefix="/v1/recommendations", tags=["recommendations"])
 _discovery_slots = WeakKeyDictionary()
 
 
+def discovery_slots() -> asyncio.Semaphore:
+    return _discovery_slots.setdefault(asyncio.get_running_loop(), asyncio.Semaphore(4))
+
+
+@router.post("/identify-original", response_model=OriginalIdentificationResponse)
+async def original_identification(
+    request: OriginalIdentificationRequest,
+    registry: Annotated[ProviderRegistry, Depends(get_provider_registry)],
+    provider: Annotated[LLMProvider, Depends(get_llm_provider)],
+):
+    started = perf_counter()
+    status, code = "error", None
+    try:
+        slots = discovery_slots()
+        if slots.locked():
+            raise IdentificationError("identification_busy", 503,
+                                      "Music discovery is busy. Please try again.")
+        async with slots, asyncio.timeout(45):
+            result = await identify_original(request, provider, registry)
+            status = result.status
+            return result
+    except TimeoutError:
+        code = "identification_timeout"
+        return JSONResponse(status_code=504, content={"error": {
+            "code": code, "message": "Original identification timed out. Please try again."}})
+    except IdentificationError as error:
+        code = error.code
+        return JSONResponse(status_code=error.status, content={"error": {
+            "code": code, "message": error.message}})
+    finally:
+        emit("original_identification", operation="identify_original", status=status,
+             code=code, latency_ms=round((perf_counter() - started) * 1000, 3))
+
+
 @router.post("/discover", response_model=DiscoveryResponse)
 async def discovery(
     request: DiscoveryRequest,
@@ -43,7 +84,7 @@ async def discovery(
     x_device_id: Annotated[str | None, Header(alias="X-Device-Id", min_length=16,
                                               max_length=128, pattern=DEVICE_ID_PATTERN)] = None,
 ):
-    slots = _discovery_slots.setdefault(asyncio.get_running_loop(), asyncio.Semaphore(4))
+    slots = discovery_slots()
     if slots.locked():
         return JSONResponse(status_code=503, content={"error": {
             "code": "discovery_busy", "message": "Music discovery is busy. Please try again."}})

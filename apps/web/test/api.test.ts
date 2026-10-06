@@ -4,6 +4,24 @@ import { ApiError, createApiClient } from "../lib/api";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("API client", () => {
+  it("sends bounded rejection summaries and combines cancellation with the identification deadline", async () => {
+    const deadline = vi.spyOn(AbortSignal, "timeout");
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: "unknown",
+      suggestion: null, matched_track: null, sources: {} }), { status: 200 }));
+    const api = createApiClient("http://localhost:8000", "device_1234567890", fetcher);
+    const controller = new AbortController();
+    const rejected = [{ title: "Shared Title", artist: "First" }];
+    await api.identifyOriginal("Shared Title", "zh", rejected, controller.signal);
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/v1/recommendations/identify-original",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ seed: "Shared Title",
+        language: "zh", rejected_candidates: rejected }) }));
+    expect(deadline).toHaveBeenCalledWith(60000);
+    const signal = fetcher.mock.calls[0][1].signal;
+    expect(signal.aborted).toBe(false);
+    controller.abort();
+    expect(signal.aborted).toBe(true);
+    deadline.mockRestore();
+  });
   it("sends device headers and parses a recommendation", async () => {
     const fetcher = vi
       .fn()

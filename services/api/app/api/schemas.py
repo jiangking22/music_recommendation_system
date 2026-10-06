@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from app.domain.music import (
     ProviderCapabilities,
@@ -70,6 +70,29 @@ class DiscoveryResponse(RecommendationResponse):
     guidance: str = Field(max_length=2000)
     guidance_provider: Literal["local", "openai_compatible"]
     guidance_status: Literal["ready", "unavailable"]
+
+
+class SongIdentity(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+    artist: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+
+class OriginalIdentificationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    seed: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    language: Literal["en", "zh"] = "en"
+    rejected_candidates: list[SongIdentity] = Field(min_length=1, max_length=5)
+
+
+class OriginalIdentificationResponse(BaseModel):
+    request_id: str
+    status: Literal["matched", "unverified", "unknown"]
+    suggestion: SongIdentity | None = None
+    matched_track: Track | None = None
+    sources: dict[str, ProviderResult] = Field(default_factory=dict)
 
 
 class FeedbackRequest(BaseModel):

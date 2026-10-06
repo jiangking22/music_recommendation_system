@@ -96,20 +96,22 @@ def is_alternate(track: Track) -> bool:
             or any(normalize_text(tag) in _EXPLICIT_TAGS for tag in track.tags))
 
 
-def _matches_query(seed: str, track: Track, seed_artist: str | None = None) -> bool:
-    query, title = normalize_text(seed), recording_title(track.title)
+def title_matches_query(seed: str, title: str, artist: str,
+                        seed_artist: str | None = None) -> bool:
+    query, title = normalize_text(seed), recording_title(title)
     hint = original_hint(seed, seed_artist)
     hinted_titles = {normalize_text(value) for value in TITLE_ALIASES.get(hint[0], (hint[0],))} if hint else set()
     if query == title or title in hinted_titles:
         return True
-    aliases = artist_aliases(track.artist.name)
+    aliases = artist_aliases(artist)
     return any(query in (normalize_text(f"{title} {artist}"), normalize_text(f"{artist} {title}"),
                         normalize_text(f"{title} by {artist}"))
                for artist in aliases)
 
 
 def resolve_seed(seed: str, tracks: list[Track], seed_artist: str | None = None) -> SeedResolution:
-    title_matches = [track for track in tracks if _matches_query(seed, track, seed_artist)]
+    title_matches = [track for track in tracks if title_matches_query(
+        seed, track.title, track.artist.name, seed_artist)]
     hint = original_hint(seed, seed_artist)
     expected_artist = seed_artist or (hint[1][0] if hint else None)
     candidates = [candidate.track for candidate in deduplicate([

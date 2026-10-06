@@ -140,6 +140,30 @@ track from each default provider; future availability remains unverified.
 
 ### Homepage seeded discovery (2026-10-06) / 首页歌曲发现
 
+Explicit candidate rejection: additive `POST /v1/recommendations/identify-original` accepts a
+bounded seed/language and 1–5 title/artist rejection summaries. It makes one configured model call,
+validates the strict seed-identification schema, rejects themes/unknowns, rejected artist identities
+(including reviewed aliases), and titles unrelated to the requested recording. Canonical provider
+searches verify the suggestion; reviewed artist spellings may use the remaining three-operation
+budget. Successful responses distinguish matched/unverified/unknown and include a nullable
+suggestion/recording and per-source status. Configuration, transport, malformed output, busy and
+timeout failures use distinct safe identification errors. No synthetic Track, ranking, profile
+access, persistence, Agent tool or migration is added.
+
+The route shares discovery's four-request semaphore and four-worker pool. Model waiting is eight
+seconds; verification waiting is 37 seconds within the 45-second request deadline, without automatic
+model retries. The extracted ArtistConfirmation component owns an abortable lookup and retains
+original choices on failure. A new discovery unmounts and cancels the lookup, preventing late results
+from replacing a new query. Matched suggestions require confirmation before the existing
+discover/seed_artist path revalidates and ranks; a UI marker retains model origin after confirmation.
+Unverified suggestions remain plain title/artist text without playback or a recommendation action.
+A catalog match does not certify original authorship. Only seed and bounded rejection metadata enter
+the model context; structured status/duration/error events contain no song, profile or credentials.
+
+候选列表末尾的“以上均没有”使用现有模型配置重新识别；拒绝同一歌手别名与无关歌曲，并在最多三次查询内核查
+统一曲库录音。模型结果与曲库匹配区分展示：匹配后先确认，再由现有发现接口重新核查并推荐；未匹配时仅显示
+待核实歌名/歌手。新搜索取消旧识别，识别失败保留原候选；无数据库迁移、画像写入或排名规则变更。
+
 The homepage now calls additive `POST /v1/recommendations/discover`. Typed inputs bound seed to
 120 characters, artist confirmation to 200, result limit to 1–10, and UI language to `en`/`zh`.
 The request first searches canonical recordings. Reviewed hints cover `我好想你` / 苏打绿 and

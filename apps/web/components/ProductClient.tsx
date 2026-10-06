@@ -14,6 +14,7 @@ import type {
 } from "../types/music";
 import ProfilePanel from "./ProfilePanel";
 import RecommendationCard from "./RecommendationCard";
+import ArtistConfirmation from "./ArtistConfirmation";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -28,6 +29,9 @@ export default function ProductClient() {
   const [resultLanguage, setResultLanguage] = useState<InterfaceLanguage>("en");
   const [resultSeed, setResultSeed] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<string | undefined>();
+  const [confirmedModelArtist, setConfirmedModelArtist] = useState<string | null>(null);
+  const discoveryRequest = useRef(0);
+  const discoveryPending = useRef(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [notice, setNotice] = useState<"deviceUnavailable" | "partialSources" | null>(null);
@@ -93,28 +97,38 @@ export default function ProductClient() {
       });
     return () => {
       active = false;
+      discoveryRequest.current += 1;
     };
   }, []);
 
-  async function findMusic(event?: React.FormEvent, artist = selectedArtist, query = seed) {
+  async function findMusic(event?: React.FormEvent, artist = selectedArtist, query = seed, modelSuggested = false) {
     event?.preventDefault();
-    if (!api.current || !query.trim() || loading) return;
+    if (!api.current || !query.trim() || discoveryPending.current) return;
+    const currentRequest = ++discoveryRequest.current;
+    discoveryPending.current = true;
+    if (modelSuggested && artist) setConfirmedModelArtist(artist);
     setLoading(true);
     setError(false);
     setNotice(null);
     setFeedbackError(false);
     try {
       const response = await api.current.discover(query.trim(), limit, language, artist);
+      if (currentRequest !== discoveryRequest.current) return;
       setResult(response);
       setResultLanguage(language);
       setResultSeed(query.trim());
+      setConfirmedModelArtist(response.seed_status === "matched" && artist &&
+        (modelSuggested || (query.trim() === resultSeed && artist === confirmedModelArtist)) ? artist : null);
       setPreferencesChanged(false);
       if (Object.values(response.sources).some((source) => source.error))
         setNotice("partialSources");
     } catch {
-      setError(true);
+      if (currentRequest === discoveryRequest.current) setError(true);
     } finally {
-      setLoading(false);
+      if (currentRequest === discoveryRequest.current) {
+        discoveryPending.current = false;
+        setLoading(false);
+      }
     }
   }
 
@@ -293,22 +307,21 @@ export default function ProductClient() {
                       <strong>{result.seed_track.title} · {artistDisplayName(result.seed_track.artist)}</strong>
                       {result.seed_resolution_source === "model" ? <span>{copy.modelSeed}</span> : null}
                       {result.seed_resolution_source === "verified_hint" ? <span>{copy.verifiedSeed}</span> : null}
+                      {confirmedModelArtist ? <span>{copy.modelConfirmed}</span> : null}
                     </p>
                   ) : null}
                   {result.seed_status === "ambiguous" ? (
-                    <div className="seed-confirmation">
-                      <h3>{copy.confirmArtist}</h3>
-                      <p>{copy.confirmDescription}</p>
-                      <div className="seed-choices">
-                        {result.seed_candidates.slice(0, 5).map((candidate) => (
-                          <button type="button" key={candidate.canonical_key} onClick={() => {
-                            setSeed(resultSeed);
-                            setSelectedArtist(candidate.artist.name);
-                            void findMusic(undefined, candidate.artist.name, resultSeed);
-                          }}>{candidate.title} · {artistDisplayName(candidate.artist)}</button>
-                        ))}
-                      </div>
-                    </div>
+                    <ArtistConfirmation key={`${result.request_id}:${resultSeed}`} query={resultSeed}
+                      candidates={result.seed_candidates} language={language}
+                      identifyOriginal={(...args) => {
+                        if (!api.current) return Promise.reject(new Error("Music service is not ready."));
+                        return api.current.identifyOriginal(...args);
+                      }}
+                      onSelect={(artist, modelSuggested) => {
+                        setSeed(resultSeed);
+                        setSelectedArtist(artist);
+                        void findMusic(undefined, artist, resultSeed, modelSuggested);
+                      }} />
                   ) : (
                     <div className="discovery-guidance">
                       <h3>{copy.guidanceTitle}</h3>

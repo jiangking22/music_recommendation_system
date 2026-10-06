@@ -154,6 +154,37 @@ are presentation labels, not identity replacements.
 （`verified_hint`、`user`、`model`、`catalog`、`none`）。可选的 `Track.artist.display_name`、画像歌手
 `display_name` 和最近反馈 `artist_display_name` 仅用于显示，不替换身份字段。
 
+If none of the artist choices is correct, choose **None of the above**. The server makes one
+call to the configured model with the original query and rejected title/artist summaries.
+It rejects repeated artists (including reviewed aliases) and unrelated titles, and checks for
+a canonical recording with bounded qualified searches and reviewed artist spellings.
+A catalog match offers **Confirm and recommend**; recommendations begin only after confirmation
+and a fresh catalog check. Unmatched answers appear as unverified suggestions without a playback
+link or recommendation action. A catalog match establishes recording presence, not independently
+verified original authorship. Configuration, busy, timeout, connection and malformed-output
+failures have distinct notices and manual retry. New searches cancel pending identification;
+switching language does not call the model again.
+
+当候选中没有正确选项时，点击 **以上均没有**。服务端将产生该列表的原始输入与被否定的歌名/歌手摘要
+发送给现有大模型 API，每次点击最多调用一次。重复歌手（含已审核别名）、无关歌曲或无法确认的答案不会
+变成新候选；有效建议通过限定曲库查询核对，必要时使用已审核的歌手姓名写法。匹配后显示 **确认并推荐**，
+用户确认后重新核查录音并生成推荐；未匹配时显示“模型建议，尚未经曲库核实”，不提供播放链接或据此推荐。
+曲库匹配不代表独立认证原唱。未配置模型、繁忙、超时、连接失败和无效输出均有明确提示，可手动重试。
+新搜索会取消尚未完成的识别，切换语言只更新文案，不重新调用模型。
+
+Additive `POST /v1/recommendations/identify-original` accepts `seed` (1–120 trimmed characters),
+`language` (`en`/`zh`) and 1–5 `rejected_candidates` with bounded `title`/`artist` strings (1–200).
+It returns `request_id`, `status` (`matched`/`unverified`/`unknown`), nullable `suggestion`, nullable
+`matched_track` and `sources`. It returns no ranked items and uses no profile or database writes.
+It shares discovery's four-request capacity, four-worker pool and 45-second deadline;
+the model gets eight seconds and catalog work gets 37 seconds and at most three queries. Errors
+use the existing envelope with `identification_not_configured`, `identification_busy`,
+`identification_timeout`, `identification_unavailable` or `identification_invalid_output`.
+
+新增 `/v1/recommendations/identify-original` 接收最多 120 字符的输入、界面语言和 1～5 个歌名/歌手摘要
+（各最多 200 字符），返回识别状态、可空建议、可空统一录音与来源状态，不执行排序或写入画像。
+它与发现接口共享四个请求槽和工作池；模型 8 秒、曲库工作 37 秒、总计 45 秒，最多三次曲库查询。
+
 Identification and guidance reuse `/agent`'s server-only `LLM_PROVIDER`, `LLM_BASE_URL`,
 `LLM_API_KEY` and `LLM_MODEL`; see [.env.example](.env.example). A homepage request shares at
 most three catalog queries and one model call, with an eight-second model deadline, 37 seconds

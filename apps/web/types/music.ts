@@ -38,6 +38,14 @@ export type RecommendationResponse = {
   sources: Record<string, ProviderResult>;
 };
 export type InterfaceLanguage = "en" | "zh";
+export type SongIdentity = { title: string; artist: string };
+export type OriginalIdentificationResponse = {
+  request_id: string;
+  status: "matched" | "unverified" | "unknown";
+  suggestion: SongIdentity | null;
+  matched_track: Track | null;
+  sources: Record<string, ProviderResult>;
+};
 export type DiscoveryResponse = RecommendationResponse & {
   seed_track: Track | null;
   seed_candidates: Track[];

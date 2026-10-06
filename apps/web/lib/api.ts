@@ -2,6 +2,8 @@ import type {
   FeedbackValue,
   DiscoveryResponse,
   InterfaceLanguage,
+  OriginalIdentificationResponse,
+  SongIdentity,
   PreferenceProfile,
   RecommendationResponse,
   Track,
@@ -29,6 +31,7 @@ export function createApiClient(
     method = "GET",
     body?: unknown,
     timeoutMs = 12000,
+    signal?: AbortSignal,
   ): Promise<T> {
     let response: Response;
     try {
@@ -39,7 +42,7 @@ export function createApiClient(
           "X-Device-Id": deviceId,
         },
         body: body === undefined ? undefined : JSON.stringify(body),
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
         cache: "no-store",
       });
     } catch (error) {
@@ -87,6 +90,10 @@ export function createApiClient(
         language,
         ...(seedArtist ? { seed_artist: seedArtist } : {}),
       }, 60000),
+    identifyOriginal: (seed: string, language: InterfaceLanguage, rejectedCandidates: SongIdentity[], signal?: AbortSignal) =>
+      request<OriginalIdentificationResponse>("/v1/recommendations/identify-original", "POST", {
+        seed, language, rejected_candidates: rejectedCandidates,
+      }, 60000, signal),
     feedback: (track: Track, value: FeedbackValue) =>
       request<{ track_key: string; value: FeedbackValue }>(
         "/v1/feedback",

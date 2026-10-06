@@ -1,5 +1,29 @@
 # TODO
 
+## Original candidate rejection / 原唱候选全部否定后补充识别
+
+- [x] Add “以上均没有 / None of the above” to homepage artist choices. Use the configured
+  model once to identify another artist, validate against canonical catalog recordings, and
+  wait for user confirmation before recommending. Show unmatched suggestions as unverified.
+
+Scope: discovery API/service/schemas, shared model prompt, homepage/client/i18n/tests and docs.
+Verification: failing regressions first; API pytest/Ruff/compile/evaluation; web tests/lint/
+typecheck/build; browser confirmation/failure/narrow-layout checks; configured-model smoke;
+legacy help/HTTP. One active task. Preserve credentials and stash; no database migration.
+
+Acceptance 2026-10-06: failing API and UI regressions preceded implementation. All 206 API and
+38 web tests pass; API Ruff/compile, web ESLint/typecheck/production build, unchanged offline
+evaluation and legacy help/isolated HTTP 200 pass. The existing Docker API/web stack was rebuilt
+and checked. An isolated real Edge browser with mocked responses verified loading, confirmation
+before ranking, unverified display, distinct errors/manual retry, cancelled stale responses and
+390px layout without horizontal overflow; screenshots were visually inspected. A separate live
+browser using the configured model identified 晴天 as Jay Chou and correctly showed an unverified
+suggestion because current providers did not return that recording. Live identification of
+Shape of You matched Ed Sheeran; explicit API confirmation returned three related tracks.
+These checks do not establish general original-artist accuracy or a new clean database startup.
+Code review found no blocking correctness/security/architecture issues. No migration, credential,
+dependency or generated output is committed; the pre-existing stash remains intact.
+
 ## Assistant reliability / 助手连接、主题推荐与失败重试
 
 - [x] Fix verified TLS trust for the shared model adapter; keep basic recommendations available
