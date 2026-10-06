@@ -11,7 +11,7 @@ from app.infrastructure.database import get_session
 from app.main import app
 from app.repository.models import Base
 
-PASSWORD = "a long password with spaces"
+PASSWORD = "password with space"
 ORIGIN = "http://localhost:3000"
 
 
@@ -79,46 +79,50 @@ def test_register_login_cookie_and_case_insensitive_uniqueness(auth_env):
     assert "Max-Age=2592000" in logged.headers["set-cookie"]
 
 
-def test_seven_character_password_register_login_and_duplicate_username(auth_env):
+@pytest.mark.parametrize("length", [6, 20])
+def test_credential_boundaries_register_login_change_and_duplicate_username(auth_env, length):
     client, _, _ = auth_env
-    payload = {"username": "ShortPassword", "password": "seven_7"}
+    payload = {"username": "u" * length, "password": "p" * length}
     assert client.post("/v1/auth/register", headers=csrf(client), json=payload).status_code == 201
     duplicate = client.post("/v1/auth/register", headers=csrf(client),
-                            json=payload | {"username": "SHORTPASSWORD"})
+                            json=payload | {"username": payload["username"].upper()})
     assert duplicate.status_code == 409
     assert duplicate.json()["error"]["code"] == "username_taken"
     assert client.post("/v1/auth/logout", headers=csrf(client)).status_code == 200
     assert client.post("/v1/auth/login", headers=csrf(client), json=payload).status_code == 200
     changed = client.post("/v1/auth/change-password", headers=csrf(client),
-                          json={"old_password": "seven_7", "new_password": "new_pwd"})
+                          json={"old_password": payload["password"], "new_password": "n" * length})
     assert changed.status_code == 200
     assert client.get("/v1/auth/me").status_code == 401
     assert client.post("/v1/auth/login", headers=csrf(client),
-                       json=payload | {"password": "new_pwd"}).status_code == 200
+                       json=payload | {"password": "n" * length}).status_code == 200
 
 
-def test_password_change_rejects_six_characters_without_revoking_session(auth_env):
+@pytest.mark.parametrize("password", ["p" * 5, "p" * 21])
+def test_password_change_rejects_out_of_range_length_without_revoking_session(auth_env, password):
     client, _, _ = auth_env
     assert register(client).status_code == 201
     response = client.post("/v1/auth/change-password", headers=csrf(client),
-                           json={"old_password": PASSWORD, "new_password": "sixsix"})
+                           json={"old_password": PASSWORD, "new_password": password})
     assert response.status_code == 422
     assert client.get("/v1/auth/me").status_code == 200
 
 
-def test_admin_reset_accepts_seven_characters_and_rejects_six(auth_env):
+@pytest.mark.parametrize("length", [6, 20])
+def test_admin_reset_accepts_boundaries_and_rejects_out_of_range_length(auth_env, length):
     from app.auth.service import AuthError, reset_password
 
     client, engine, _ = auth_env
     assert register(client).status_code == 201
     with Session(engine) as db:
-        reset_password(db, "listener", "reset_7")
+        reset_password(db, "listener", "r" * length)
     assert client.get("/v1/auth/me").status_code == 401
-    with Session(engine) as db, pytest.raises(AuthError) as error:
-        reset_password(db, "Listener", "sixsix")
-    assert error.value.code == "validation_error"
+    for password in ["p" * 5, "p" * 21]:
+        with Session(engine) as db, pytest.raises(AuthError) as error:
+            reset_password(db, "Listener", password)
+        assert error.value.code == "validation_error"
     assert client.post("/v1/auth/login", headers=csrf(client),
-                       json={"username": "Listener", "password": "reset_7"}).status_code == 200
+                       json={"username": "Listener", "password": "r" * length}).status_code == 200
 
 
 @pytest.mark.parametrize("origin", ["*", "http://*", "https://*.example.com", "https://example.com/"])
@@ -180,7 +184,7 @@ def test_change_password_and_admin_reset_revoke_all_sessions(auth_env):
     register(client)
     old_cookie = client.cookies["sonora_session"]
     result = client.post("/v1/auth/change-password", headers=csrf(client),
-                         json={"old_password": PASSWORD, "new_password": "new long password here"})
+                         json={"old_password": PASSWORD, "new_password": "new password here"})
     assert result.status_code == 200
     client.cookies.set("sonora_session", old_cookie)
     assert client.get("/v1/auth/me").status_code == 401
@@ -189,7 +193,7 @@ def test_change_password_and_admin_reset_revoke_all_sessions(auth_env):
     assert client.post("/v1/auth/login", headers=csrf(client),
                        json={"username": "Listener", "password": PASSWORD}).status_code == 200
     with Session(engine) as db:
-        reset_password(db, "Listener", "a different long password")
+        reset_password(db, "Listener", "different password")
     assert client.get("/v1/auth/me").status_code == 401
 
 
@@ -217,8 +221,8 @@ def test_expired_session_rate_limit_and_redis_failure(auth_env):
                        json={"username": "NextUser", "password": PASSWORD}).status_code == 503
 
 
-@pytest.mark.parametrize("username,password", [("ab", PASSWORD), ("a-b", PASSWORD),
-                         ("valid", "short"), ("valid", "sixsix"), ("valid", "x" * 129)])
+@pytest.mark.parametrize("username,password", [("u" * 5, PASSWORD), ("u" * 21, PASSWORD),
+                         ("a-bcde", PASSWORD), ("validuser", "p" * 5), ("validuser", "p" * 21)])
 def test_registration_validation(auth_env, username, password):
     client, _, _ = auth_env
     assert client.post("/v1/auth/register", headers=csrf(client),
@@ -227,7 +231,7 @@ def test_registration_validation(auth_env, username, password):
 
 def test_password_counts_unicode_characters_and_preserves_spaces(auth_env):
     client, _, _ = auth_env
-    password = " 🎵" * 50
+    password = " 🎵" * 10
     payload = {"username": "UnicodeUser", "password": password}
     assert client.post("/v1/auth/register", headers=csrf(client), json=payload).status_code == 201
     assert client.post("/v1/auth/login", headers=csrf(client), json=payload).status_code == 200

@@ -45,8 +45,8 @@ docker compose exec -T api alembic current
 docker compose exec -T api alembic check
 ```
 
-Open `http://localhost:3000/register`. Choose a 3–32 character ASCII username (letters/digits/_)
-and 7–128 character password. Registration signs in automatically. The username menu supports
+Open `http://localhost:3000/register`. Choose a 6–20 character ASCII username (letters/digits/_)
+and 6–20 character password; both bounds are inclusive. Registration signs in automatically. The username menu supports
 password change and logout. Password changes revoke every login; all devices must sign in again.
 No default account/password is shipped. Forgot-password text directs users to the administrator.
 

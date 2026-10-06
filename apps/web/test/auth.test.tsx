@@ -12,34 +12,60 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 beforeEach(() => { vi.clearAllMocks(); invalidateSession(false); });
 
 describe("account lifecycle", () => {
-  it.each(["register", "login", "password"] as const)("accepts seven-character passwords in the %s form", async (mode) => {
+  it.each([
+    ["register", 6], ["register", 20], ["login", 6], ["login", 20], ["password", 6], ["password", 20],
+  ] as const)("accepts credential boundaries in the %s form with %i characters", async (mode, length) => {
     vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => Promise.resolve(
       url.endsWith("/csrf") ? json({ csrf_token: "csrf-test" }) : json(session))));
     render(<AuthForm mode={mode} />);
     if (mode === "password") {
-      fireEvent.change(screen.getByLabelText("Current password"), { target: { value: "old_pwd" } });
+      fireEvent.change(screen.getByLabelText("Current password"), { target: { value: "o".repeat(length) } });
     } else {
-      fireEvent.change(screen.getByLabelText("Username"), { target: { value: "Listener" } });
+      fireEvent.change(screen.getByLabelText("Username"), { target: { value: "u".repeat(length) } });
     }
-    fireEvent.change(screen.getByLabelText(mode === "password" ? "New password" : "Password"), { target: { value: "seven_7" } });
+    fireEvent.change(screen.getByLabelText(mode === "password" ? "New password" : "Password"), { target: { value: "p".repeat(length) } });
     if (mode !== "login") {
-      fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "seven_7" } });
+      fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "p".repeat(length) } });
     }
     const button = mode === "register" ? "Create account" : mode === "login" ? "Sign in" : "Update password";
     fireEvent.click(screen.getByRole("button", { name: button }));
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith(mode === "password" ? "/login" : "/"));
   });
 
-  it("rejects a six-character password before sending registration", () => {
+  it.each([5, 21])("rejects a %i-character password before sending registration", (length) => {
     const fetcher = vi.fn();
     vi.stubGlobal("fetch", fetcher);
     render(<AuthForm mode="register" />);
     fireEvent.change(screen.getByLabelText("Username"), { target: { value: "Listener" } });
-    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "sixsix" } });
-    fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "sixsix" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "p".repeat(length) } });
+    fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "p".repeat(length) } });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Password must have 7–128 characters.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Password must have 6–20 characters.");
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it.each([5, 21])("rejects a %i-character username before sending registration", (length) => {
+    const fetcher = vi.fn();
+    vi.stubGlobal("fetch", fetcher);
+    render(<AuthForm mode="register" />);
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "u".repeat(length) } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
+    fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "secret" } });
+    fireEvent.submit(screen.getByRole("button", { name: "Create account" }).closest("form")!);
+    expect(screen.getByRole("alert")).toHaveTextContent("Use 6–20 letters, numbers or underscores.");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it.each(["login", "register"] as const)("shows matching bilingual length hints on %s", (mode) => {
+    render(<AuthForm mode={mode} />);
+    expect(screen.getByText("6–20 letters, numbers or underscores. Usernames are unique and ignore letter case.")).toBeInTheDocument();
+    expect(screen.getByText("6–20 characters. Spaces are allowed.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Username")).toHaveAttribute("minlength", "6");
+    expect(screen.getByLabelText("Username")).toHaveAttribute("maxlength", "20");
+    fireEvent.click(screen.getByRole("button", { name: "中文" }));
+    expect(screen.getByText("6–20 位字母、数字或下划线，用户名不能重复且不区分大小写。")).toBeInTheDocument();
+    expect(screen.getByText("6–20 个字符，可包含空格。")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "English" }));
   });
 
   it("shows the duplicate username error returned by registration", async () => {
@@ -54,12 +80,12 @@ describe("account lifecycle", () => {
     expect(navigation.replace).not.toHaveBeenCalled();
   });
 
-  it("allows long Unicode passwords within the 128-character limit", async () => {
+  it("counts twenty Unicode characters rather than UTF-16 code units", async () => {
     vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => Promise.resolve(
       url.endsWith("/csrf") ? json({ csrf_token: "csrf-test" }) : json(session, 201))));
     render(<AuthForm mode="register" />);
     fireEvent.change(screen.getByLabelText("Username"), { target: { value: "UnicodeListener" } });
-    const password = "🎵".repeat(100);
+    const password = "🎵".repeat(20);
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: password } });
     fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: password } });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
@@ -150,17 +176,17 @@ describe("account lifecycle", () => {
     vi.stubGlobal("fetch", fetcher);
     render(<AuthForm mode="register" />);
     fireEvent.change(screen.getByLabelText("Username"), { target: { value: "Listener" } });
-    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "long password with spaces" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "password with space" } });
     fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "different password" } });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Passwords do not match");
     expect(fetcher).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Show password" }));
     expect(screen.getByLabelText("Password")).toHaveAttribute("type", "text");
-    fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "long password with spaces" } });
+    fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "password with space" } });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/"));
     const posted = fetcher.mock.calls.find(([url]) => String(url).endsWith("/register"));
-    expect(JSON.parse(posted![1].body)).toMatchObject({ username: "Listener", password: "long password with spaces" });
+    expect(JSON.parse(posted![1].body)).toMatchObject({ username: "Listener", password: "password with space" });
   });
 });

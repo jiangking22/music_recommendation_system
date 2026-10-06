@@ -30,10 +30,10 @@ export default function AuthForm({ mode }: { mode: "login" | "register" | "passw
     event.preventDefault();
     if (pending) return;
     setError("");
-    if (mode !== "password" && !/^[A-Za-z0-9_]{3,32}$/.test(username)) { setError(copy.invalidUsername); return; }
+    if (mode !== "password" && !/^[A-Za-z0-9_]{6,20}$/.test(username)) { setError(copy.invalidUsername); return; }
     const passwordLength = Array.from(password).length;
-    if (passwordLength < 7 || passwordLength > 128) { setError(copy.invalidPassword); return; }
-    if (mode === "password" && (Array.from(oldPassword).length < 7 || Array.from(oldPassword).length > 128)) { setError(copy.invalidPassword); return; }
+    if (passwordLength < 6 || passwordLength > 20) { setError(copy.invalidPassword); return; }
+    if (mode === "password" && (Array.from(oldPassword).length < 6 || Array.from(oldPassword).length > 20)) { setError(copy.invalidPassword); return; }
     if (mode !== "login" && password !== confirmation) { setError(copy.mismatch); return; }
     setPending(true);
     try {
@@ -64,17 +64,17 @@ export default function AuthForm({ mode }: { mode: "login" | "register" | "passw
       <section className="auth-panel" aria-labelledby="auth-form-title"><h2 id="auth-form-title">{mode === "login" ? copy.login : mode === "register" ? copy.register : copy.change}</h2>
         <form onSubmit={submit} aria-busy={pending}>
           {mode !== "password" ? <div className="auth-field"><label htmlFor="username">{copy.username}</label>
-            <input id="username" name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} minLength={3} maxLength={32}
-              value={username} onChange={(e) => setUsername(e.target.value)} required disabled={pending} aria-describedby={mode === "register" ? "username-help" : undefined} />
-            {mode === "register" ? <small id="username-help">{copy.usernameHelp}</small> : null}</div> :
+            <input id="username" name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} minLength={6} maxLength={20}
+              value={username} onChange={(e) => setUsername(e.target.value)} required disabled={pending} aria-describedby="username-help" />
+            <small id="username-help">{copy.usernameHelp}</small></div> :
             <div className="auth-field"><label htmlFor="old-password">{copy.oldPassword}</label><input id="old-password" type={show ? "text" : "password"}
-              autoComplete="current-password" maxLength={256} value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} required disabled={pending} /></div>}
+              autoComplete="current-password" maxLength={40} value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} required disabled={pending} /></div>}
           <div className="auth-field"><label htmlFor="password">{mode === "password" ? copy.newPassword : copy.password}</label>
             <input id="password" name="password" type={show ? "text" : "password"} autoComplete={mode === "login" ? "current-password" : "new-password"}
-              maxLength={256} value={password} onChange={(e) => setPassword(e.target.value)} required disabled={pending} aria-describedby="password-help" />
+              maxLength={40} value={password} onChange={(e) => setPassword(e.target.value)} required disabled={pending} aria-describedby="password-help" />
             <small id="password-help">{copy.passwordHelp}</small></div>
           {mode !== "login" ? <div className="auth-field"><label htmlFor="confirm-password">{copy.confirm}</label>
-            <input id="confirm-password" type={show ? "text" : "password"} autoComplete="new-password" maxLength={256}
+            <input id="confirm-password" type={show ? "text" : "password"} autoComplete="new-password" maxLength={40}
               value={confirmation} onChange={(e) => setConfirmation(e.target.value)} required disabled={pending} /></div> : null}
           <button className="auth-show" type="button" aria-pressed={show} onClick={() => setShow(!show)}>{show ? copy.hide : copy.show}</button>
           {mode === "login" ? <label className="auth-remember"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} disabled={pending} />{copy.remember}</label> : null}

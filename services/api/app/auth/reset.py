@@ -16,7 +16,7 @@ def main() -> int:
     args = parser.parse_args()
     if not sys.stdin.isatty():
         parser.error("Interactive terminal required; passwords cannot be passed as arguments or piped.")
-    password = getpass.getpass("New password (7–128 characters): ")
+    password = getpass.getpass("New password (6–20 characters): ")
     if password != getpass.getpass("Confirm password: "):
         print("Passwords do not match.", file=sys.stderr)
         return 1

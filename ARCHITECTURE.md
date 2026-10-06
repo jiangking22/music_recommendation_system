@@ -7,6 +7,8 @@ PostgreSQL accounts/revocable sessions, Redis authentication limits and same-ori
 Account feedback/profiles replace anonymous device linkage for new requests. Assistant context
 belongs to account plus login session; anonymous rows remain archived. See ADR-029 and
 `docs/specs/account-login.md`; the standalone legacy demo remains runnable.
+Usernames and passwords require 6–20 characters inclusive (ADR-032); usernames remain
+case-insensitively unique and password length counts Unicode characters.
 
 Music Recommendation Platform is a portfolio-grade, maintainable web application.
 Its recommendation engine remains deterministic and measurable; the Agent interprets

@@ -128,8 +128,9 @@ def test_auth_and_business_logs_never_include_credentials(auth_env, caplog):
     token = client.cookies["sonora_session"]
     headers = business_headers(client)
     client.get("/v1/profile", headers=headers)
-    client.post("/v1/auth/login", headers=csrf(client),
-                json={"username": "PrivateUsername", "password": "wrong long password value"})
+    response = client.post("/v1/auth/login", headers=csrf(client),
+                           json={"username": "PrivateUsername", "password": "wrong password value"})
+    assert response.status_code == 401
     assert PASSWORD not in caplog.text
     assert "PrivateUsername" not in caplog.text
     assert token not in caplog.text

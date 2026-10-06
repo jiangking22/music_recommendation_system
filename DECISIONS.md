@@ -1,5 +1,16 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-032: Matching username and password length bounds
+
+**Status:** Accepted (explicit user correction; supersedes ADR-031)
+**Date:** 2026-10-06
+
+Usernames and passwords now require 6–20 characters inclusive. Apply the same bounds in typed
+authentication requests, web validation, bilingual hints and local password reset. Usernames keep
+their ASCII letters/digits/underscore restriction and case-insensitive database uniqueness;
+password length counts Unicode characters and preserves spaces. Existing database rows are retained;
+new authentication input must satisfy the corrected policy. Hashing and session ownership are unchanged.
+
 ## ADR-031: User-requested password minimum
 
 **Status:** Accepted (explicit user amendment to the account plan)

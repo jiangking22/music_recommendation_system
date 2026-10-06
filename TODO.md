@@ -1,11 +1,28 @@
 # TODO
 
+## Credential bounds / 账号与密码长度统一
+
+- [x] Restrict usernames and passwords to 6–20 characters inclusive, retaining case-insensitive
+  username uniqueness; synchronize auth/CLI, bilingual visible hints, fixtures, smoke and docs.
+
+Current checked-out item: none.
+Scope: target authentication, auth tests, deployment smoke and current account documentation.
+Verification: API pytest/Ruff/compile, web tests/lint/types/build, real Edge and legacy smoke.
+
+Acceptance 2026-10-06: API/UI regressions failed before the implementation; 40 API auth/access
+tests and all 80 web tests pass. Ruff/compile, ESLint, typecheck, build and legacy smoke pass.
+Real Edge covers 6/20-character registration/login/password changes, 5/21-character UI/API
+rejection and case-insensitive duplicate 409. Updated localhost:3000 login/register pages
+visibly show matching bilingual 6–20 hints; actual Chinese screenshots inspected at 390px,
+with no overflow or page errors. The isolated PostgreSQL/Redis HTTP/SSE deployment smoke passes
+with corrected credential fixtures. Local API/web are updated together; four services healthy.
+
 ## Password policy / 密码长度调整
 
 - [x] Accept passwords longer than six characters across registration, login, password changes
   and administrator reset; retain case-insensitive username uniqueness and the 128-character cap.
 
-Current checked-out item: none.
+Prior password-policy item: completed; superseded by the credential-bounds task above.
 
 Acceptance 2026-10-06: focused failing tests preceded the policy change; 37 API auth/access tests
 and all 72 web tests pass, as do Ruff/compile, ESLint/typecheck/build and legacy smoke. Real Edge

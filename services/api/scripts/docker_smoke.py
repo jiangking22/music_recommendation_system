@@ -24,8 +24,8 @@ def main():
     settings = get_settings()
     assert not settings.enable_music_providers and settings.llm_provider == "local", "Use an isolated offline stack."
     origin = settings.allowed_origins_list[0]
-    username = "smoke_" + uuid4().hex[:20]
-    password = secrets.token_urlsafe(24)
+    username = "smoke_" + uuid4().hex[:14]
+    password = secrets.token_urlsafe(15)
     with Session(get_engine()) as db:
         assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0008_account_preferences"
         assert db.scalar(text("SELECT extname FROM pg_extension WHERE extname='vector'")) == "vector"
@@ -88,7 +88,7 @@ def main():
         request(first_device, "/auth/logout", {})
         request(first_device, "/profile", expected=401)
         # Another account never inherits the first account's preferences.
-        other = request(first_device, "/auth/register", credentials | {"username": "other_" + uuid4().hex[:20]}, 201)
+        other = request(first_device, "/auth/register", credentials | {"username": "other_" + uuid4().hex[:14]}, 201)
         first_device.headers["X-Session-Id"] = other["session_id"]
         assert request(first_device, "/profile")["recent_feedback"] == []
         request(first_device, "/agent/chat", followup, 404)
