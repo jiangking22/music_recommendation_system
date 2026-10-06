@@ -38,6 +38,49 @@ class LoginSession(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+class AccountFeedback(Base):
+    __tablename__ = "account_feedback"
+    __table_args__ = (CheckConstraint("value IN ('like', 'dislike')", name="ck_account_feedback_value"),)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.user_id"), primary_key=True)
+    track_key: Mapped[str] = mapped_column(String(512), primary_key=True)
+    value: Mapped[str] = mapped_column(String(8), nullable=False)
+    artist: Mapped[str] = mapped_column(String(200), nullable=False)
+    genres: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    tags: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    language: Mapped[str | None] = mapped_column(String(32))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AccountProfile(Base):
+    __tablename__ = "account_profiles"
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.user_id"), primary_key=True)
+    artist_affinity: Mapped[dict[str, float]] = mapped_column(JSON, nullable=False)
+    genre_affinity: Mapped[dict[str, float]] = mapped_column(JSON, nullable=False)
+    tag_affinity: Mapped[dict[str, float]] = mapped_column(JSON, nullable=False)
+    language_affinity: Mapped[dict[str, float]] = mapped_column(JSON, nullable=False)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector16(), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AccountConversation(Base):
+    __tablename__ = "account_conversations"
+    conversation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.user_id"), index=True)
+    session_id: Mapped[str] = mapped_column(String(36), ForeignKey("login_sessions.session_id"), index=True)
+    messages: Mapped[list[dict]] = mapped_column(JSON, nullable=False)
+    last_seed: Mapped[str | None] = mapped_column(String(120))
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AccountPreferenceSummary(Base):
+    __tablename__ = "account_preference_summaries"
+    session_id: Mapped[str] = mapped_column(String(36), ForeignKey("login_sessions.session_id"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.user_id"), index=True)
+    summary: Mapped[str] = mapped_column(String(1000), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class VerifiedRecording(Base):
     __tablename__ = "verified_recordings"
     knowledge_key: Mapped[str] = mapped_column(String(64), primary_key=True)

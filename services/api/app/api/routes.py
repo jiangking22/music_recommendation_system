@@ -1,11 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api.schemas import (
-    DeviceResponse,
     FeedbackRequest,
     FeedbackResponse,
     HealthResponse,
@@ -20,25 +19,26 @@ from app.api.schemas import (
     RecommendationResponse,
     TrackSearchResponse,
 )
+from app.auth.dependencies import CurrentIdentity
+from app.auth.service import AuthError
 from app.domain.artist_names import preferred_artist_name
-from app.domain.device import DEVICE_ID_PATTERN
 from app.infrastructure.cache import get_redis
 from app.infrastructure.database import get_session
 from app.observability.events import request_id
 from app.providers.registry import ProviderRegistry, get_provider_registry
 from app.repository.feedback import load_profile, recent_feedback, save_feedback
-from app.services.device import resolve_device
 from app.services.recommendation import recommend
 
 router = APIRouter()
+public_router = APIRouter()
 
 
-@router.get("/health", response_model=HealthResponse)
+@public_router.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok", service="music-recommendation-api")
 
 
-@router.get("/health/ready", response_model=ReadyResponse)
+@public_router.get("/health/ready", response_model=ReadyResponse)
 def ready(session: Annotated[Session, Depends(get_session)]) -> ReadyResponse:
     try:
         session.execute(text("SELECT 1"))
@@ -48,13 +48,9 @@ def ready(session: Annotated[Session, Depends(get_session)]) -> ReadyResponse:
     return ReadyResponse(status="ok")
 
 
-@router.get("/v1/device", response_model=DeviceResponse)
-def get_device(
-    session: Annotated[Session, Depends(get_session)],
-    x_device_id: Annotated[str, Header(alias="X-Device-Id", min_length=16, max_length=128, pattern=DEVICE_ID_PATTERN)],
-) -> DeviceResponse:
-    device = resolve_device(session, x_device_id)
-    return DeviceResponse(deviceId=device.device_id)
+@router.get("/v1/device")
+def get_device():
+    raise AuthError("device_identity_retired", 410, "Device identity retired. Use account login.")
 
 
 @router.post("/v1/recommendations", response_model=RecommendationResponse)
@@ -62,10 +58,9 @@ def recommendations(
     request: RecommendationRequest,
     registry: Annotated[ProviderRegistry, Depends(get_provider_registry)],
     session: Annotated[Session, Depends(get_session)],
-    x_device_id: Annotated[str | None, Header(alias="X-Device-Id", min_length=16, max_length=128,
-                                              pattern=DEVICE_ID_PATTERN)] = None,
+    identity: CurrentIdentity,
 ) -> RecommendationResponse:
-    profile = load_profile(session, x_device_id) if x_device_id else None
+    profile = load_profile(session, identity.user_id)
     songs, search = recommend(request.seed, request.limit, registry, profile)
     items = [
         RecommendationItem(
@@ -87,20 +82,18 @@ def recommendations(
 def feedback(
     request: FeedbackRequest,
     session: Annotated[Session, Depends(get_session)],
-    x_device_id: Annotated[str, Header(alias="X-Device-Id", min_length=16, max_length=128,
-                                       pattern=DEVICE_ID_PATTERN)],
+    identity: CurrentIdentity,
 ) -> FeedbackResponse:
-    key = save_feedback(session, x_device_id, request.track, request.value)
+    key = save_feedback(session, identity.user_id, request.track, request.value)
     return FeedbackResponse(track_key=key, value=request.value)
 
 
 @router.get("/v1/profile", response_model=ProfileResponse, response_model_exclude_none=True)
 def profile(
     session: Annotated[Session, Depends(get_session)],
-    x_device_id: Annotated[str, Header(alias="X-Device-Id", min_length=16, max_length=128,
-                                       pattern=DEVICE_ID_PATTERN)],
+    identity: CurrentIdentity,
 ) -> ProfileResponse:
-    snapshot = load_profile(session, x_device_id)
+    snapshot = load_profile(session, identity.user_id)
 
     def display_name(name: str) -> str | None:
         preferred = preferred_artist_name(name)
@@ -119,7 +112,7 @@ def profile(
         languages=preferred(snapshot.language_affinity),
         recent_feedback=[RecentFeedback(track_key=item.track_key, artist=item.artist,
                                         artist_display_name=display_name(item.artist), value=item.value)
-                         for item in recent_feedback(session, x_device_id)],
+                         for item in recent_feedback(session, identity.user_id)],
     )
 
 

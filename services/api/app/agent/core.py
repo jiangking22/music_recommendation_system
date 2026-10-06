@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.agent.memory import Memory, MemoryError
 from app.agent.providers import LLMProvider, LocalLLMProvider
-from app.agent.schemas import Answer, ChatRequest, ChatResponse, Plan, ToolTrace
+from app.agent.schemas import AgentRequest, Answer, ChatResponse, Plan, ToolTrace
 from app.agent.tools import TOOL_INPUTS, ToolContext, invoke_tool, tool_schemas
 from app.infrastructure.workers import run_blocking
 from app.observability.events import emit
@@ -34,7 +34,7 @@ class Agent:
         self.engine, self.registry, self.provider = engine, registry, provider
         self.timeout_seconds = timeout_seconds
 
-    async def events(self, request: ChatRequest) -> AsyncIterator[dict]:
+    async def events(self, request: AgentRequest) -> AsyncIterator[dict]:
         traces = []
         try:
             slots = _agent_slots.setdefault(asyncio.get_running_loop(), asyncio.Semaphore(4))
@@ -71,7 +71,7 @@ class Agent:
                 if "explain_recommendation" in names and ("recommend_tracks" not in names or
                         names.index("explain_recommendation") < names.index("recommend_tracks")):
                     raise AgentError("invalid_model_output")
-                tools = ToolContext(self.engine, self.registry, request.device_id, conversation,
+                tools = ToolContext(self.engine, self.registry, request.user_id, conversation,
                                     message=request.message)
                 results = []
                 for call in plan.calls:
@@ -128,7 +128,7 @@ class Agent:
             emit("agent_failed", code="agent_unavailable", level=logging.ERROR)
             raise AgentError("agent_unavailable", 503) from exc
 
-    async def chat(self, request: ChatRequest) -> ChatResponse:
+    async def chat(self, request: AgentRequest) -> ChatResponse:
         async with aclosing(self.events(request)) as events:
             async for event in events:
                 if event["event"] == "done":

@@ -4,7 +4,6 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.api.schemas import RecommendationItem
-from app.domain.device import DEVICE_ID_PATTERN
 from app.domain.music import ProviderResult
 from app.rag.schemas import Citation
 
@@ -19,8 +18,13 @@ class StrictModel(BaseModel):
 
 class ChatRequest(StrictModel):
     message: Text
-    device_id: str = Field(min_length=16, max_length=128, pattern=DEVICE_ID_PATTERN)
     conversation_id: UUID | None = Field(default=None, strict=False)
+
+
+class AgentRequest(ChatRequest):
+    """Internal request only; ownership never comes from public JSON."""
+    user_id: str
+    session_id: str
 
 
 class EmptyInput(StrictModel):

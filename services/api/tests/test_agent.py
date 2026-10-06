@@ -2,16 +2,17 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from account_helpers import seed_account
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.agent.core import Agent, AgentError
 from app.agent.memory import Memory, MemoryError
 from app.agent.providers import LocalLLMProvider
-from app.agent.schemas import ChatRequest
+from app.agent.schemas import AgentRequest
 from app.domain.music import SearchResult
 from app.repository.feedback import save_feedback
-from app.repository.models import AgentConversation, AgentPreferenceSummary, Base
+from app.repository.models import AccountConversation, AccountPreferenceSummary, Base
 from app.services.recommendation import local_catalog
 
 
@@ -24,12 +25,13 @@ class EmptyRegistry:
 def agent(tmp_path: Path):
     engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'agent.db'}")
     Base.metadata.create_all(engine)
+    seed_account(engine)
     yield Agent(engine, EmptyRegistry(), LocalLLMProvider())
     engine.dispose()
 
 
-def chat(agent, message, conversation_id=None, device_id="device_1234567890"):
-    return asyncio.run(agent.chat(ChatRequest(message=message, device_id=device_id,
+def chat(agent, message, conversation_id=None, user_id="account_test"):
+    return asyncio.run(agent.chat(AgentRequest(message=message, user_id=user_id, session_id="session_test",
                                              conversation_id=conversation_id)))
 
 
@@ -50,7 +52,7 @@ def test_conversation_context_survives_new_agent_instance(agent):
     assert again.recommended_tracks[0].id == first.recommended_tracks[0].id
     assert again.conversation_id == first.conversation_id
     with pytest.raises(AgentError, match="conversation_not_found"):
-        chat(fresh, "再来几首", first.conversation_id, "device_9876543210")
+        chat(fresh, "再来几首", first.conversation_id, "account_other")
 
 
 def test_allowlist_and_call_budget_reject_invalid_model_plan(agent):
@@ -84,13 +86,13 @@ def test_timeout_is_bounded(agent):
 
 def test_preferences_and_bounded_context_persist(agent):
     with Session(agent.engine) as session:
-        save_feedback(session, "device_1234567890", local_catalog()[0], "like")
+        save_feedback(session, "account_test", local_catalog()[0], "like")
     result = chat(agent, "推荐适合学习的歌")
     for _ in range(7):
         result = chat(agent, "再来几首", result.conversation_id)
     with Session(agent.engine) as session:
-        row = session.get(AgentConversation, str(result.conversation_id))
-        summary = session.get(AgentPreferenceSummary, "device_1234567890")
+        row = session.get(AccountConversation, str(result.conversation_id))
+        summary = session.get(AccountPreferenceSummary, "session_test")
         assert len(row.messages) == 12
         assert row.messages[-2]["content"] == "再来几首"
         assert "demo quartet" in summary.summary
@@ -100,7 +102,7 @@ def test_preferences_and_bounded_context_persist(agent):
 
 @pytest.mark.parametrize("calls", [
     [{"name": "recommend_tracks", "arguments": {"seed": "jazz", "limit": 100}}],
-    [{"name": "get_user_profile", "arguments": {"device_id": "another_device"}}],
+    [{"name": "get_user_profile", "arguments": {"user_id": "another_device"}}],
     [{"name": "get_user_profile", "arguments": {}}] * 2,
     [{"name": "explain_recommendation", "arguments": {}}],
 ])
@@ -140,12 +142,12 @@ def test_concurrent_requests_are_bounded(agent):
                 return await super().plan(context, tools)
 
         agent.provider = WaitingProvider()
-        requests = [asyncio.create_task(agent.chat(ChatRequest(
-            message="推荐", device_id=f"device_123456789{i}"))) for i in range(4)]
+        requests = [asyncio.create_task(agent.chat(AgentRequest(
+            message="推荐", user_id="account_test", session_id="session_test"))) for i in range(4)]
         try:
             await asyncio.wait_for(all_entered.wait(), 2)
             with pytest.raises(AgentError, match="agent_busy"):
-                await agent.chat(ChatRequest(message="推荐", device_id="device_1234567894"))
+                await agent.chat(AgentRequest(message="推荐", user_id="account_test", session_id="session_test"))
         finally:
             finish.set()
             await asyncio.gather(*requests)
@@ -155,9 +157,9 @@ def test_concurrent_requests_are_bounded(agent):
 
 def test_stale_memory_write_cannot_overwrite_a_completed_turn(agent):
     memory = Memory(agent.engine)
-    request = ChatRequest(message="first turn", device_id="device_1234567890")
+    request = AgentRequest(message="first turn", user_id="account_test", session_id="session_test")
     first = memory.load(request)
-    resumed_request = ChatRequest(message="stale turn", device_id=request.device_id,
+    resumed_request = AgentRequest(message="stale turn", user_id=request.user_id, session_id=request.session_id,
                                   conversation_id=first.id)
     stale = memory.load(resumed_request)
     memory.save(request, first, "first answer")

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from account_helpers import seed_account
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -21,6 +22,7 @@ from app.repository.models import Base
 def client(tmp_path: Path):
     engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'agent_api.db'}")
     Base.metadata.create_all(engine)
+    seed_account(engine)
     with Session(engine) as session:
         ingest_fixture(session)
 
@@ -39,7 +41,7 @@ def client(tmp_path: Path):
         engine.dispose()
 
 
-BODY = {"message": "推荐适合学习的歌", "device_id": "device_1234567890"}
+BODY = {"message": "推荐适合学习的歌"}
 
 
 def test_real_recommendation_tool_emits_display_name_without_replacing_identity(client):
@@ -75,7 +77,7 @@ def test_chat_and_follow_up_route(client):
     assert again.status_code == 200
     assert again.json()["conversation_id"] == result["conversation_id"]
     direct = client.post("/v1/recommendations", json={"seed": "calm jazz", "limit": 5},
-                         headers={"X-Device-Id": BODY["device_id"]})
+                         headers={"X-Device-Id": "account_test"})
     assert result["recommended_tracks"] == direct.json()["items"]
     assert result["citations"]
 
@@ -114,7 +116,7 @@ def test_sse_has_public_statuses_and_one_terminal_result(client, caplog):
     assert all(log["request_id"] == response.headers["x-request-id"] for log in logs)
     assert all(log["trace_id"] == response.headers["x-trace-id"] for log in logs)
     assert all(log["route"] == "/v1/agent/chat/stream" for log in logs)
-    assert BODY["message"] not in caplog.text and BODY["device_id"] not in caplog.text
+    assert BODY["message"] not in caplog.text and "account_test" not in caplog.text
 
 
 @pytest.mark.parametrize("changes", [

@@ -11,10 +11,10 @@ from app.domain.pipeline import dedup_key
 from app.domain.policy import POLICY
 from app.domain.profile import FeedbackSignal, PreferenceProfile, profile_from_feedback
 from app.repository.models import (
-    DeviceUser,
+    Account,
+    AccountFeedback,
+    AccountProfile,
     SongEmbedding,
-    TrackFeedback,
-    UserPreferenceProfile,
 )
 from app.repository.vector import Vector16
 
@@ -28,13 +28,18 @@ def _insert(session: Session, model: type):
     raise RuntimeError("Feedback requires PostgreSQL or SQLite.")
 
 
-def save_feedback(session: Session, device_id: str, track: Track, value: str) -> str:
+def save_feedback(session: Session, user_id: str, track: Track, value: str) -> str:
     key = dedup_key(track)
-    now = datetime.now(UTC)
     with session.begin():
-        device = _insert(session, DeviceUser).values(device_id=device_id).on_conflict_do_nothing(
-            index_elements=["device_id"])
-        session.execute(device)
+        # Serialize profile rebuilds across devices, within this feedback transaction.
+        if session.get_bind().dialect.name == "sqlite":
+            session.execute(text("BEGIN IMMEDIATE"))
+        else:
+            session.execute(text("SET LOCAL lock_timeout = '3000ms'"))
+            session.execute(text("SET LOCAL statement_timeout = '5000ms'"))
+        if session.scalar(select(Account.user_id).where(Account.user_id == user_id).with_for_update()) is None:
+            raise ValueError("Account unavailable.")
+        now = datetime.now(UTC)
         columns = {
             "value": value,
             "artist": normalize_text(track.artist.name),
@@ -43,8 +48,8 @@ def save_feedback(session: Session, device_id: str, track: Track, value: str) ->
             "language": normalize_text(track.language) if track.language else None,
             "updated_at": now,
         }
-        feedback = _insert(session, TrackFeedback).values(device_id=device_id, track_key=key, **columns)
-        feedback = feedback.on_conflict_do_update(index_elements=["device_id", "track_key"], set_=columns)
+        feedback = _insert(session, AccountFeedback).values(user_id=user_id, track_key=key, **columns)
+        feedback = feedback.on_conflict_do_update(index_elements=["user_id", "track_key"], set_=columns)
         session.execute(feedback)
         song_embedding = embed_song(track)
         if session.get_bind().dialect.name == "postgresql":
@@ -59,8 +64,8 @@ def save_feedback(session: Session, device_id: str, track: Track, value: str) ->
             song = song.on_conflict_do_update(index_elements=["track_key"],
                                               set_={"embedding": song_embedding, "updated_at": now})
             session.execute(song)
-        rows = session.scalars(select(TrackFeedback).where(TrackFeedback.device_id == device_id)
-                               .order_by(TrackFeedback.updated_at.desc(), TrackFeedback.track_key)
+        rows = session.scalars(select(AccountFeedback).where(AccountFeedback.user_id == user_id)
+                               .order_by(AccountFeedback.updated_at.desc(), AccountFeedback.track_key)
                                .limit(POLICY.recent_feedback_limit)).all()
         signals = [FeedbackSignal(row.track_key, row.value, row.artist, tuple(row.genres),
                                   tuple(row.tags), row.language) for row in rows]
@@ -74,23 +79,23 @@ def save_feedback(session: Session, device_id: str, track: Track, value: str) ->
         }
         if session.get_bind().dialect.name == "sqlite":
             profile_columns["embedding"] = embed_user(profile)
-        statement = _insert(session, UserPreferenceProfile).values(device_id=device_id, **profile_columns)
-        statement = statement.on_conflict_do_update(index_elements=["device_id"], set_=profile_columns)
+        statement = _insert(session, AccountProfile).values(user_id=user_id, **profile_columns)
+        statement = statement.on_conflict_do_update(index_elements=["user_id"], set_=profile_columns)
         session.execute(statement)
         if session.get_bind().dialect.name == "postgresql":
             session.execute(text("UPDATE user_preference_profiles "
-                                 "SET embedding = CAST(:embedding AS vector) WHERE device_id = :device_id"),
+                                 "SET embedding = CAST(:embedding AS vector) WHERE user_id = :user_id"),
                             {"embedding": Vector16().bind_processor(None)(embed_user(profile)),
-                             "device_id": device_id})
+                             "user_id": user_id})
     return key
 
 
-def load_profile(session: Session, device_id: str) -> PreferenceProfile:
-    row = session.get(UserPreferenceProfile, device_id)
+def load_profile(session: Session, user_id: str) -> PreferenceProfile:
+    row = session.get(AccountProfile, user_id)
     if row is None:
         return PreferenceProfile()
-    recent = session.scalars(select(TrackFeedback).where(TrackFeedback.device_id == device_id)
-                             .order_by(TrackFeedback.updated_at.desc(), TrackFeedback.track_key)
+    recent = session.scalars(select(AccountFeedback).where(AccountFeedback.user_id == user_id)
+                             .order_by(AccountFeedback.updated_at.desc(), AccountFeedback.track_key)
                              .limit(POLICY.recent_feedback_limit)).all()
     disliked = {item.track_key for item in recent if item.value == "dislike"}
     return PreferenceProfile(artist_affinity=row.artist_affinity, genre_affinity=row.genre_affinity,
@@ -98,7 +103,7 @@ def load_profile(session: Session, device_id: str) -> PreferenceProfile:
                              disliked_tracks=disliked)
 
 
-def recent_feedback(session: Session, device_id: str, limit: int = 5) -> list[TrackFeedback]:
-    return list(session.scalars(select(TrackFeedback).where(TrackFeedback.device_id == device_id)
-                                .order_by(TrackFeedback.updated_at.desc(), TrackFeedback.track_key)
+def recent_feedback(session: Session, user_id: str, limit: int = 5) -> list[AccountFeedback]:
+    return list(session.scalars(select(AccountFeedback).where(AccountFeedback.user_id == user_id)
+                                .order_by(AccountFeedback.updated_at.desc(), AccountFeedback.track_key)
                                 .limit(limit)).all())

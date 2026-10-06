@@ -12,7 +12,7 @@ def test_health_returns_stable_service_status() -> None:
     assert response.json() == {"status": "ok", "service": "music-recommendation-api"}
 
 
-def test_device_endpoint_rejects_an_invalid_identifier() -> None:
+def test_retired_device_endpoint_has_a_structured_error() -> None:
     response = client.get("/v1/device", headers={"X-Device-Id": "short"})
 
-    assert response.status_code == 422
+    assert response.status_code == 410

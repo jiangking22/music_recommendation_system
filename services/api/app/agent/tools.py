@@ -18,7 +18,7 @@ TOOL_INPUTS = {
     "explain_recommendation": EmptyInput,
 }
 DESCRIPTIONS = {
-    "get_user_profile": "Read anonymous musical preferences; accepts no device override.",
+    "get_user_profile": "Read authenticated account musical preferences; accepts no device override.",
     "recommend_tracks": "Call deterministic recommender. Use theme intent for mood/tempo/genre, song for a recording. Preserves scores and ordering.",
     "search_music_knowledge": "Retrieve small local music knowledge with citations.",
     "explain_recommendation": "Explain already returned tracks using measured factors and knowledge.",
@@ -34,7 +34,7 @@ def tool_schemas() -> list[dict]:
 class ToolContext:
     engine: Engine
     registry: ProviderRegistry
-    device_id: str
+    user_id: str
     conversation: Conversation
     message: str = ""
     items: list[RecommendationItem] = field(default_factory=list)
@@ -47,7 +47,7 @@ def invoke_tool(call: ToolCall, context: ToolContext) -> dict:
     args = TOOL_INPUTS[call.name].model_validate(call.arguments)
     if call.name == "get_user_profile":
         with bounded_session(context.engine) as session:
-            profile = load_profile(session, context.device_id)
+            profile = load_profile(session, context.user_id)
         parts = []
         for label, values in (("歌手", profile.artist_affinity), ("流派", profile.genre_affinity),
                               ("标签", profile.tag_affinity), ("语言", profile.language_affinity)):
@@ -58,7 +58,7 @@ def invoke_tool(call: ToolCall, context: ToolContext) -> dict:
         return {"summary": context.conversation.preference_summary}
     if call.name == "recommend_tracks":
         with bounded_session(context.engine) as session:
-            profile = load_profile(session, context.device_id)
+            profile = load_profile(session, context.user_id)
         theme = theme_seed(context.message)
         seed, intent = (theme, "theme") if theme else (args.seed, args.intent)
         song = quoted_song(context.message)

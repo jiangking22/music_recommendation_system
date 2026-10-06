@@ -1,3 +1,5 @@
+from account_helpers import seed_account
+
 """Model outages retain deterministic music results and honest source status."""
 
 import asyncio
@@ -9,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.agent.core import Agent, AgentError
 from app.agent.providers import LocalLLMProvider
-from app.agent.schemas import ChatRequest
+from app.agent.schemas import AgentRequest
 from app.domain.music import (
     Artist,
     ProviderError,
@@ -21,7 +23,7 @@ from app.domain.music import (
 )
 from app.domain.pipeline import deduplicate, rank, rerank_diverse
 from app.domain.profile import PreferenceProfile
-from app.repository.models import AgentConversation, Base
+from app.repository.models import AccountConversation, Base
 from app.services.recommendation import discover, local_catalog
 
 
@@ -79,13 +81,14 @@ class AnswerUnavailable(LocalLLMProvider):
 def engine(tmp_path):
     engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'reliability.db'}")
     Base.metadata.create_all(engine)
+    seed_account(engine)
     yield engine
     engine.dispose()
 
 
 def chat(agent, message, conversation_id=None):
-    return asyncio.run(agent.chat(ChatRequest(
-        message=message, device_id="device_1234567890", conversation_id=conversation_id)))
+    return asyncio.run(agent.chat(AgentRequest(
+        message=message, user_id="account_test", session_id="session_test", conversation_id=conversation_id)))
 
 
 @pytest.mark.parametrize("message", ["emo的歌", "缓慢的歌"])
@@ -167,7 +170,7 @@ def test_followup_after_fallback_reuses_conversation_and_listening_theme(engine)
     assert len(registry.calls) == 2
     assert registry.calls[0][0] == registry.calls[1][0]
     with Session(engine) as session:
-        row = session.get(AgentConversation, str(first.conversation_id))
+        row = session.get(AccountConversation, str(first.conversation_id))
         assert [message["role"] for message in row.messages] == [
             "user", "assistant", "user", "assistant"]
         assert row.messages[-2]["content"] == "再来几首"

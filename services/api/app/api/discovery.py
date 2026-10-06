@@ -3,7 +3,7 @@ from time import perf_counter
 from typing import Annotated
 from weakref import WeakKeyDictionary
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -15,8 +15,8 @@ from app.api.schemas import (
     OriginalIdentificationResponse,
     RecommendationItem,
 )
+from app.auth.dependencies import CurrentIdentity
 from app.domain.artist_names import enrich_track
-from app.domain.device import DEVICE_ID_PATTERN
 from app.domain.discovery import original_hint
 from app.domain.music import SearchResult
 from app.domain.profile import PreferenceProfile
@@ -87,8 +87,7 @@ async def discovery(
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ProviderRegistry, Depends(get_provider_registry)],
     provider: Annotated[LLMProvider, Depends(get_llm_provider)],
-    x_device_id: Annotated[str | None, Header(alias="X-Device-Id", min_length=16,
-                                              max_length=128, pattern=DEVICE_ID_PATTERN)] = None,
+    identity: CurrentIdentity,
 ):
     slots = discovery_slots()
     if slots.locked():
@@ -103,7 +102,7 @@ async def discovery(
     def compute():
         # The worker owns its session until completion, including request cancellation.
         with Session(engine) as worker_session:
-            profile = load_profile(worker_session, x_device_id) if x_device_id else None
+            profile = load_profile(worker_session, identity.user_id)
             if resolver:
                 if request.resolution_id:
                     resolution = resolver.confirm(request.resolution_id, request.seed_artist)

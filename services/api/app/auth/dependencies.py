@@ -33,3 +33,8 @@ def current_identity(request: Request, db: Annotated[Session, Depends(get_sessio
 
 
 CurrentIdentity = Annotated[Identity, Depends(current_identity)]
+
+
+def business_csrf(request: Request) -> None:
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        check_csrf(request)

@@ -88,6 +88,8 @@ class RequestTelemetry:
                 response_headers["X-Request-Id"] = correlation
                 response_headers["X-Trace-Id"] = trace
                 response_headers["X-Content-Type-Options"] = "nosniff"
+                if scope["path"].startswith("/v1/"):
+                    response_headers["Cache-Control"] = "no-store"
             await send(message)
 
         try:

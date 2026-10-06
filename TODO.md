@@ -4,11 +4,14 @@
 
 - [x] 1. Record approved specification and identity ADR (documentation checkpoint).
 - [x] 2. Accounts, revocable sessions, auth API, CSRF, Redis limits and local reset CLI.
-- [ ] 3. Business authentication, account feedback/profile and isolated Agent ownership.
+- [x] 3. Business authentication, account feedback/profile and isolated Agent ownership.
 - [ ] 4. Same-origin transport, bilingual login/register/account UI and lifecycle guards.
 - [ ] 5. PostgreSQL/Compose/browser verification, deployment/CI and bilingual current-state docs.
 
-Current checked-out item: 3 (after authentication checkpoint commit).
+Current checked-out item: 4 (after business-identity checkpoint commit).
+Business checkpoint: all 269 API tests pass, including real-cookie anonymous route rejection,
+cross-account/session isolation, portable preferences, concurrent feedback and credential-safe logs.
+Ruff/compile/evaluation pass; migrations 0007/0008 preserve anonymous archives. Web integration next.
 Authentication checkpoint: eight failing regressions preceded implementation; all 250 API tests,
 Ruff and compile pass. Migration 0007 is additive; business identity switch is the next item.
 Scope: target API/web, migrations, tests, deployment and docs. Acceptance: `docs/specs/account-login.md`.

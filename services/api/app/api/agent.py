@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.agent.core import Agent, AgentError
 from app.agent.providers import LLMProvider, get_llm_provider
-from app.agent.schemas import ChatRequest, ChatResponse
+from app.agent.schemas import AgentRequest, ChatRequest, ChatResponse
+from app.auth.dependencies import CurrentIdentity
 from app.infrastructure.config import get_settings
 from app.infrastructure.database import get_session
 from app.observability.events import emit
@@ -25,7 +26,7 @@ def get_agent(session: Annotated[Session, Depends(get_session)],
 
 def error_envelope(error: AgentError) -> dict:
     emit("agent_error", code=error.code, status=error.status)
-    messages = {"conversation_not_found": "Conversation unavailable for this device.",
+    messages = {"conversation_not_found": "Conversation unavailable for this login session.",
                 "agent_busy": "Music assistant is busy. Please try again.",
                 "conversation_conflict": "Conversation changed; retry the message.",
                 "agent_timeout": "Music assistant timed out.",
@@ -36,18 +37,20 @@ def error_envelope(error: AgentError) -> dict:
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest, agent: Annotated[Agent, Depends(get_agent)]):
+async def chat(request: ChatRequest, agent: Annotated[Agent, Depends(get_agent)], identity: CurrentIdentity):
+    internal = AgentRequest(**request.model_dump(), user_id=identity.user_id, session_id=identity.session_id)
     try:
-        return await agent.chat(request)
+        return await agent.chat(internal)
     except AgentError as error:
         return JSONResponse(status_code=error.status, content=error_envelope(error))
 
 
 @router.post("/chat/stream", response_class=StreamingResponse)
-async def chat_stream(request: ChatRequest, agent: Annotated[Agent, Depends(get_agent)]):
+async def chat_stream(request: ChatRequest, agent: Annotated[Agent, Depends(get_agent)], identity: CurrentIdentity):
+    internal = AgentRequest(**request.model_dump(), user_id=identity.user_id, session_id=identity.session_id)
     async def stream():
         try:
-            async with aclosing(agent.events(request)) as events:
+            async with aclosing(agent.events(internal)) as events:
                 async for event in events:
                     yield f"event: {event['event']}\ndata: {json.dumps(event['data'], ensure_ascii=False)}\n\n"
         except AgentError as error:

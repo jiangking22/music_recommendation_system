@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -11,7 +11,8 @@ from app.api.discovery import router as discovery_router
 from app.api.mcp import router as mcp_router
 from app.api.middleware import RequestBodyLimit
 from app.api.recordings import router as recordings_router
-from app.api.routes import router
+from app.api.routes import public_router, router
+from app.auth.dependencies import business_csrf, current_identity
 from app.auth.service import AuthError
 from app.infrastructure.config import get_settings
 from app.observability.events import RequestTelemetry, configure_logging, emit
@@ -36,11 +37,9 @@ app.add_middleware(
     allow_credentials=True,
     expose_headers=["X-Request-Id", "X-Trace-Id"],
 )
-app.include_router(router)
-app.include_router(agent_router)
-app.include_router(discovery_router)
-app.include_router(mcp_router)
-app.include_router(recordings_router)
+app.include_router(public_router)
+for business_router in (router, agent_router, discovery_router, mcp_router, recordings_router):
+    app.include_router(business_router, dependencies=[Depends(current_identity), Depends(business_csrf)])
 app.include_router(auth_router)
 
 

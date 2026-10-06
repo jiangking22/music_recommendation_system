@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from account_helpers import seed_account
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy import create_engine, select
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.domain.music import Artist, ProviderSource, Track, canonical_key
 from app.infrastructure.database import get_session
 from app.main import app
-from app.repository.models import Base, TrackFeedback, UserPreferenceProfile
+from app.repository.models import AccountFeedback, AccountProfile, Base
 
 
 def test_known_artist_aliases_have_one_identity_and_source_backed_chinese_display():
@@ -95,6 +96,7 @@ def test_artist_display_name_is_bounded_external_input():
 def test_profile_projects_known_display_names_without_rewriting_saved_affinities(tmp_path: Path):
     engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'artist-names.db'}")
     Base.metadata.create_all(engine)
+    seed_account(engine)
 
     def session_override():
         with Session(engine) as session:
@@ -114,8 +116,8 @@ def test_profile_projects_known_display_names_without_rewriting_saved_affinities
         assert response.json()["recent_feedback"][0]["artist"] == "faye wong"
         assert response.json()["recent_feedback"][0]["artist_display_name"] == "王菲"
         with Session(engine) as session:
-            profile = session.get(UserPreferenceProfile, headers["X-Device-Id"])
-            feedback = session.scalar(select(TrackFeedback))
+            profile = session.get(AccountProfile, "account_test")
+            feedback = session.scalar(select(AccountFeedback))
             assert profile.artist_affinity == {"faye wong": 1.0}
             assert feedback.artist == "faye wong"
             assert feedback.track_key == "匆匆那年::faye wong"
