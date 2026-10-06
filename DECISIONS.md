@@ -1,5 +1,22 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-029: Mandatory account login and portable music preferences
+
+**Status:** Accepted (user-approved implementation plan)
+**Date:** 2026-10-06
+
+Username/password accounts replace anonymous linkage for target HTTP business access, superseding
+ADR-003/013/015 on that boundary. FastAPI verifies Argon2id passwords and revocable PostgreSQL
+sessions; cookies are HttpOnly/SameSite and Secure in production. Origin + CSRF checks protect
+writes; Redis bounds registration/login. Next.js provides fixed same-origin API transport.
+
+New account tables store feedback/profiles/vectors; no anonymous row is claimed. Latest feedback
+wins, with serialized per-account profile rebuilds. Agent context is account/session isolated,
+not portable history. Public recording knowledge and deterministic ranking are unchanged.
+Local administrator CLI handles password resets and revokes sessions. No email, OAuth or admin UI.
+Legacy runtime and local public-data stdio MCP remain independent. Deployment requires a database
+backup and isolated migration/rollback checks. See `docs/specs/account-login.md` for acceptance.
+
 ## ADR-028: Confirm every model-derived artist before recommendation
 
 **Status:** Accepted; supersedes ADR-022's automatic recommendation after model identification

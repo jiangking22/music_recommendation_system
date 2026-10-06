@@ -1,5 +1,18 @@
 # TODO
 
+## Account login / 强制登录与账号个性化
+
+- [x] 1. Record approved specification and identity ADR (documentation checkpoint).
+- [ ] 2. Accounts, revocable sessions, auth API, CSRF, Redis limits and local reset CLI.
+- [ ] 3. Business authentication, account feedback/profile and isolated Agent ownership.
+- [ ] 4. Same-origin transport, bilingual login/register/account UI and lifecycle guards.
+- [ ] 5. PostgreSQL/Compose/browser verification, deployment/CI and bilingual current-state docs.
+
+Current checked-out item: 2 (after documentation checkpoint commit).
+Scope: target API/web, migrations, tests, deployment and docs. Acceptance: `docs/specs/account-login.md`.
+Execute sequentially with focused tests and one commit per item. Preserve legacy sources, ranking,
+anonymous archives, credentials and unrelated changes. No account claiming or assistant history sync.
+
 ## Model artist confirmation / 模型歌手确认与自行提供
 
 - [x] Require confirmation of model-derived artists in initial discovery and the rejected-candidate

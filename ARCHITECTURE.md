@@ -2,6 +2,12 @@
 
 ## Purpose / 目标
 
+Approved account addition (planned at this checkpoint): authenticated HTTP business access,
+PostgreSQL accounts/revocable sessions, Redis authentication limits and same-origin web transport.
+Account feedback/profiles replace anonymous device linkage for new requests. Assistant context
+belongs to account plus login session; anonymous rows remain archived. See ADR-029 and
+`docs/specs/account-login.md`; the standalone legacy demo remains runnable.
+
 Music Recommendation Platform is a portfolio-grade, maintainable web application.
 Its recommendation engine remains deterministic and measurable; the Agent interprets
 requests, selects tools, and explains results rather than replacing the recommender.

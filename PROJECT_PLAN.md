@@ -5,7 +5,8 @@
 Turn the existing local demo into a portfolio-ready platform where software engineering is the
 foundation, deterministic recommendation is the core business capability, and one bounded
 tool-calling Agent is the differentiator. The plan deliberately avoids microservices,
-Kubernetes, complex DDD, account registration, and multi-Agent orchestration.
+Kubernetes, complex DDD, and multi-Agent orchestration. Account registration is now an approved
+post-release addition; see `docs/specs/account-login.md` and the five ordered TODO tasks.
 
 ## Legacy baseline
 
