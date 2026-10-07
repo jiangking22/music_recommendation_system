@@ -1,4 +1,4 @@
-# Project Plan: Agentic Music Recommendation Platform
+# Project Plan: Sonora
 
 ## Product goal
 

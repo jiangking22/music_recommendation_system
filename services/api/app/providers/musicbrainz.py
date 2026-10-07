@@ -60,7 +60,7 @@ class MusicBrainzProvider(HTTPMusicProvider):
             sleep(max(0, 1 - (monotonic() - _last_request)))
             _last_request = monotonic()
             return self._request("GET", f"https://musicbrainz.org/ws/2/recording/{path}", params=params,
-                headers={"User-Agent": "Sonora/1.0 (https://github.com/jiangking22/music_recommendation_system)"})
+                headers={"User-Agent": "Sonora/1.0 (https://github.com/jiangking22/sonora)"})
 
     def search_tracks(self, query: str, limit: int) -> ProviderResult:
         def fetch():

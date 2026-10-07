@@ -31,7 +31,7 @@ belongs to account plus login session; anonymous rows remain archived. See ADR-0
 Usernames and passwords require 6–20 characters inclusive (ADR-032); usernames remain
 case-insensitively unique and password length counts Unicode characters.
 
-Music Recommendation Platform is a portfolio-grade, maintainable web application.
+Sonora is a portfolio-grade, maintainable web application.
 Its recommendation engine remains deterministic and measurable; the Agent interprets
 requests, selects tools, and explains results rather than replacing the recommender.
 
@@ -504,7 +504,7 @@ are separate evidence. See actual CI runs for remote runtime status. Real LLM co
 unverified at that point. [Deployment](docs/DEPLOYMENT.md), [Demo](docs/DEMO.md), [Logs](docs/OBSERVABILITY.md).
 
 Release audit on 2026-10-02: main `4c54239` passed the actual
-[CI clean-start job](https://github.com/jiangking22/music_recommendation_system/actions/runs/36971477031/job/110726170498),
+[CI clean-start job](https://github.com/jiangking22/sonora/actions/runs/36971477031/job/110726170498),
 including PostgreSQL/pgvector, Redis, migrations and the offline product flow. This adds remote
 runtime evidence without changing the historical local no-Docker status or architecture decisions.
 

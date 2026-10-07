@@ -1,15 +1,28 @@
 # Sonora · Explainable Music Recommendation / 可解释音乐推荐
 
-[![Release quality](https://github.com/jiangking22/music_recommendation_system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jiangking22/music_recommendation_system/actions/workflows/ci.yml)
+[![Release quality](https://github.com/jiangking22/sonora/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jiangking22/sonora/actions/workflows/ci.yml)
 
-A music recommendation project combining a deterministic multi-source recommender with one bounded music
+Sonora is a music recommendation project combining a deterministic multi-source recommender with one bounded music
 Agent. It demonstrates typed service boundaries, account-scoped portable preferences, offline evaluation,
 small RAG, standard MCP tools, and reproducible quality gates. The recommender owns every score
 and ordering decision; the Agent selects tools and explains their results.
 
-音乐推荐项目：以确定性多源推荐为核心，结合一个受控音乐 Agent，展示类型化接口、账号持久化与跨设备偏好、
+Sonora 音乐推荐项目：以确定性多源推荐为核心，结合一个受控音乐 Agent，展示类型化接口、账号持久化与跨设备偏好、
 离线评估、小型 RAG、标准 MCP 工具和工程质量门禁。所有推荐分数与顺序由推荐器决定，Agent 负责工具选择和解释。
 这是可运行的工程演示，不是商业音乐服务或经过真实用户验证的推荐产品。
+
+## Recent updates / 近期更新
+
+As of 2026-10-07, Sonora includes mandatory account login and portable preferences,
+catalog-verified song identification with artist confirmation, optional deep music conversation,
+a fixed-height chat panel, and progressive recommendation search with labelled evidence.
+The repository is `jiangking22/sonora`; existing local checkout folders can keep their names.
+Runtime package identifiers and database names are retained for compatibility.
+
+截至 2026-10-07，Sonora 已实现账号登录与跨设备偏好、曲库核实与歌手确认、可选深度对话、
+固定高度聊天区，以及带依据标注的渐进式推荐检索。仓库名称为 `jiangking22/sonora`；
+已有本地目录可保留原名，运行包名与数据库名称保持兼容。
+真实密钥仅放在环境变量或忽略的本地 `.env` 中；提交的 `.env.example` 仅含占位配置。
 
 ## Version and license / 版本与许可证
 
@@ -410,8 +423,8 @@ Requirements / 环境：Git, Python 3.12, Node.js 24/npm 11. Full target runtime
 with pgvector and Redis 7; Docker Compose is the recommended local setup.
 
 ```bash
-git clone https://github.com/jiangking22/music_recommendation_system.git
-cd music_recommendation_system
+git clone https://github.com/jiangking22/sonora.git
+cd sonora
 ```
 
 For a zero-dependency legacy preview / 零第三方依赖旧版预览：
@@ -442,7 +455,7 @@ data-service ports stay internal. No LLM Key is required.
 API 启动前运行迁移；仅网页和 API 的回环端口对外可见。无需真实音乐源或 LLM Key 即可演示固定曲库与本地助手。
 Account login verification uses real local Compose/PostgreSQL/Redis; see the current acceptance record below.
 账号登录验收使用本机真实容器，详见当前部署记录。
-Main commit `4c54239` passed the [CI clean-start job on 2026-10-02](https://github.com/jiangking22/music_recommendation_system/actions/runs/36971477031/job/110726170498),
+Main commit `4c54239` passed the [CI clean-start job on 2026-10-02](https://github.com/jiangking22/sonora/actions/runs/36971477031/job/110726170498),
 including real PostgreSQL/pgvector, Redis and the offline product flow. / CI 已通过真实容器验收；与本机验证区分。
 See [deployment/runbook](docs/DEPLOYMENT.md) for manual services, verification and cleanup.
 
@@ -471,7 +484,7 @@ npm test
 npm run lint
 npm run typecheck
 npm run build
-npm audit --audit-level=high
+npm run audit
 cd ../..
 python scripts/legacy_smoke.py
 ```
@@ -482,7 +495,7 @@ smoke and evaluation passed. Tests forbid real HTTP at provider/model boundaries
 web and clean-start jobs with bounded timeouts and read-only repository permissions.
 
 Release preparation on 2026-10-02 reran these local gates successfully. The audited main
-[CI run](https://github.com/jiangking22/music_recommendation_system/actions/runs/36971477031)
+[CI run](https://github.com/jiangking22/sonora/actions/runs/36971477031)
 passed all three jobs at `4c54239`; later commits need their own CI result.
 发布准备复验通过；所引 CI 证据对应明确提交，不能代替后续待打标提交的检查。
 

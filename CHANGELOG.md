@@ -22,12 +22,12 @@ Verification and publication gates are recorded in the [release audit](docs/rele
   caching, sessions and rate limiting are not implemented in Redis.
 - Established the project plan, architecture, ADRs, incremental checklist and legacy smoke check.
 
-History: [8c65e5e](https://github.com/jiangking22/music_recommendation_system/commit/8c65e5e),
-[ff38218](https://github.com/jiangking22/music_recommendation_system/commit/ff38218),
-[7df79b9](https://github.com/jiangking22/music_recommendation_system/commit/7df79b9),
-[5773116](https://github.com/jiangking22/music_recommendation_system/commit/5773116),
-[420abb6](https://github.com/jiangking22/music_recommendation_system/commit/420abb6),
-[41abaff](https://github.com/jiangking22/music_recommendation_system/commit/41abaff).
+History: [8c65e5e](https://github.com/jiangking22/sonora/commit/8c65e5e),
+[ff38218](https://github.com/jiangking22/sonora/commit/ff38218),
+[7df79b9](https://github.com/jiangking22/sonora/commit/7df79b9),
+[5773116](https://github.com/jiangking22/sonora/commit/5773116),
+[420abb6](https://github.com/jiangking22/sonora/commit/420abb6),
+[41abaff](https://github.com/jiangking22/sonora/commit/41abaff).
 
 ### Providers
 
@@ -37,7 +37,7 @@ History: [8c65e5e](https://github.com/jiangking22/music_recommendation_system/co
 - Exposed provider discovery, last-operation health and canonical track search under `/v1`.
   NetEase and QQ use undocumented endpoints and are explicitly marked `unverified`.
 
-History: [0d7da38](https://github.com/jiangking22/music_recommendation_system/commit/0d7da38).
+History: [0d7da38](https://github.com/jiangking22/sonora/commit/0d7da38).
 
 ### Recommendation/personalization
 
@@ -50,9 +50,9 @@ History: [0d7da38](https://github.com/jiangking22/music_recommendation_system/co
   versioned offline evaluation for relevance, personalization rank lift, diversity and coverage.
   Embeddings do not change ranking policy implicitly.
 
-History: [1c6212b](https://github.com/jiangking22/music_recommendation_system/commit/1c6212b),
-[802ba53](https://github.com/jiangking22/music_recommendation_system/commit/802ba53),
-[dfbaa08](https://github.com/jiangking22/music_recommendation_system/commit/dfbaa08).
+History: [1c6212b](https://github.com/jiangking22/sonora/commit/1c6212b),
+[802ba53](https://github.com/jiangking22/sonora/commit/802ba53),
+[dfbaa08](https://github.com/jiangking22/sonora/commit/dfbaa08).
 
 ### Product client
 
@@ -63,9 +63,9 @@ History: [1c6212b](https://github.com/jiangking22/music_recommendation_system/co
 - Added the read-only profile projection and component/API-client tests. Published three actual
   offline browser screenshots with their capture conditions and a bilingual README/demo guide.
 
-History: [5a34241](https://github.com/jiangking22/music_recommendation_system/commit/5a34241),
-[1c76b33](https://github.com/jiangking22/music_recommendation_system/commit/1c76b33),
-[2d74a0a](https://github.com/jiangking22/music_recommendation_system/commit/2d74a0a).
+History: [5a34241](https://github.com/jiangking22/sonora/commit/5a34241),
+[1c76b33](https://github.com/jiangking22/sonora/commit/1c76b33),
+[2d74a0a](https://github.com/jiangking22/sonora/commit/2d74a0a).
 
 ### Agent/RAG/MCP
 
@@ -80,8 +80,8 @@ History: [5a34241](https://github.com/jiangking22/music_recommendation_system/co
   the optional official Python SDK. Stdio exposes `music_search` and unpersonalized
   `recommend_tracks`; a real SDK subprocess test covers protocol initialization/discovery/calls.
 
-History: [b89de81](https://github.com/jiangking22/music_recommendation_system/commit/b89de81),
-[3bee4e0](https://github.com/jiangking22/music_recommendation_system/commit/3bee4e0).
+History: [b89de81](https://github.com/jiangking22/sonora/commit/b89de81),
+[3bee4e0](https://github.com/jiangking22/sonora/commit/3bee4e0).
 
 ### Observability/CI/release quality
 
@@ -92,11 +92,11 @@ History: [b89de81](https://github.com/jiangking22/music_recommendation_system/co
 - Added API/web quality gates and a disposable offline Compose clean start covering migrations,
   pgvector, Redis, readiness, both web pages, recommendation, feedback, local Agent/RAG and context.
 - Added deployment, observability, evaluation and demo documentation. The audited main CI
-  [run 36971477031](https://github.com/jiangking22/music_recommendation_system/actions/runs/36971477031)
+  [run 36971477031](https://github.com/jiangking22/sonora/actions/runs/36971477031)
   passed API, web and clean-start jobs on 2026-10-02.
 
-History: [3bee4e0](https://github.com/jiangking22/music_recommendation_system/commit/3bee4e0),
-[1c76b33](https://github.com/jiangking22/music_recommendation_system/commit/1c76b33).
+History: [3bee4e0](https://github.com/jiangking22/sonora/commit/3bee4e0),
+[1c76b33](https://github.com/jiangking22/sonora/commit/1c76b33).
 
 ### Compatibility and limits / 兼容与限制
 

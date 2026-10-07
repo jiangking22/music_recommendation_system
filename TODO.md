@@ -1,5 +1,22 @@
 # TODO
 
+## Sonora repository identity / 项目更名与仓库同步
+
+- [x] Rename the GitHub repository to `sonora`, synchronize project links and bilingual README,
+  audit pending commits for credentials/private artifacts, and fast-forward the recent work to main.
+
+Approved 2026-10-07. Scope: project documentation, repository URLs and GitHub identity.
+Keep runtime package/database names and the runnable legacy demo compatible.
+Verification: pending-history secret scan, API pytest/Ruff/compile, web tests/lint/types/build,
+dependency audit policy, legacy HTTP smoke and remote branch SHA comparison.
+
+Local acceptance 2026-10-07: 351 API and 90 web tests, Ruff/compile, ESLint/types/build,
+fixed evaluation, documented dependency audit policy and legacy help/HTTP 200 pass.
+Sonora clone/branding and changed Markdown file links pass. Pending-history credential scanning
+checks 508 unique committed blobs and configured local secrets without printing their values;
+the template contains placeholders only. Repository renamed with existing admin access;
+publication uses normal fast-forward pushes, retaining all recent focused commits.
+
 ## Progressive assistant discovery / 音乐助手渐进检索（complete）
 
 - [x] 1. Three-state listening attributes and labelled structured model assistance.
@@ -516,7 +533,7 @@ dependency versions and all core behaviour are unchanged. `b34eec3` is preserved
 Publication procedure: add one release commit, push main normally, and require successful API,
 web and clean-start CI on the exact main SHA before creating/pushing an annotated v1.0.0 tag.
 Publish a regular GitHub Release from the existing notes. The
-[release record](https://github.com/jiangking22/music_recommendation_system/releases/tag/v1.0.0)
+[release record](https://github.com/jiangking22/sonora/releases/tag/v1.0.0)
 contains the final SHA and actual CI run; that record is the publication outcome.
 
 Scope: license/version/release material only; no core changes, dependency upgrades, force push,
