@@ -3,9 +3,9 @@
 ## Assistant expression and bounded chat / 曲风表达与固定聊天区
 
 - [x] 1. Qualitative music discussion, precise-fact boundaries and independent homepage rules.
-- [ ] 2. Fixed-height conversation panel, considerate scrolling and mobile keyboard handling.
+- [x] 2. Fixed-height conversation panel, considerate scrolling and mobile keyboard handling.
 
-Current checked-out item: none (expression item 1 complete; bounded panel item 2 next).
+Assistant expression and bounded-chat items: both complete.
 Scope: Agent prompts/providers/tool context and focused API regressions; then assistant UI/CSS
 and interaction tests. Existing JSON/SSE interfaces, six-turn context and native-search status remain.
 Verification: failing regressions first; API pytest/Ruff/compile, real ordinary/deep model chats,
@@ -20,6 +20,20 @@ language preferences, previous reasons, familiar recording interpretation and ex
 Earlier real probes exposed invented empty-discovery claims and invalid isolated explanation calls;
 plan/composition rules now distinguish no tools from empty results and use cached matching factors.
 Independent homepage guidance remains factor-grounded. No schema/ranking/search change.
+
+Item 2 acceptance 2026-10-07: five failing UI regressions preceded the layout/scroll changes;
+all 88 web tests and 310 API tests pass. CI-scoped Ruff (`app tests scripts`), compile, ESLint,
+typecheck/build and legacy help/HTTP smoke pass. Live configured-model browser checks reproduce
+both screenshot turns without repetitive BPM warnings, followed by deep jazz/rock discussion.
+At 1440x1000, the panel stays 650px after multiple/long replies; reading at scrollTop=0 stays there
+on completion, and return-to-latest reaches gap=0. The 390x844 panel is 548.6px with no horizontal
+overflow. A focused-input resize to 390x360 simulates keyboard shrink; input and Stop remain
+reachable and Stop cancels. VisualViewport unit coverage checks bounds/restoration; listener cleanup is reviewed;
+physical mobile keyboards have not been tested. Logout during a deep request clears chat, and a new
+login starts empty with thinking off. Browser console has no warnings/errors; disposable QA rows
+are removed after all three sessions are revoked. Local API/web images updated, four services healthy.
+ADR-037 and bilingual docs distinguish visible page history from six-turn server/model context.
+No new audio/search service, key, migration or legacy change; native search remains unavailable.
 
 ## Assistant deep conversation / 音乐助手深度对话
 

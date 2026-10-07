@@ -1,5 +1,25 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-037: Fixed conversation viewport with reader-controlled following
+
+**Status:** Accepted (approved fixed-chat plan)
+**Date:** 2026-10-07
+
+Bound the entire assistant panel using viewport-based desktop/mobile clamps, with a fixed header
+and composer around one scrolling message region. Welcome, pending, failure, fallback and stopped
+states share that region so no state expands the panel. Sending follows the newest message;
+responses follow only within 48px of the bottom, otherwise preserve reading position and offer
+“回到最新”. Do not create separate scrollbars per answer or move external cards/references inside.
+
+Keep displayed turns for the current page visit instead of trimming them when backend context
+rolls forward. This client history is cleared on unmount/logout, never synchronized, and does not
+expand the existing six-turn model context. Use VisualViewport resize and input focus to bound
+the panel during mobile keyboard shrink; clean up listeners on unmount. No dependency, HTTP schema,
+provider/ranking change, persistence migration or legacy-demo change.
+
+聊天区固定高度、内部滚动；上翻阅读时不强制跟随。页面可见历史与服务端最近六轮上下文分别管理，
+退出登录仍取消请求并清空页面；键盘缩小可用视口时调整面板，让输入和停止操作可达。
+
 ## ADR-036: Qualitative music interpretation without measurement boilerplate
 
 **Status:** Accepted (explicit user correction; revises ADR-034/035 answer restrictions)

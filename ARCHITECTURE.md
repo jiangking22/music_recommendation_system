@@ -350,6 +350,17 @@ Homepage identification and REST/MCP default intent remain unchanged. No databas
 明确主题与带书名号的歌名分开处理，歌曲歧义可要求确认歌手。前端单独保留待完成消息，
 失败重试不追加重复行，成功后才加入完整的一问一答；这不是服务端幂等协议。
 
+The conversation section is a fixed-height flex column: desktop `clamp(420px, 65dvh, 680px)`
+and ≤720px layouts `clamp(320px, 65dvh, 560px)`. Only the middle message/notice region scrolls;
+the heading and composer remain in the panel. Sending explicitly follows the newest message;
+completion follows only if the reader was within 48px of the bottom. Otherwise it preserves
+scroll position and offers a keyboard-accessible return button. Individual replies wrap without
+their own scrollbars; recommendation cards and references stay outside this section.
+The client retains this page visit's displayed turns so older text is not removed under a reader;
+server/model memory stays at six turns and logout unmounts/clears the client. On narrow screens,
+a focused input plus >120px visual-viewport shrink caps the panel to available keyboard space.
+Resize/focus/blur listeners are removed on unmount. No API, persistence or session change.
+
 ```mermaid
 flowchart LR
   Page[Next.js /agent] -->|POST JSON or SSE| Routes[Thin Agent API]
@@ -378,8 +389,9 @@ conversation JSON alongside six turns; no schema migration or durable preference
 Only supplied language/tags/genres can verify constraints; unknown metadata is excluded, with
 an honest no-match answer. The deterministic core filters candidates before its existing diversity
 step without changing scores or policy. A fresh listening request clears prior constraints;
-refinements preserve them. General listening concepts are allowed without citations, while
-specific music facts require tool evidence. Raw model reasoning is never conversation memory.
+refinements preserve them. General listening concepts and familiar-recording interpretations
+are allowed without citations; precise verified music facts require evidence. Raw model reasoning
+is never conversation memory.
 The default whole-turn deadline is 30 seconds (configurable 1–60), with at most four active
 Agent requests per event loop. Excess requests receive `agent_busy`. Synchronous jobs also
 have four slots retained until completion after cancellation; provider adapters retain their

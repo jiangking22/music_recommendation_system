@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getAgentCapabilities, streamAgentChat } from "../lib/agent";
@@ -36,9 +36,14 @@ export default function AgentClient() {
   const [stopped, setStopped] = useState(false);
   const [capabilities, setCapabilities] = useState<ModelCapabilities | null>(null);
   const [capabilityError, setCapabilityError] = useState(false);
+  const [showLatest, setShowLatest] = useState(false);
+  const [keyboardLimit, setKeyboardLimit] = useState<number | undefined>(undefined);
   const conversation = useRef<string | undefined>(undefined);
   const controller = useRef<AbortController | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  const panel = useRef<HTMLElement>(null);
+  const scrollArea = useRef<HTMLDivElement>(null);
+  const followLatest = useRef(true);
   const inFlight = useRef(false);
   useEffect(() => () => controller.current?.abort(), []);
   useEffect(() => {
@@ -48,11 +53,53 @@ export default function AgentClient() {
     }).catch(() => { if (!check.signal.aborted) setCapabilityError(true); });
     return () => check.abort();
   }, []);
+  useLayoutEffect(() => {
+    if (followLatest.current && scrollArea.current) scrollArea.current.scrollTop = scrollArea.current.scrollHeight;
+  }, [history, pending, error, stopped, result, keyboardLimit]);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const field = input.current;
+    if (!viewport || !field) return;
+    let restingHeight = viewport.height;
+    const update = (event: Event) => {
+      const focused = document.activeElement === field;
+      const mobile = window.innerWidth <= 720;
+      if (!focused) restingHeight = viewport.height;
+      const keyboardOpen = mobile && focused && restingHeight - viewport.height > 120;
+      setKeyboardLimit(keyboardOpen ? Math.max(220, Math.floor(viewport.height - 24)) : undefined);
+      if (keyboardOpen && event.type === "resize") panel.current?.scrollIntoView?.({ block: "end", behavior: "auto" });
+    };
+    viewport.addEventListener("resize", update);
+    window.addEventListener("resize", update);
+    field.addEventListener("focus", update);
+    field.addEventListener("blur", update);
+    return () => {
+      viewport.removeEventListener("resize", update);
+      window.removeEventListener("resize", update);
+      field.removeEventListener("focus", update);
+      field.removeEventListener("blur", update);
+    };
+  }, []);
+
+  function returnToLatest() {
+    followLatest.current = true;
+    setShowLatest(false);
+    if (scrollArea.current) scrollArea.current.scrollTop = scrollArea.current.scrollHeight;
+  }
+
+  function onHistoryScroll() {
+    const area = scrollArea.current;
+    if (!area) return;
+    const nearBottom = area.scrollHeight - area.clientHeight - area.scrollTop <= 48;
+    followLatest.current = nearBottom;
+    setShowLatest(!nearBottom);
+  }
 
   async function send(event: React.FormEvent) {
     event.preventDefault();
     const text = message.trim();
     if (!text || inFlight.current) return;
+    returnToLatest();
     inFlight.current = true;
     controller.current = new AbortController();
     const signal = controller.current.signal;
@@ -66,8 +113,8 @@ export default function AgentClient() {
       conversation.current = next.conversation_id;
       setResult(next); setMessage("");
       setPending(null);
-      setHistory((items) => [...items, { role: "你", text }, { role: "Sonora", text: next.answer }].slice(-12));
-      input.current?.focus();
+      setHistory((items) => [...items, { role: "你", text }, { role: "Sonora", text: next.answer }]);
+      if (followLatest.current) input.current?.focus({ preventScroll: true });
     } catch (failure) {
       if (!signal.aborted) setError(failure instanceof ApiError
         ? ERRORS[failure.code] ?? "暂时无法回答，请重试。" : "连接中断，请检查网络后重试。");
@@ -84,7 +131,7 @@ export default function AgentClient() {
     controller.current = null;
     inFlight.current = false;
     setLoading(false); setPending(null); setStatuses([]); setStopped(true);
-    input.current?.focus();
+    input.current?.focus({ preventScroll: true });
   }
 
   return <div className="site-shell agent-shell">
@@ -96,17 +143,32 @@ export default function AgentClient() {
       <div className="agent-intro"><span className="eyebrow">SONORA / MUSIC ASSISTANT</span>
         <h1>把此刻，交给音乐。</h1><p>聊聊想听的歌，或一起了解你喜欢的音乐人。</p></div>
       <div className="agent-columns">
-        <section className="agent-conversation" aria-labelledby="conversation-title">
+        <section ref={panel} className="agent-conversation" aria-labelledby="conversation-title"
+          style={keyboardLimit ? { maxHeight: keyboardLimit } : undefined}>
           <h2 id="conversation-title">音乐助手</h2>
+          <div className="agent-scroll-wrap">
+          <div ref={scrollArea} className="agent-scroll" role="log" aria-label="对话历史" aria-live="polite"
+            tabIndex={0} onScroll={onHistoryScroll}>
           {!history.length && !pending ? <div className="agent-welcome"><span aria-hidden="true">♫</span>
             <p>从一个心情、一位歌手开始。</p><div className="agent-suggestions">
               {["推荐适合学习的歌", "介绍周杰伦", "介绍爵士乐"].map((text) => <button type="button" key={text}
                 onClick={() => { setMessage(text); input.current?.focus(); }}>{text} ↗</button>)}</div></div> : null}
-          <div className="agent-history" role="log" aria-label="对话历史" aria-live="polite">
+          <div className="agent-history">
             {history.map((entry, i) => <article key={i} className={entry.role === "你" ? "agent-user" : "agent-reply"}>
               <span>{entry.role}</span><p>{entry.text}</p></article>)}
             {pending ? <article className="agent-user"><span>你</span><p>{pending}</p>
               {error ? <small>发送未完成，可重试</small> : null}</article> : null}</div>
+          {stopped ? <p role="status" className="notice">已停止，可修改问题或重新发送。</p> : null}
+          {error ? <p role="alert" className="error-state">{error}</p> : null}
+          {result?.fallback_reason ? <p role="status" className="notice">
+            智能服务暂不可用，已使用基础模式。推荐仍按音乐匹配与已有偏好排序。
+          </p> : null}
+          {result?.thinking_unavailable_reason === "unsupported" ? <p className="notice">
+            当前模型接口暂不支持深度思考，已使用{result.provider === "local" ? "基础" : "普通"}模式。
+          </p> : null}
+          </div>
+          {showLatest ? <button type="button" className="agent-latest" onClick={returnToLatest}>回到最新 <span aria-hidden="true">↓</span></button> : null}
+          </div>
           <form onSubmit={send} className="agent-form"><label htmlFor="agent-message">想听什么？</label>
             <div><input id="agent-message" ref={input} value={message} maxLength={2000} required
               onChange={(event) => setMessage(event.target.value)} placeholder="推荐适合学习的歌…" />
@@ -116,14 +178,6 @@ export default function AgentClient() {
               onChange={(event) => setDeepThinking(event.target.checked)} />深度思考</label>
               {loading ? <button type="button" className="agent-stop" onClick={stop}>停止</button> : null}
               {deepThinking ? <small>深入理解与分析，最多等待约两分钟。</small> : null}</div></form>
-          {stopped ? <p role="status" className="notice">已停止，可修改问题或重新发送。</p> : null}
-          {error ? <p role="alert" className="error-state">{error}</p> : null}
-          {result?.fallback_reason ? <p role="status" className="notice">
-            智能服务暂不可用，已使用基础模式。推荐仍按音乐匹配与已有偏好排序。
-          </p> : null}
-          {result?.thinking_unavailable_reason === "unsupported" ? <p className="notice">
-            当前模型接口暂不支持深度思考，已使用{result.provider === "local" ? "基础" : "普通"}模式。
-          </p> : null}
         </section>
         <aside className="agent-progress" aria-labelledby="progress-title"><h2 id="progress-title">这次聆听</h2>
           <div aria-live="polite" aria-busy={loading}>

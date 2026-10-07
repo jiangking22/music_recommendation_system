@@ -15,6 +15,14 @@
 .agent-intro p { color: var(--muted); line-height: 1.6; font-size: 14px; }
 .agent-columns { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 32px; }
 .agent-conversation, .agent-progress { border-top: 1px solid var(--line); padding-top: 24px; min-width: 0; }
+.agent-conversation { display: flex; flex-direction: column; height: clamp(420px, 65dvh, 680px); overflow: hidden; }
+.agent-conversation > h2 { flex-shrink: 0; margin-bottom: 16px; }
+.agent-scroll-wrap { flex: 1; min-height: 0; position: relative; }
+.agent-scroll { height: 100%; overflow-y: auto; overflow-x: hidden; overflow-anchor: none;
+  overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 8px; padding-bottom: 8px; }
+.agent-scroll:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
+.agent-latest { position: absolute; right: 16px; bottom: 12px; border: 1px solid var(--line);
+  border-radius: 6px; background: var(--paper); color: var(--orange); padding: 8px 12px; font-size: 12px; cursor: pointer; }
 .agent-main h2 { font-size: 21px; letter-spacing: -0.02em; margin: 0 0 24px; }
 .agent-welcome { padding: 32px 0; }
 .agent-welcome > span { font-size: 36px; color: var(--orange); }
@@ -26,7 +34,7 @@
 .agent-history article > span { color: var(--orange); font-size: 11px; font-weight: 700; }
 .agent-history p { font-size: 14px; line-height: 1.8; margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .agent-user p { color: var(--muted); }
-.agent-form { padding: 24px 0; }
+.agent-form { flex-shrink: 0; padding: 16px 0 8px; border-top: 1px solid var(--line); }
 .agent-form label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
 .agent-form > div { display: flex; gap: 8px; }
 .agent-form input { width: 100%; min-width: 0; border: 1px solid #c5c5ca; padding: 14px; border-radius: 8px; background: white; font-size: 14px; }
@@ -60,6 +68,7 @@
 .agent-citations { border-top: 1px solid var(--line); padding-top: 24px; }
 .agent-citations p { font-size: 12px; line-height: 1.8; color: var(--muted); }
 @media (max-width: 720px) {
+  .agent-conversation { height: clamp(320px, 65dvh, 560px); }
   .agent-main { padding: 16px 20px 40px; }
   .agent-columns { grid-template-columns: 1fr; gap: 16px; }
   .agent-progress { padding-top: 16px; }

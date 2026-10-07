@@ -48,6 +48,17 @@ evidence; an unfamiliar recording prompts an artist/version clarification.
 知识交流，不机械提示缺少 BPM；这类解读不改变排序，也不代表实听、实测或联网核验。精确 BPM、
 可核对的乐器配置、版本及最新事实仍需证据；陌生作品会询问歌手或版本。
 
+The conversation panel has a viewport-based fixed height; messages and notices scroll inside it.
+The composer, thinking switch and Stop stay at the bottom. Sending follows the latest message;
+new replies preserve your position when reading earlier messages, with a “回到最新” button.
+Page-local visible history can exceed six turns; model context remains the last six turns per
+login session. A shrinking mobile visual viewport reduces the panel while the input is focused.
+Recommendation cards and references remain outside the panel.
+
+聊天面板高度随屏幕调整，不随消息变长；消息和提示在内部滚动，输入、深度开关与停止按钮固定在底部。
+发送后滚到最新，向上阅读时保持位置并显示“回到最新”。当前页面可查看超过六轮的消息，但模型仍只接收
+当前登录会话最近六轮上下文；手机输入时可用视口缩小会收缩面板。推荐卡片和参考资料保留在面板外。
+
 Native web search is **currently unavailable**. The configured DeepSeek service was probed on
 2026-10-07 without verified search records or source citations; the page reports this before chat.
 Thinking does not imply web access. No additional search service/key is required, and model-generated
@@ -343,12 +354,12 @@ non-thinking JSON requests through the shared adapter.
 
 ## Agent, memory, RAG and MCP / 助手与工具协议
 
-The Agent validates one plan of 1–4 distinct allowlisted tools. A 30-second default deadline,
+The Agent validates one plan of 0–4 distinct allowlisted tools. A 30-second default deadline,
 four active requests and four worker slots bound work. Tools cannot save feedback, execute shell,
 fetch arbitrary URLs or modify rank policy. JSON and SSE expose public status and canonical
 results. PostgreSQL retains six turns and a derived preference summary per conversation.
 
-Agent 验证一次计划，只能执行 1–4 个不同的白名单工具；默认 30 秒期限、四个并发请求和四个工作槽。
+Agent 验证一次计划，可执行 0–4 个不同的白名单工具；默认 30 秒期限、四个并发请求和四个工作槽。
 工具不写反馈、不执行命令、不抓取任意 URL、不修改排序。会话保存最近六轮与来自反馈的偏好摘要。
 缺少 Key 时使用确定性本地路由。2026-10-05 已用现有 DeepSeek 配置验证助手对话，尚未进行整体效果评估。
 
