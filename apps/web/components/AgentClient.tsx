@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { streamAgentChat } from "../lib/agent";
+import { getAgentCapabilities, streamAgentChat } from "../lib/agent";
 import { ApiError } from "../lib/api";
 import { AccountMenu } from "./AuthGate";
 import { artistDisplayName } from "../lib/i18n";
 import { safeExternalUrl } from "../lib/url";
-import type { AgentResponse, AgentStatus, ToolName } from "../types/agent";
+import type { AgentResponse, AgentStatus, ModelCapabilities, ToolName } from "../types/agent";
 
 const LABELS: Record<ToolName, string> = { get_user_profile: "音乐偏好", recommend_tracks: "查找推荐",
   search_music_knowledge: "音乐知识", explain_recommendation: "推荐理由" };
@@ -34,11 +34,20 @@ export default function AgentClient() {
   const [error, setError] = useState<string | null>(null);
   const [deepThinking, setDeepThinking] = useState(false);
   const [stopped, setStopped] = useState(false);
+  const [capabilities, setCapabilities] = useState<ModelCapabilities | null>(null);
+  const [capabilityError, setCapabilityError] = useState(false);
   const conversation = useRef<string | undefined>(undefined);
   const controller = useRef<AbortController | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const inFlight = useRef(false);
   useEffect(() => () => controller.current?.abort(), []);
+  useEffect(() => {
+    const check = new AbortController();
+    void getAgentCapabilities(API_BASE, check.signal).then((value) => {
+      if (!check.signal.aborted) setCapabilities(value);
+    }).catch(() => { if (!check.signal.aborted) setCapabilityError(true); });
+    return () => check.abort();
+  }, []);
 
   async function send(event: React.FormEvent) {
     event.preventDefault();
@@ -103,7 +112,8 @@ export default function AgentClient() {
               onChange={(event) => setMessage(event.target.value)} placeholder="推荐适合学习的歌…" />
               <button type="submit" className="primary-button" disabled={loading}>{loading ? "处理中…" : "发送"}</button></div>
             <div className="agent-controls"><label className="agent-thinking"><input type="checkbox" checked={deepThinking}
-              disabled={loading} onChange={(event) => setDeepThinking(event.target.checked)} />深度思考</label>
+              disabled={loading || capabilities?.supports_deep_thinking === false}
+              onChange={(event) => setDeepThinking(event.target.checked)} />深度思考</label>
               {loading ? <button type="button" className="agent-stop" onClick={stop}>停止</button> : null}
               {deepThinking ? <small>深入理解与分析，最多等待约两分钟。</small> : null}</div></form>
           {stopped ? <p role="status" className="notice">已停止，可修改问题或重新发送。</p> : null}
@@ -125,6 +135,8 @@ export default function AgentClient() {
             <ul className="agent-tools">{result.used_tools.map((tool) => <li key={tool.name}>
               {LABELS[tool.name]} · {tool.status === "ok" ? "完成" : "未完成"}</li>)}</ul></> : null}
           <p className="agent-footnote">音乐偏好随账号同步，对话仅限当前登录会话。</p>
+          {capabilities || result?.native_search ? <p className="agent-footnote">当前模型接口暂不支持联网检索</p>
+            : capabilityError ? <p className="agent-footnote">暂时无法确认联网能力，可继续对话。</p> : null}
         </aside>
       </div>
       {result?.recommended_tracks.length ? <section className="agent-mix" aria-labelledby="mix-title">

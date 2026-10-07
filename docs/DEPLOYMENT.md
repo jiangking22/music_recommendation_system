@@ -33,6 +33,20 @@ a future trusted-proxy policy must explicitly establish which forwarding hop can
 密码使用 Argon2id（19 MiB、2 次、并行度 1），最多四个并发哈希工作；会话令牌只存摘要。
 Cookie 为 HttpOnly、SameSite=Lax、host-only；24 小时或保持登录 30 天。所有写操作校验来源及 CSRF。
 
+Assistant thinking is a per-turn opt-in, not a new credential setting. Ordinary chat retains
+`AGENT_TIMEOUT_SECONDS`; supported deep chat has a 120s API deadline, 130s browser deadline and
+140s proxy lifetime. Homepage identification keeps its original budget. The authenticated
+`GET /v1/agent/capabilities` reports actual adapter support before chat.
+
+Native search is currently unavailable on the configured official DeepSeek service. To repeat
+the separate bounded check using the existing model settings, run
+`docker compose exec -T api python scripts/model_capability_probe.py`. The probe reports only
+capability metadata, does not enable search, and never treats prose links as retrieval evidence.
+Do not configure an additional search key for this feature.
+
+深度对话由每次请求手动开启，后端最多两分钟；首页识曲预算不变。联网实测未通过，页面明确提示暂不可用。
+独立探测只使用已配置的模型服务与密钥，不改配置、不自动启用检索、不记录模型正文。
+
 ## Start and acceptance / 启动与验收
 
 ```bash

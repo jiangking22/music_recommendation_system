@@ -12,7 +12,12 @@ from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.agent.memory import Memory, MemoryError
-from app.agent.providers import LLMProvider, LocalLLMProvider, ModelOutputTruncated
+from app.agent.providers import (
+    LLMProvider,
+    LocalLLMProvider,
+    ModelOutputTruncated,
+    model_capabilities,
+)
 from app.agent.schemas import AgentRequest, Answer, ChatResponse, Plan, ToolTrace
 from app.agent.tools import TOOL_INPUTS, ToolContext, invoke_tool, tool_schemas
 from app.infrastructure.workers import run_blocking
@@ -51,7 +56,8 @@ class Agent:
                            "last_intent": conversation.last_intent,
                            "preference_summary": conversation.preference_summary, "deep_thinking": deep,
                            "listening_constraints": conversation.constraints.model_dump(),
-                           "last_recommendation": conversation.recommendation_context}
+                           "last_recommendation": conversation.recommendation_context,
+                           "native_search": model_capabilities(self.provider).native_search.model_dump()}
                 if deep:
                     yield {"event": "status", "data": {"stage": "thinking", "label": "深入理解上下文"}}
                 provider = self.provider
@@ -118,7 +124,8 @@ class Agent:
                                         fallback_reason=fallback_reason,
                                         thinking_mode="basic" if provider.name == "local" else "deep" if deep else "standard",
                                         thinking_unavailable_reason=(fallback_reason or "unsupported")
-                                        if request.deep_thinking and (provider.name == "local" or not deep) else None)
+                                        if request.deep_thinking and (provider.name == "local" or not deep) else None,
+                                        native_search=model_capabilities(provider).native_search)
                 await run_blocking(lambda: memory.save(request, conversation, answer.answer))
                 yield {"event": "status", "data": {"stage": "complete", "label": "返回结果"}}
                 yield {"event": "done", "data": response.model_dump(mode="json")}

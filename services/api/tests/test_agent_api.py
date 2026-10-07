@@ -143,6 +143,18 @@ def test_thinking_flag_is_strict_boolean(client):
     assert client.post("/v1/agent/chat", json={**BODY, "deep_thinking": "true"}).status_code == 422
 
 
+def test_capabilities_and_chat_do_not_claim_native_search(client):
+    capability = client.get("/v1/agent/capabilities")
+    assert capability.status_code == 200
+    assert capability.json() == {"provider": "local", "supports_deep_thinking": False,
+                                  "native_search": {"status": "unavailable", "reason": "local_mode"}}
+    response = client.post("/v1/agent/chat", json={"message": "请联网查询最新音乐动态"})
+    assert response.status_code == 200
+    assert response.json()["native_search"]["status"] == "unavailable"
+    assert "暂不支持联网检索" in response.json()["answer"]
+    assert response.json()["citations"] == []
+
+
 def test_invalid_llm_output_is_safe_in_json_and_sse(client):
     class Bad(LocalLLMProvider):
         async def plan(self, context, tools):

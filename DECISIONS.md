@@ -1,5 +1,25 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-035: Verified native-search capability and explicit unavailability
+
+**Status:** Accepted (approved assistant plan)
+**Date:** 2026-10-07
+
+Use only the configured model service for native-search verification. The authenticated
+`GET /v1/agent/capabilities` and both chat responses expose typed `native_search` status;
+unknown protocols remain unverified/unavailable rather than inferred from model names or prose.
+No Brave key, new search service, generated URL citation or per-request probing is introduced.
+
+The official DeepSeek Responses documentation states that built-in `web_search` tools are ignored.
+A bounded real request using the configured model on 2026-10-07 produced no completed search
+records with verifiable source annotations. Search therefore remains unavailable in the adapter
+and UI. The manual content-free probe requires both completed search calls and safe HTTPS source
+annotations; even a positive probe needs an explicit adapter integration before enabling search.
+General music discussion and opt-in thinking remain available without search.
+
+联网使用同一模型服务独立核验；当前真实探测未通过，页面明确显示“当前模型接口暂不支持联网检索”。
+模型自行生成的链接不作为搜索证据。参考：[DeepSeek Responses API](https://api-docs.deepseek.com/guides/responses_api/)。
+
 ## ADR-034: Contextual dialogue and metadata-backed listening refinements
 
 **Status:** Accepted (approved assistant plan; revises ADR-014/016)

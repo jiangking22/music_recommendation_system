@@ -21,6 +21,7 @@ from app.agent.prompts import (
     PLAN_PROMPT,
     SEED_PROMPT,
 )
+from app.agent.schemas import ModelCapabilities, NativeSearchState
 from app.infrastructure.config import get_settings
 from app.observability.events import correlation_headers, emit
 
@@ -72,6 +73,8 @@ class LocalLLMProvider:
 
     async def answer(self, context: dict, results: list[dict]) -> dict:
         recommendation = next((r for r in results if r["name"] == "recommend_tracks"), None)
+        if any(word in context["message"].casefold() for word in ("联网", "上网", "web search", "search online")):
+            return {"answer": "当前模型接口暂不支持联网检索。我可以继续讨论一般音乐概念，或根据已有曲库与本地资料回答。你想了解哪一方面？"}
         if recommendation is not None:
             count = len(recommendation["output"]["items"])
             if not count:
@@ -220,3 +223,13 @@ def get_llm_provider() -> LLMProvider:
         return LocalLLMProvider()
     return OpenAICompatibleProvider(settings.llm_base_url, settings.llm_api_key.get_secret_value(),
                                     settings.llm_model)
+
+
+def model_capabilities(provider: LLMProvider) -> ModelCapabilities:
+    # Advertise only capabilities verified at this adapter boundary. DeepSeek's
+    # documented Chat/Responses interfaces do not execute built-in web search.
+    reason = ("local_mode" if provider.name == "local" else "unsupported"
+              if isinstance(provider, OpenAICompatibleProvider) and provider.supports_deep_thinking else "unverified")
+    return ModelCapabilities(provider=provider.name,
+                             supports_deep_thinking=getattr(provider, "supports_deep_thinking", False),
+                             native_search=NativeSearchState(reason=reason))

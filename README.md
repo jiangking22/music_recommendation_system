@@ -43,6 +43,20 @@ General music concepts may use model knowledge; specific recording facts require
 连续追问结合最近六轮与最新补充；聊风格、心情或解释上一轮推荐时可直接回答。华语、人声等条件
 只按曲库明确资料筛选，资料不足时说明无法确认并追问。一般音乐概念可交流，具体作品事实须有依据。
 
+Native web search is **currently unavailable**. The configured DeepSeek service was probed on
+2026-10-07 without verified search records or source citations; the page reports this before chat.
+Thinking does not imply web access. No additional search service/key is required, and model-generated
+links are not treated as search evidence. To repeat the bounded manual check from the repository root:
+
+联网检索**暂不可用**：2026-10-07 使用已配置的同一 DeepSeek 服务实测，未取得可验证的搜索记录与来源引用。
+页面会明确提示；深度思考可正常使用。未新增搜索服务或密钥，模型生成的链接不算检索证据。
+手动复查命令（不会修改配置或自动启用联网）：
+
+```powershell
+$env:PYTHONPATH = "services/api"
+services/api/.venv/Scripts/python.exe services/api/scripts/model_capability_probe.py
+```
+
 Historical captures below predate account login and use the offline fixture catalog and local rule-based assistant, with a
 temporary SQLite test database. They do not verify Docker/PostgreSQL or live providers/LLMs.
 截图来自真实运行页面：离线固定曲库、本地规则助手、临时 SQLite 测试库；不代表容器、PostgreSQL 或真实来源/模型验证。

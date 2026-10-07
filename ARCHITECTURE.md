@@ -311,6 +311,18 @@ report `thinking_mode=basic|standard|deep` and an optional `thinking_unavailable
 JSON plans/identification and strict response validation remain enabled.
 Real model quality/compatibility is not inferred from mocked transport tests.
 
+Authenticated `GET /v1/agent/capabilities` reports provider, supported thinking and typed native
+search availability before the first turn; both chat transports also include `native_search`.
+Official DeepSeek is search-unsupported; unrecognized protocols are unverified, and local mode
+has no native search. All currently remain unavailable. The optional manual script
+`services/api/scripts/model_capability_probe.py` uses only the configured service/credential,
+with a 30-second deadline and 256 KiB response cap. It requires completed search records plus
+safe HTTPS source annotations and cannot enable an adapter. The real 2026-10-07 probe found no
+verified search records, consistent with official Responses documentation. Prose links are not
+retrieval evidence. No new search provider or key is introduced.
+
+联网能力独立核验，当前不可用状态在发送前即可看到；深度思考不代表已联网。一般音乐讨论仍可进行。
+
 Assistant reliability (2026-10-06): the shared model adapter uses an explicit system-trust SSL
 context with certificate/hostname verification enabled. Safe model telemetry distinguishes
 `tls_verification_failed` from other HTTP failures without exception text. An Agent planning
@@ -497,12 +509,12 @@ disposable local database clean start.
 
 ### Agent chat
 
-1. The client sends `message` and optional `conversation_id` through the same-origin proxy to
+1. The client sends `message`, optional `conversation_id` and `deep_thinking` through the same-origin proxy to
    `POST /v1/agent/chat` (JSON) or `/v1/agent/chat/stream` (SSE).
 2. The API passes verified account/login-session context; Agent loads six turns for that login and account preferences.
-3. It validates one bounded plan, then invokes approved profile/recommend/knowledge/explain
+3. It validates one bounded plan with 0–4 calls, then invokes approved profile/recommend/knowledge/explain
    tools. Tool traces contain names and statuses; logs contain no chat content or credentials.
-4. SSE sends `status` (分析需求 / 查询偏好 / 调用工具 / 返回结果), `tool_result`,
+4. SSE sends actual `status` (分析需求 / 深入理解上下文 / 查询偏好 / 调用工具 / 整理回答 / 返回结果), `tool_result`,
    `done` (the complete chat response), or `error` (the consistent error envelope).
    Internal reasoning is never streamed.
 

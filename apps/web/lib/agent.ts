@@ -1,6 +1,19 @@
 import { ApiError } from "./errors";
 import { authFetch, sessionSignal } from "./auth";
-import type { AgentResponse, AgentStatus } from "../types/agent";
+import type { AgentResponse, AgentStatus, ModelCapabilities, NativeSearchState } from "../types/agent";
+
+function validSearch(value: NativeSearchState | undefined): boolean {
+  return !!value && value.status === "unavailable" && ["unsupported", "unverified", "local_mode"].includes(value.reason);
+}
+
+export async function getAgentCapabilities(baseUrl: string, signal?: AbortSignal): Promise<ModelCapabilities> {
+  const response = await authFetch(`${baseUrl.replace(/\/$/, "")}/v1/agent/capabilities`, { signal });
+  if (!response.ok) throw new ApiError("capabilities_unavailable", "Cannot check model capabilities.", response.status);
+  const result = await response.json() as ModelCapabilities;
+  if (!result || typeof result.provider !== "string" || typeof result.supports_deep_thinking !== "boolean"
+    || !validSearch(result.native_search)) throw new ApiError("invalid_response", "Invalid model capabilities.", 502);
+  return result;
+}
 
 function validateResult(value: unknown): AgentResponse {
   const result = value as AgentResponse;
@@ -11,6 +24,7 @@ function validateResult(value: unknown): AgentResponse {
     || (result.fallback_reason != null && result.fallback_reason !== "llm_unavailable")
     || (result.thinking_mode != null && !["basic", "standard", "deep"].includes(result.thinking_mode))
     || (result.thinking_unavailable_reason != null && !["unsupported", "llm_unavailable"].includes(result.thinking_unavailable_reason))
+    || (result.native_search != null && !validSearch(result.native_search))
     || result.recommended_tracks.some((item) => !item || typeof item.id !== "string"
       || typeof item.title !== "string" || typeof item.artist !== "string"
       || typeof item.explanation !== "string" || typeof item.score !== "number"

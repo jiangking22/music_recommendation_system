@@ -15,6 +15,7 @@ from app.services.recommendation import local_catalog
     ("GET", "/v1/profile", None), ("GET", "/v1/providers", None),
     ("GET", "/v1/providers/health", None), ("GET", "/v1/tracks/search?q=jazz", None),
     ("GET", "/v1/device", None), ("GET", "/v1/mcp/tools", None),
+    ("GET", "/v1/agent/capabilities", None),
     ("POST", "/v1/recommendations", {"seed": "jazz"}),
     ("POST", "/v1/feedback", {}), ("POST", "/v1/recordings/resolve", {"seed": "jazz"}),
     ("POST", "/v1/recommendations/discover", {"seed": "jazz"}),

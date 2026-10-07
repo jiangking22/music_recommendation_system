@@ -3,13 +3,17 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import AgentClient from "../components/AgentClient";
 import { ApiError } from "../lib/api";
 
-const api = vi.hoisted(() => ({ stream: vi.fn() }));
-vi.mock("../lib/agent", () => ({ streamAgentChat: api.stream }));
+const api = vi.hoisted(() => ({ stream: vi.fn(), capabilities: vi.fn() }));
+vi.mock("../lib/agent", () => ({ streamAgentChat: api.stream, getAgentCapabilities: api.capabilities }));
 const result = { conversation_id: "one", answer: "为你找到学习音乐。", recommended_tracks: [],
   used_tools: [{ name: "recommend_tracks", status: "ok" }], explanation: "", citations: [],
   sources: {}, provider: "local" };
 
-beforeEach(() => { vi.clearAllMocks(); api.stream.mockResolvedValue(result); });
+beforeEach(() => {
+  vi.clearAllMocks(); api.stream.mockResolvedValue(result);
+  api.capabilities.mockResolvedValue({ provider: "openai_compatible", supports_deep_thinking: true,
+    native_search: { status: "unavailable", reason: "unsupported" } });
+});
 
 it("shows history, statuses and sends follow-up in the same conversation", async () => {
   api.stream.mockImplementationOnce(async (_url, _message, _conversation, onStatus) => {
@@ -99,4 +103,11 @@ it("opts into deep thinking, keeps selection and ignores a stopped reply", async
   finish({ ...result, answer: "late response" });
   await waitFor(() => expect(screen.queryByText("late response")).not.toBeInTheDocument());
   expect(screen.getAllByText("缓慢的歌")).toHaveLength(1);
+});
+
+it("shows native search unavailability before sending and keeps chat usable", async () => {
+  render(<AgentClient />);
+  expect(await screen.findByText("当前模型接口暂不支持联网检索")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "发送" })).toBeEnabled();
+  expect(screen.queryByText(/联网检索完成/)).not.toBeInTheDocument();
 });

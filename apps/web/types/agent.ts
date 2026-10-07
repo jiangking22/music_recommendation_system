@@ -2,6 +2,8 @@ import type { ProviderResult, RecommendationItem } from "./music";
 
 export type ToolName = "get_user_profile" | "recommend_tracks" | "search_music_knowledge" | "explain_recommendation";
 export type AgentStatus = { stage: string; label: string; tool?: ToolName; status?: string };
+export type NativeSearchState = { status: "unavailable"; reason: "unsupported" | "unverified" | "local_mode" };
+export type ModelCapabilities = { provider: string; supports_deep_thinking: boolean; native_search: NativeSearchState };
 export type AgentResponse = {
   conversation_id: string;
   answer: string;
@@ -14,4 +16,5 @@ export type AgentResponse = {
   fallback_reason?: "llm_unavailable" | null;
   thinking_mode?: "basic" | "standard" | "deep";
   thinking_unavailable_reason?: "unsupported" | "llm_unavailable" | null;
+  native_search?: NativeSearchState;
 };

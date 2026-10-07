@@ -4,9 +4,9 @@
 
 - [x] 1. Manual deep-thinking request/UI, bounded model budget, progress and cancellation.
 - [x] 2. Context-aware follow-ups, direct discussion and evidence-aware answers.
-- [ ] 3. Verify configured-model native search capability; expose honest availability and sources.
+- [x] 3. Verify configured-model native search capability; expose honest availability and sources.
 
-Current checked-out item: none (item 2 complete; item 3 next).
+Current checked-out item: none (all three assistant items complete).
 Scope: target Agent API/adapter, assistant UI/transport, focused tests and bilingual docs.
 Verification: failing regressions first; API pytest/Ruff/compile, web tests/lint/types/build,
 targeted runtime checks, real model/browser acceptance and legacy smoke. Execute sequentially,
@@ -27,6 +27,20 @@ DeepSeek turns cover the screenshot, explanation without new tools, discussion w
 and retained vocal/Chinese constraints. Model prose JSON failures were reproduced, then removed by
 plain-text conversation composition at the adapter; plans and homepage JSON remain strict. Unknown
 vocal/language metadata yields honest empty results, not fixture padding. No migration or key change.
+
+Item 3 acceptance 2026-10-07: API/UI capability regressions failed before implementation;
+304 API tests and 83 web tests pass, as do Ruff/compile, lint/types/build and legacy help/HTTP smoke.
+The configured real DeepSeek Responses probe returned no verified search records; native search
+remains unavailable and is displayed before chat. Generated prose links do not count as evidence.
+Authenticated capability access, unsupported/lookalike endpoints and citation validation are covered.
+Live browser acceptance covers the exact two-turn screenshot, actual deep/ordinary modes, discussion
+without tools/playlists, Stop, logout during a pending deep reply and cleared history on a new login.
+390px and 1440px layouts have no horizontal overflow; browser console has no warnings/errors.
+Real replies exposed an unsupported tempo claim; evidence rules were tightened and the two turns
+retested successfully without asserting measured tempo. Local API/web images are updated and all
+four Compose services are healthy. Architecture, ADR-035 and bilingual usage/deployment docs reflect
+the verified unavailable search state. Recommendation scoring, account isolation and legacy files
+remain intact; no additional credential, migration, public deployment or search provider was added.
 
 ## Credential bounds / 账号与密码长度统一
 

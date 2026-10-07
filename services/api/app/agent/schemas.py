@@ -63,6 +63,17 @@ class ToolTrace(StrictModel):
     status: Literal["ok", "error"]
 
 
+class NativeSearchState(StrictModel):
+    status: Literal["unavailable"] = "unavailable"
+    reason: Literal["unsupported", "unverified", "local_mode"]
+
+
+class ModelCapabilities(StrictModel):
+    provider: str
+    supports_deep_thinking: bool
+    native_search: NativeSearchState
+
+
 class ChatResponse(BaseModel):
     conversation_id: UUID
     answer: str
@@ -75,3 +86,4 @@ class ChatResponse(BaseModel):
     fallback_reason: Literal["llm_unavailable"] | None = None
     thinking_mode: Literal["basic", "standard", "deep"] = "standard"
     thinking_unavailable_reason: Literal["unsupported", "llm_unavailable"] | None = None
+    native_search: NativeSearchState = Field(default_factory=lambda: NativeSearchState(reason="unverified"))

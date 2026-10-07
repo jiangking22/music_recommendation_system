@@ -7,8 +7,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.agent.core import Agent, AgentError
-from app.agent.providers import LLMProvider, get_llm_provider
-from app.agent.schemas import AgentRequest, ChatRequest, ChatResponse
+from app.agent.providers import LLMProvider, get_llm_provider, model_capabilities
+from app.agent.schemas import AgentRequest, ChatRequest, ChatResponse, ModelCapabilities
 from app.auth.dependencies import CurrentIdentity
 from app.infrastructure.config import get_settings
 from app.infrastructure.database import get_session
@@ -16,6 +16,11 @@ from app.observability.events import emit
 from app.providers.registry import ProviderRegistry, get_provider_registry
 
 router = APIRouter(prefix="/v1/agent", tags=["agent"])
+
+
+@router.get("/capabilities", response_model=ModelCapabilities)
+def capabilities(provider: Annotated[LLMProvider, Depends(get_llm_provider)]):
+    return model_capabilities(provider)
 
 
 def get_agent(session: Annotated[Session, Depends(get_session)],
