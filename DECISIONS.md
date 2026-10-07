@@ -1,5 +1,26 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-038: Progressive assistant recall and recording-bound attribute evidence
+
+**Status:** Accepted; implementation proceeds through the four ordered TODO tasks.
+**Date:** 2026-10-07
+
+Preserve deterministic recall orchestration and ranking weights. Missing listening metadata is
+unknown, not a negative fact. Structured, explicitly labelled model inference may supplement
+unknown language/vocals/feel for catalog-confirmed recordings, never override conflicting source
+evidence or invent precise measurements. This supersedes ADR-034's metadata-only constraint rule.
+
+Reuse an account/session-owned pool (150 candidates, 30-minute lifetime) for refinements; expand
+when fewer than the requested 1–10 qualify. Exclude shown songs for more-song follow-ups.
+Bound platform expansion and optional Brave clues to three platform rounds, two web queries,
+24 external operations and 45 seconds. Web clues must resolve to real provider recordings;
+no arbitrary page fetching or model-authored citations. Ordinary/deep deadlines are 90/120 seconds.
+An absent Brave key reports unavailable, never successful web verification. Existing native model
+search remains separately unavailable. Additive JSON/SSE fields expose reports and evidence.
+
+模型辅助属性属于推断，歌曲身份须由曲库核实；候选不足时扩搜，缺少密钥时诚实降级。
+No ranking-policy replacement, public deployment, credential purchase or legacy migration.
+
 ## ADR-037: Fixed conversation viewport with reader-controlled following
 
 **Status:** Accepted (approved fixed-chat plan)

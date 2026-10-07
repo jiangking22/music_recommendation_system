@@ -9,6 +9,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.domain.listening import AttributeEvidence
 from app.domain.music import (
     ProviderCapabilities,
     ProviderHealth,
@@ -51,6 +52,7 @@ class RecommendationItem(BaseModel):
     score: float
     score_breakdown: dict[str, float]
     provenance: list[ProviderSource]
+    attribute_evidence: list[AttributeEvidence] = Field(default_factory=list, max_length=10)
 
 
 class RecommendationResponse(BaseModel):

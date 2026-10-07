@@ -45,6 +45,7 @@ class DiscoveryResult:
     seed_track: Track | None
     seed_candidates: list[Track]
     seed_status: SeedStatus
+    candidates: list[RankedTrack] = field(default_factory=list)
 
 
 @dataclass
@@ -191,6 +192,7 @@ def finish_discovery(state: DiscoverySearch, resolution: SeedResolution | None =
     else:
         search = state.search
         candidates, ranked = [], []
+    recalled = ranked
     if constraints:
         ranked = [item for item in ranked if constraints.matches(item.track)]
     items = [replace(item, track=enrich_track(item.track)) for item in rerank_diverse(ranked, state.limit)]
@@ -198,7 +200,7 @@ def finish_discovery(state: DiscoverySearch, resolution: SeedResolution | None =
          source_count=len(search.sources), failed_sources=sum(bool(s.error) for s in search.sources.values()),
          personalized=state.personalized,
          latency_ms=round((perf_counter() - state.started) * 1000, 3))
-    return DiscoveryResult(items, search, resolution.track, resolution.candidates, resolution.status)
+    return DiscoveryResult(items, search, resolution.track, resolution.candidates, resolution.status, recalled)
 
 
 def discover(seed: str, limit: int, registry: ProviderRegistry,

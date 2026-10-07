@@ -2,6 +2,12 @@
 
 ## Purpose / 目标
 
+Progressive assistant discovery: task 1 implements match/mismatch/unknown listening constraints
+and bounded structured model assistance for catalog-confirmed recordings (ADR-038). Model
+evidence is exposed separately from Track metadata; explicit source conflicts cannot be overridden.
+Candidate persistence and automatic expanded recall remain pending in the ordered TODO tasks.
+曲库属性缺失进入未知状态；模型辅助属性明确标注为推断，不修改曲库元数据或评分。
+
 Account addition (implemented; verification recorded in docs/DEPLOYMENT.md): authenticated HTTP business access,
 PostgreSQL accounts/revocable sessions, Redis authentication limits and same-origin web transport.
 Account feedback/profiles replace anonymous device linkage for new requests. Assistant context

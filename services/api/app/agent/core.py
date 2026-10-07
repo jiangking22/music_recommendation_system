@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.agent.attribute_assistance import invoke_recommendation
 from app.agent.memory import Memory, MemoryError
 from app.agent.providers import (
     LLMProvider,
@@ -94,6 +95,8 @@ class Agent:
                         "tool": call.name}}
                     try:
                         output = await run_blocking(partial(invoke_tool, call, tools))
+                        if call.name == 'recommend_tracks':
+                            output = await invoke_recommendation(call, tools, provider, output)
                     except Exception:
                         traces.append(ToolTrace(name=call.name, status="error"))
                         emit("agent_tool", tool=call.name, status="error", level=logging.WARNING,

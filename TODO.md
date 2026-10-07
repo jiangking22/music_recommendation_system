@@ -1,5 +1,24 @@
 # TODO
 
+## Progressive assistant discovery / 音乐助手渐进检索（active）
+
+- [x] 1. Three-state listening attributes and labelled structured model assistance.
+- [ ] 2. Account/session candidate pool, expiry, refinements and unseen follow-ups.
+- [ ] 3. Bounded platform expansion, Brave clues with catalog verification and cancellation.
+- [ ] 4. Search/evidence UI, real runtime acceptance and current-state bilingual documentation.
+
+Approved 2026-10-07. Default five / maximum ten qualifying unique tracks; reuse at most 150
+candidates for 30 minutes, expand when insufficient, never fill constrained results with fixtures.
+Platform/source evidence takes precedence over labelled model inference; unknown is not mismatch.
+Search budget: three platform rounds, two Brave queries, 24 external operations, 45 seconds;
+ordinary/deep chat deadlines 90/120 seconds. Brave requires the existing environment key.
+Execute sequentially, failing tests first, one focused commit per item. Verification: API pytest,
+Ruff/compile, web tests/lint/types/build, live PostgreSQL/model/browser and legacy HTTP smoke.
+Task 1: 50 focused regressions pass after prior failing domain/adapter tests. Model assistance is
+bounded to 20 catalog-confirmed unknown recordings and 60 validated evidence rows. Source
+conflicts/version identity are enforced; model evidence cannot supply source URLs. Later tasks
+remain pending. Real Brave acceptance requires a key.
+
 ## Assistant expression and bounded chat / 曲风表达与固定聊天区
 
 - [x] 1. Qualitative music discussion, precise-fact boundaries and independent homepage rules.

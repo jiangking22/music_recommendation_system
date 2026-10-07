@@ -7,6 +7,7 @@ from app.agent.memory import Conversation, bounded_session
 from app.agent.schemas import EmptyInput, KnowledgeInput, RecommendInput, ToolCall
 from app.api.schemas import RecommendationItem
 from app.domain.listening import ListeningConstraints
+from app.domain.pipeline import RankedTrack
 from app.providers.registry import ProviderRegistry
 from app.rag.repository import retrieve
 from app.repository.feedback import load_profile
@@ -42,6 +43,7 @@ class ToolContext:
     sources: dict = field(default_factory=dict)
     citations: list = field(default_factory=list)
     explanation: str = ""
+    candidates: list[RankedTrack] = field(default_factory=list)
 
 
 def invoke_tool(call: ToolCall, context: ToolContext) -> dict:
@@ -75,6 +77,7 @@ def invoke_tool(call: ToolCall, context: ToolContext) -> dict:
         constraints = constraints.model_copy(update=updates)
         context.conversation.constraints = constraints
         result = discover(seed, args.limit, context.registry, profile, intent=intent, constraints=constraints)
+        context.candidates = result.candidates
         songs, search = result.items, result.search
         context.conversation.last_seed = seed
         context.conversation.last_intent = intent

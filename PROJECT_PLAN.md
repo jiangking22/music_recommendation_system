@@ -9,6 +9,17 @@ Kubernetes, complex DDD, and multi-Agent orchestration. Account registration is 
 post-release addition; see `docs/specs/account-login.md` and the five ordered TODO tasks.
 
 ## Legacy baseline
+## Approved post-release addition — progressive assistant discovery (2026-10-07)
+
+Implement the four ordered tasks at the top of TODO.md: three-state attribute evidence, bounded
+account/session candidate memory, platform/web expansion when insufficient, and visible verification.
+The deterministic service owns candidate selection and rank; model assistance provides structured
+queries and labelled attribute inference only. Up to 150 candidates expire after 30 minutes.
+Brave clues must resolve to real catalog recordings. Planned limits are 24 external operations /
+45 seconds and 90/120-second ordinary/deep requests. Existing legacy runtime remains supported.
+This section records approval, not implementation or live Brave availability.
+
+## Legacy baseline (preserved)
 
 The legacy application is a browser-side orchestration layer backed by a Python standard-library
 proxy. It already demonstrates multi-source recall, artist disambiguation, heuristic ranking,
