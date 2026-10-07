@@ -166,8 +166,8 @@ def test_followup_after_fallback_reuses_conversation_and_listening_theme(engine)
     assert not {item.id for item in second.recommended_tracks} & {item.id for item in first.recommended_tracks}
     assert second.recommended_tracks == []
     assert second.fallback_reason == "llm_unavailable"
-    assert len(registry.calls) == 2
-    assert registry.calls[0][0] == registry.calls[1][0]
+    assert len(registry.calls) == 4
+    assert registry.calls[0][0] != registry.calls[1][0]
     with Session(engine) as session:
         row = session.get(AccountConversation, str(first.conversation_id))
         assert [message["role"] for message in row.messages] == [
@@ -190,7 +190,7 @@ def test_explicit_mood_overrides_model_song_seed_with_the_same_title(engine):
     registry = CatalogRegistry([song("emo", "First"), song("emo", "Second")])
     response = chat(Agent(engine, registry, AnswerUnavailable("emo", "song")), "emo的歌")
     assert response.recommended_tracks
-    assert registry.calls == [("emo", 15)]
+    assert registry.calls == [("emo", 25)]
 
 
 def test_quoted_theme_word_is_a_song_and_followup_preserves_ambiguity(engine):
@@ -202,7 +202,7 @@ def test_quoted_theme_word_is_a_song_and_followup_preserves_ambiguity(engine):
     second = chat(agent, "再来几首", first.conversation_id)
     assert second.recommended_tracks == []
     assert "歌手" in second.answer
-    assert registry.calls == [("emo", 15), ("emo", 15)]
+    assert len(registry.calls) == 2 and all(limit == 25 for _, limit in registry.calls)
 
 
 @pytest.mark.parametrize("message", ["介绍emo音乐", "slow dancing in the dark", "安静 周杰伦"])
@@ -227,11 +227,13 @@ def test_screenshot_followup_understands_slow_style_in_basic_mode(engine):
     registry = CatalogRegistry()
     agent = Agent(engine, registry, PlanUnavailable())
     first = chat(agent, "缓慢的歌")
+    first_calls = len(registry.calls)
     second = chat(agent, "曲风缓慢的", first.conversation_id)
     assert second.recommended_tracks == []
     assert second.used_tools == []
     assert second.conversation_id == first.conversation_id
-    assert registry.calls[-1][0] == "calm"
+    assert registry.calls[0][0] == "calm"
+    assert len(registry.calls) == first_calls
     assert "知识库没有" not in second.answer
     assert "舒缓" in second.answer and "BPM" not in second.answer
 
@@ -267,8 +269,9 @@ def test_explain_previous_tracks_without_a_new_search_and_keep_grounded_context(
     registry = CatalogRegistry()
     agent = Agent(engine, registry, LocalLLMProvider())
     first = chat(agent, "缓慢的歌")
+    first_calls = len(registry.calls)
     second = chat(agent, "为什么推荐这些歌", first.conversation_id)
-    assert len(registry.calls) == 1
+    assert len(registry.calls) == first_calls
     assert second.used_tools == []
     assert first.recommended_tracks[0].title in second.answer
     assert "BPM" not in second.answer and "编曲测量" not in second.answer
@@ -290,11 +293,12 @@ def test_precise_bpm_question_does_not_repeat_old_recommendation_or_invent_measu
     registry = CatalogRegistry()
     agent = Agent(engine, registry, LocalLLMProvider())
     first = chat(agent, "缓慢的歌")
+    first_calls = len(registry.calls)
     response = chat(agent, message, first.conversation_id)
     assert "BPM" in response.answer and "数值" in response.answer
     assert first.recommended_tracks[0].title not in response.answer
     assert response.recommended_tracks == []
-    assert len(registry.calls) == 1
+    assert len(registry.calls) == first_calls
 
 
 @pytest.mark.parametrize("message", ["BPM 是什么意思？", "BPM是什么意思？"])
@@ -316,6 +320,7 @@ def test_direct_discussion_and_topic_change_do_not_force_recommendations(engine)
     registry = CatalogRegistry()
     agent = Agent(engine, registry, LocalLLMProvider())
     first = chat(agent, "缓慢的歌")
+    first_calls = len(registry.calls)
     second = chat(agent, "先不推荐，聊聊爵士和摇滚的区别", first.conversation_id)
     assert second.recommended_tracks == []
     assert second.used_tools == []
@@ -323,7 +328,7 @@ def test_direct_discussion_and_topic_change_do_not_force_recommendations(engine)
     third = chat(agent, "说不上来，我现在有点累", first.conversation_id)
     assert third.recommended_tracks == []
     assert "？" in third.answer
-    assert len(registry.calls) == 1
+    assert len(registry.calls) == first_calls
 
 
 def test_catalog_constraints_keep_original_scores_and_do_not_guess_from_titles():
@@ -347,6 +352,7 @@ def test_catalog_constraints_keep_original_scores_and_do_not_guess_from_titles()
 def test_remote_direct_answer_receives_previous_canonical_explanations_after_reload(engine):
     registry = CatalogRegistry()
     first = chat(Agent(engine, registry, LocalLLMProvider()), "缓慢的歌")
+    first_calls = len(registry.calls)
 
     class InspectContext(LocalLLMProvider):
         name = "openai_compatible"
@@ -359,4 +365,4 @@ def test_remote_direct_answer_receives_previous_canonical_explanations_after_rel
 
     second = chat(Agent(engine, registry, InspectContext()), "为什么推荐这些歌", first.conversation_id)
     assert second.used_tools == [] and second.recommended_tracks == []
-    assert len(registry.calls) == 1
+    assert len(registry.calls) == first_calls

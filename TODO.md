@@ -4,7 +4,7 @@
 
 - [x] 1. Three-state listening attributes and labelled structured model assistance.
 - [x] 2. Account/session candidate pool, expiry, refinements and unseen follow-ups.
-- [ ] 3. Bounded platform expansion, Brave clues with catalog verification and cancellation.
+- [x] 3. Bounded platform expansion, Brave clues with catalog verification and cancellation.
 - [ ] 4. Search/evidence UI, real runtime acceptance and current-state bilingual documentation.
 
 Approved 2026-10-07. Default five / maximum ten qualifying unique tracks; reuse at most 150
@@ -18,6 +18,12 @@ Task 1: 50 focused regressions pass after prior failing domain/adapter tests. Mo
 bounded to 20 catalog-confirmed unknown recordings and 60 validated evidence rows. Source
 conflicts/version identity are enforced; model evidence cannot supply source URLs. Later tasks
 remain pending. Real Brave acceptance requires a key.
+
+Task 2: 45 focused tests and PostgreSQL upgrade/downgrade SQL pass; migration 0009 adds JSON
+candidate memory independent of six-turn chat context. Task 3: 54 Agent/API/search regressions
+pass, including earlier failures, staged recall, partial/deadline results, operation cap, early stop,
+web recording-ID mismatch and cancellation. Brave snippets follow the official Web Search schema
+and never cause arbitrary page requests. Live Brave remains unverified without a configured key.
 
 ## Assistant expression and bounded chat / 曲风表达与固定聊天区
 

@@ -16,10 +16,14 @@ and ordering decision; the Agent selects tools and explains their results.
 Listening constraints distinguish unknown metadata from mismatches. Optional structured model
 assistance supplements catalog-confirmed tracks and appears as separate `attribute_evidence`;
 source conflicts override inference. Candidate pools reuse up to 150 records for 30 minutes and
-exclude previously shown songs for follow-ups; automatic multi-round expansion is the next task.
+exclude previously shown songs for follow-ups. Insufficient pools expand across existing catalogs
+and optional Brave clues, which must be verified against catalog identities. Requests share a
+24-operation/45-second discovery budget. Brave needs BRAVE_SEARCH_API_KEY; native model search
+is a separate unavailable capability. The results UI is updated in the final ordered task.
 
 聆听条件已区分未知属性与不匹配；模型辅助判断单独标注，不覆盖来源冲突。
-候选池可复用 30 分钟，“再来几首”排除已展示歌曲；多轮扩搜仍待第三项，网页搜索未配置。
+候选池可复用 30 分钟，“再来几首”排除已展示歌曲；不足时自动多轮曲库扩搜，网页线索须回曲库核实。
+检索最多 24 次外部调用、45 秒；Brave 须配置环境密钥，当前主机未配置。结果 UI 随第四项更新。
 
 Sonora **v1.0.0** uses the [MIT License](LICENSE), copyright 2026 jiangking22.
 API, web and OpenAPI application metadata are version **1.0.0**.

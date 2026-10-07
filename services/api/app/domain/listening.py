@@ -13,6 +13,8 @@ VOCALS = {
     "instrumental": {"instrumental", "instrumental music", "纯音乐", "器乐", "伴奏", "karaoke"},
     "vocal": {"vocal", "vocals", "vocal music", "人声", "带人声"},
 }
+FEELS = {'calm': {'calm', 'soft', 'mellow', 'relaxing', '舒缓', '松弛'},
+         'sad': {'sad', 'emo', '伤感'}, 'energetic': {'energetic', 'upbeat', '活力'}}
 
 class AttributeEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -35,6 +37,7 @@ class ListeningConstraints(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     language: Literal["zh", "en"] | None = None
     vocals: Literal["vocal", "instrumental"] | None = None
+    feel: Literal['calm', 'sad', 'energetic'] | None = None
 
     def assess(self, track: Track, evidence: list[AttributeEvidence] | None = None) -> Literal["match", "mismatch", "unknown"]:
         labels = {normalize_text(value) for value in (*track.tags, *track.genres)}
@@ -43,7 +46,7 @@ class ListeningConstraints(BaseModel):
         for attribute, wanted in self.model_dump().items():
             if wanted is None:
                 continue
-            vocabulary = LANGUAGES if attribute == "language" else VOCALS
+            vocabulary = LANGUAGES if attribute == "language" else VOCALS if attribute == 'vocals' else FEELS
             values = {value for value, aliases in vocabulary.items() if labels & aliases or (
                 attribute == "language" and language in aliases)}
             if attribute == "language" and language and not values:

@@ -11,7 +11,6 @@ from pydantic import ValidationError
 from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.agent.attribute_assistance import invoke_recommendation
 from app.agent.memory import Memory, MemoryError
 from app.agent.providers import (
     LLMProvider,
@@ -24,6 +23,7 @@ from app.agent.tools import TOOL_INPUTS, ToolContext, invoke_tool, tool_schemas
 from app.infrastructure.workers import run_blocking
 from app.observability.events import emit
 from app.providers.registry import ProviderRegistry
+from app.services.progressive_search import progressive_recommendation
 
 _agent_slots = WeakKeyDictionary()
 DEEP_TIMEOUT_SECONDS = 120
@@ -37,7 +37,7 @@ class AgentError(Exception):
 
 class Agent:
     def __init__(self, engine: Engine, registry: ProviderRegistry, provider: LLMProvider,
-                 timeout_seconds: float = 30) -> None:
+                 timeout_seconds: float = 90) -> None:
         self.engine, self.registry, self.provider = engine, registry, provider
         self.timeout_seconds = timeout_seconds
 
@@ -85,7 +85,7 @@ class Agent:
                         names.index("explain_recommendation") < names.index("recommend_tracks")):
                     raise AgentError("invalid_model_output")
                 tools = ToolContext(self.engine, self.registry, request.user_id, conversation,
-                                    message=request.message)
+                                    message=request.message, defer_recall=True)
                 results = []
                 for call in plan.calls:
                     started = perf_counter()
@@ -96,7 +96,11 @@ class Agent:
                     try:
                         output = await run_blocking(partial(invoke_tool, call, tools))
                         if call.name == 'recommend_tracks':
-                            output = await invoke_recommendation(call, tools, provider, output)
+                            async for progress in progressive_recommendation(call, tools, provider, output):
+                                if 'output' in progress:
+                                    output = progress['output']
+                                else:
+                                    yield {'event': 'status', 'data': progress}
                     except Exception:
                         traces.append(ToolTrace(name=call.name, status="error"))
                         emit("agent_tool", tool=call.name, status="error", level=logging.WARNING,
@@ -128,7 +132,8 @@ class Agent:
                                         thinking_mode="basic" if provider.name == "local" else "deep" if deep else "standard",
                                         thinking_unavailable_reason=(fallback_reason or "unsupported")
                                         if request.deep_thinking and (provider.name == "local" or not deep) else None,
-                                        native_search=model_capabilities(provider).native_search)
+                                        native_search=model_capabilities(provider).native_search,
+                                        search_report=tools.search_report, web_references=tools.web_references)
                 await run_blocking(lambda: memory.save(request, conversation, answer.answer))
                 yield {"event": "status", "data": {"stage": "complete", "label": "返回结果"}}
                 yield {"event": "done", "data": response.model_dump(mode="json")}

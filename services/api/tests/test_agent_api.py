@@ -106,8 +106,10 @@ def test_sse_has_public_statuses_and_one_terminal_result(client, caplog):
     blocks = response.text.strip().split("\n\n")
     events = [(block.splitlines()[0][7:], json.loads(block.splitlines()[1][6:])) for block in blocks]
     assert events[0] == ("status", {"stage": "analyzing", "label": "分析需求"})
-    assert [data["stage"] for name, data in events if name == "status"] == [
+    stages = [data['stage'] for name, data in events if name == 'status']
+    assert [stage for stage in stages if stage not in ('filtering', 'catalog_search', 'verifying', 'web_search')] == [
         "analyzing", "preferences", "tool", "tool", "tool", "composing", "complete"]
+    assert 'filtering' in stages and 'catalog_search' in stages and 'verifying' in stages
     assert [name for name, data in events].count("done") == 1
     assert events[-1][1]["recommended_tracks"]
     assert "reasoning" not in response.text

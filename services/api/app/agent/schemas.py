@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from app.api.schemas import RecommendationItem
+from app.api.schemas import RecommendationItem, SearchAttempt
 from app.domain.listening import ListeningConstraints
 from app.domain.music import ProviderResult
 from app.rag.schemas import Citation
@@ -39,6 +39,7 @@ class RecommendInput(StrictModel):
     intent: Literal["auto", "theme", "song"] = "auto"
     constraints: ListeningConstraints | None = None
     refinement: bool = False
+    queries: list[Query] = Field(default_factory=list, max_length=3)
 
 
 class KnowledgeInput(StrictModel):
@@ -75,6 +76,24 @@ class ModelCapabilities(StrictModel):
     native_search: NativeSearchState
 
 
+class AgentSearchReport(StrictModel):
+    requested: int = Field(ge=1, le=10)
+    returned: int = Field(ge=0, le=10)
+    reused: bool = False
+    expanded: bool = False
+    external_requests: int = Field(default=0, ge=0, le=24)
+    web_search: Literal['not_configured', 'not_needed', 'used', 'error'] = 'not_configured'
+    end_reason: Literal['enough', 'insufficient_matches', 'insufficient_evidence', 'upstream_failure',
+                        'deadline', 'budget_exhausted', 'ambiguous'] = 'insufficient_matches'
+    attempts: list[SearchAttempt] = Field(default_factory=list, max_length=24)
+
+
+class WebReference(StrictModel):
+    title: str = Field(max_length=200)
+    url: str = Field(max_length=2000)
+    track_ids: list[str] = Field(max_length=25)
+
+
 class ChatResponse(BaseModel):
     conversation_id: UUID
     answer: str
@@ -88,3 +107,5 @@ class ChatResponse(BaseModel):
     thinking_mode: Literal["basic", "standard", "deep"] = "standard"
     thinking_unavailable_reason: Literal["unsupported", "llm_unavailable"] | None = None
     native_search: NativeSearchState = Field(default_factory=lambda: NativeSearchState(reason="unverified"))
+    search_report: AgentSearchReport | None = None
+    web_references: list[WebReference] = Field(default_factory=list, max_length=10)

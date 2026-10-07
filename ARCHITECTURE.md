@@ -8,7 +8,12 @@ evidence is exposed separately from Track metadata; explicit source conflicts ca
 Task 2 adds a bounded JSON search_state column to account_conversations (migration 0009).
 It keeps canonical candidates/evidence/query records independently of the six-turn model history,
 reuses fresh qualifying candidates, and excludes session-shown songs for more-song requests.
-Automatic multi-round expanded recall remains pending in task 3.
+Task 3 implements deterministic asynchronous recall stages: up to three distinct platform rounds,
+optional TW/HK search, exact MusicBrainz metadata and up to two Brave queries. Provider/attribute/
+web-clue calls share a 24-operation/45-second budget. Results are merged then ranked by existing
+policy, with partial counts/reasons and verified web references returned additively in JSON/SSE.
+Cancellation prevents scheduling additional operations; an in-flight synchronous request may finish.
+Ordinary/deep request deadlines are 90/120 seconds. No Brave key is configured on this host.
 曲库属性缺失进入未知状态；模型辅助属性明确标注为推断，不修改曲库元数据或评分。
 
 Account addition (implemented; verification recorded in docs/DEPLOYMENT.md): authenticated HTTP business access,

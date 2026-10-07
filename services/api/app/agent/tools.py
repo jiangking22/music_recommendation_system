@@ -11,11 +11,19 @@ from app.agent.intents import (
     theme_seed,
 )
 from app.agent.memory import Conversation, bounded_session
-from app.agent.schemas import EmptyInput, KnowledgeInput, RecommendInput, ToolCall
+from app.agent.schemas import (
+    AgentSearchReport,
+    EmptyInput,
+    KnowledgeInput,
+    RecommendInput,
+    ToolCall,
+    WebReference,
+)
 from app.api.schemas import RecommendationItem
 from app.domain.artist_names import enrich_track
 from app.domain.listening import ListeningConstraints
 from app.domain.pipeline import RankedTrack, rerank_diverse
+from app.domain.profile import PreferenceProfile
 from app.providers.registry import ProviderRegistry
 from app.rag.repository import retrieve
 from app.repository.feedback import load_profile
@@ -56,6 +64,10 @@ class ToolContext:
     pool: CandidatePool = field(default_factory=CandidatePool)
     more: bool = False
     requested: int = 5
+    defer_recall: bool = False
+    profile: PreferenceProfile = field(default_factory=PreferenceProfile)
+    search_report: AgentSearchReport | None = None
+    web_references: list[WebReference] = field(default_factory=list)
 
 
 def invoke_tool(call: ToolCall, context: ToolContext) -> dict:
@@ -63,6 +75,7 @@ def invoke_tool(call: ToolCall, context: ToolContext) -> dict:
     if call.name == "get_user_profile":
         with bounded_session(context.engine) as session:
             profile = load_profile(session, context.user_id)
+        context.profile = profile
         parts = []
         for label, values in (("歌手", profile.artist_affinity), ("流派", profile.genre_affinity),
                               ("标签", profile.tag_affinity), ("语言", profile.language_affinity)):
@@ -74,6 +87,7 @@ def invoke_tool(call: ToolCall, context: ToolContext) -> dict:
     if call.name == "recommend_tracks":
         with bounded_session(context.engine) as session:
             profile = load_profile(session, context.user_id)
+        context.profile = profile
         theme = theme_seed(context.message)
         seed, intent = (theme, "theme") if theme else (args.seed, args.intent)
         song = quoted_song(context.message)
@@ -99,7 +113,7 @@ def invoke_tool(call: ToolCall, context: ToolContext) -> dict:
         existing = [s for s in context.candidates if constraints.matches(s.track, pool.evidence)
                     and (not context.more or s.key not in pool.shown)]
         result = None
-        if len(existing) < context.requested:
+        if len(existing) < context.requested and not context.defer_recall:
             result = discover(seed, context.requested, context.registry, profile, intent=intent, constraints=constraints)
             pool.merge(result.candidates, result.search.sources)
             pool.seed_track = result.seed_track

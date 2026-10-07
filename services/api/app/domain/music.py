@@ -77,3 +77,9 @@ class ProviderHealth(BaseModel):
 class SearchResult(BaseModel):
     tracks: list[Track]
     sources: dict[str, ProviderResult]
+
+
+class WebClue(BaseModel):
+    title: str = Field(max_length=200)
+    url: str = Field(min_length=1, max_length=2000)
+    description: str = Field(default='', max_length=700)
