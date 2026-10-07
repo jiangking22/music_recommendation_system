@@ -2,10 +2,11 @@ from dataclasses import dataclass, field
 
 from sqlalchemy import Engine
 
-from app.agent.intents import is_followup, quoted_song, theme_seed
+from app.agent.intents import is_followup, preference_updates, quoted_song, theme_seed
 from app.agent.memory import Conversation, bounded_session
 from app.agent.schemas import EmptyInput, KnowledgeInput, RecommendInput, ToolCall
 from app.api.schemas import RecommendationItem
+from app.domain.listening import ListeningConstraints
 from app.providers.registry import ProviderRegistry
 from app.rag.repository import retrieve
 from app.repository.feedback import load_profile
@@ -19,7 +20,7 @@ TOOL_INPUTS = {
 }
 DESCRIPTIONS = {
     "get_user_profile": "Read authenticated account musical preferences; accepts no device override.",
-    "recommend_tracks": "Call deterministic recommender. Use theme intent for mood/tempo/genre, song for a recording. Preserves scores and ordering.",
+    "recommend_tracks": "Call deterministic recommender. Use theme for mood/tempo/genre, song for a recording. Optional language/vocal constraints require catalog metadata; never guess. Preserves ranking policy.",
     "search_music_knowledge": "Retrieve small local music knowledge with citations.",
     "explain_recommendation": "Explain already returned tracks using measured factors and knowledge.",
 }
@@ -66,7 +67,14 @@ def invoke_tool(call: ToolCall, context: ToolContext) -> dict:
             seed, intent = song, "song"
         if is_followup(context.message) and context.conversation.last_seed:
             seed, intent = context.conversation.last_seed, context.conversation.last_intent
-        result = discover(seed, args.limit, context.registry, profile, intent=intent)
+        updates = preference_updates(context.message)
+        refine = is_followup(context.message) or bool(updates)
+        if updates and context.conversation.last_seed:
+            seed, intent = context.conversation.last_seed, context.conversation.last_intent
+        constraints = args.constraints or (context.conversation.constraints if refine else ListeningConstraints())
+        constraints = constraints.model_copy(update=updates)
+        context.conversation.constraints = constraints
+        result = discover(seed, args.limit, context.registry, profile, intent=intent, constraints=constraints)
         songs, search = result.items, result.search
         context.conversation.last_seed = seed
         context.conversation.last_intent = intent
@@ -76,10 +84,18 @@ def invoke_tool(call: ToolCall, context: ToolContext) -> dict:
                                              score_breakdown=s.score_breakdown, provenance=list(s.provenance))
                          for s in songs]
         # LLM receives only explanation material, never full upstream result payloads.
-        output = {"items": [{"title": i.title, "artist": i.artist, "explanation": i.explanation}
+        output = {"items": [{"title": i.title, "artist": i.artist, "explanation": i.explanation,
+                             "language": i.track.language, "genres": i.track.genres[:5], "tags": i.track.tags[:5]}
                             for i in context.items],
+                  "constraints": constraints.model_dump(),
+                  "missing_measurements": ["bpm", "arrangement"],
                   "partial_sources": any(s.error for s in search.sources.values())}
-        if not context.items:
+        context.conversation.recommendation_context = [
+            {"title": i.title, "artist": i.artist, "explanation": i.explanation,
+             "score_breakdown": i.score_breakdown} for i in context.items]
+        if not context.items and intent == "theme" and any(constraints.model_dump().values()):
+            output["empty_reason"] = "catalog_metadata_cannot_verify_constraints"
+        elif not context.items:
             output.update(seed_status=result.seed_status, seed_candidates=[
                 {"title": track.title, "artist": track.artist.name}
                 for track in result.seed_candidates[:5]])

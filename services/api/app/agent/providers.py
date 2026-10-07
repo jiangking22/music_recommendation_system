@@ -8,8 +8,19 @@ from urllib.parse import urlsplit
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.agent.intents import is_followup, quoted_song, theme_seed
-from app.agent.prompts import ANSWER_PROMPT, PLAN_PROMPT, SEED_PROMPT
+from app.agent.intents import (
+    is_discussion,
+    is_followup,
+    preference_updates,
+    quoted_song,
+    theme_seed,
+)
+from app.agent.prompts import (
+    ANSWER_PROMPT,
+    CHAT_ANSWER_PROMPT,
+    PLAN_PROMPT,
+    SEED_PROMPT,
+)
 from app.infrastructure.config import get_settings
 from app.observability.events import correlation_headers, emit
 
@@ -36,15 +47,20 @@ class LocalLLMProvider:
 
     async def plan(self, context: dict, tools: list[dict]) -> dict:
         message = context["message"].lower()
+        if is_discussion(message):
+            return {"calls": []}
         theme = theme_seed(message)
         song = quoted_song(message)
-        recommendation = theme is not None or song is not None or is_followup(message) or any(word in message for word in (
+        updates = preference_updates(message)
+        recommendation = theme is not None or song is not None or bool(updates) or is_followup(message) or any(word in message for word in (
             "推荐", "听什么", "再来", "recommend", "playlist", "more like", "more songs"))
         if not recommendation:
-            return {"calls": [{"name": "search_music_knowledge", "arguments": {"query": message[:120]}}]}
+            if any(word in message for word in ("介绍", "了解", "什么是", "who", "what is", "tell me about")):
+                return {"calls": [{"name": "search_music_knowledge", "arguments": {"query": message[:120]}}]}
+            return {"calls": []}
         seed = theme or song or message[:120]
         intent = "theme" if theme else "song" if song else "auto"
-        if is_followup(message):
+        if is_followup(message) or updates:
             seed = context.get("last_seed") or "calm jazz"
             intent = context.get("last_intent", "auto") if context.get("last_seed") else "theme"
         return {"calls": [
@@ -59,6 +75,12 @@ class LocalLLMProvider:
         if recommendation is not None:
             count = len(recommendation["output"]["items"])
             if not count:
+                constraints = recommendation["output"].get("constraints", {})
+                if any(constraints.values()):
+                    wants = "、".join(value for value in (
+                        {"zh": "华语", "en": "英语"}.get(constraints.get("language")),
+                        {"vocal": "带人声", "instrumental": "纯音乐"}.get(constraints.get("vocals"))) if value)
+                    return {"answer": f"记住了你想听{wants}。当前曲库资料不足，暂时没有能确认满足这些条件的曲目。你有偏好的歌手或参考歌曲吗？"}
                 candidates = recommendation["output"].get("seed_candidates", [])
                 if candidates:
                     artists = "、".join(dict.fromkeys(item["artist"] for item in candidates))
@@ -68,7 +90,17 @@ class LocalLLMProvider:
         knowledge = next((r["output"]["citations"] for r in results
                           if r["name"] == "search_music_knowledge"), [])
         if not knowledge:
-            return {"answer": "本地知识库没有相关资料。复杂问题可稍后重试，也可以试试介绍周杰伦、爵士乐或《叶惠美》。"}
+            message = context["message"].casefold()
+            previous = context.get("last_recommendation", [])
+            if previous and any(word in message for word in ("为什么", "为何", "解释", "why", "explain")):
+                factors = "；".join(f"{item['title']}：{item['explanation']}" for item in previous[:5])
+                return {"answer": (f"上一轮的匹配依据是：{factors}。这些是推荐器已有的匹配因素，曲库没有 BPM 或编曲测量，"
+                                   "因此不能据此确认实际节奏快慢。你更在意速度慢，还是听感柔和？")[:2000]}
+            if "爵士" in message and "摇滚" in message:
+                return {"answer": "一般听感上，爵士常重视即兴、切分与和声变化；摇滚常突出节拍、吉他和能量。这是一般风格描述，具体作品也会交叉。你偏爱松弛的律动，还是更有力量的节奏？"}
+            if any(word in message for word in ("有点累", "心情", "难过", "疲惫")):
+                return {"answer": "听起来你想让自己缓一缓。我们可以先从听感聊起：你希望音乐陪着情绪，还是帮助你放松下来？"}
+            return {"answer": "我们可以继续聊听歌感受、风格或选择依据。当前基础模式能查询的作品资料有限；你想先聊哪种风格，或者补充一位喜欢的歌手？"}
         return {"answer": "本地知识库：\n" + "\n".join(f"{c['title']}：{c['text']}" for c in knowledge)}
 
 
@@ -131,9 +163,10 @@ class OpenAICompatibleProvider:
 
     async def _request(self, prompt: str, data: dict, usage: dict) -> dict:
         deep = self.supports_deep_thinking and data.get("context", {}).get("deep_thinking") is True
+        text_answer = data.get("context", {}).get("task") == "conversation" and "results" in data
         request_body = {
             "model": self.model, "max_tokens": 8192 if deep else 1200,
-            "response_format": {"type": "json_object"},
+            "response_format": {"type": "text" if text_answer else "json_object"},
             "messages": [{"role": "system", "content": prompt},
                          {"role": "user", "content": json.dumps(data, ensure_ascii=False)}],
         }
@@ -163,6 +196,8 @@ class OpenAICompatibleProvider:
             value = (payload.usage or {}).get(key)
             if type(value) is int and 0 <= value <= 1_000_000_000:
                 usage[key] = value
+        if text_answer:
+            return {"answer": payload.choices[0].message.content}
         value = json.loads(payload.choices[0].message.content)
         if not isinstance(value, dict):
             raise TypeError("Expected structured LLM output")
@@ -172,7 +207,8 @@ class OpenAICompatibleProvider:
         return await self._complete(PLAN_PROMPT, {"context": context, "tools": tools})
 
     async def answer(self, context: dict, results: list[dict]) -> dict:
-        return await self._complete(ANSWER_PROMPT, {"context": context, "results": results})
+        prompt = CHAT_ANSWER_PROMPT if context.get("task") == "conversation" else ANSWER_PROMPT
+        return await self._complete(prompt, {"context": context, "results": results})
 
     async def identify_seed(self, context: dict) -> dict:
         return await self._complete(SEED_PROMPT, {"context": context}, "identify_seed")

@@ -300,13 +300,15 @@ No migration or recommendation policy change was needed.
 `app/agent/` separates `core.py`, `tools.py`, `memory.py`, `prompts.py`, `schemas.py`, and
 `providers.py`. API routes only validate and transport chat. `LLMProvider` is a replaceable
 planning/answer interface. The local provider is a deterministic bilingual intent router, not
-a model; the OpenAI-compatible adapter uses bounded Chat Completions JSON requests, validates
-payloads and then validates the plan/answer schemas. No Key defaults to the local provider.
+a model; the OpenAI-compatible adapter uses bounded Chat Completions JSON plans and seed/guidance
+outputs. Conversation prose uses plain text wrapped into the canonical Answer by the adapter,
+avoiding model-authored JSON escaping/extra-field errors; transport, completion status and answer
+length remain validated. No Key defaults to the local provider.
 Requests to the official `api.deepseek.com` host disable thinking by default. Assistant chat
 opts in through `ChatRequest.deep_thinking=false|true`; only chat plan/answer context enables
 thinking, leaving homepage seed identification and guidance on the original budget. Responses
 report `thinking_mode=basic|standard|deep` and an optional `thinking_unavailable_reason`.
-JSON output mode and strict response validation remain enabled.
+JSON plans/identification and strict response validation remain enabled.
 Real model quality/compatibility is not inferred from mocked transport tests.
 
 Assistant reliability (2026-10-06): the shared model adapter uses an explicit system-trust SSL
@@ -351,7 +353,15 @@ flowchart LR
 | `search_music_knowledge` | query ≤120 chars, limit 1–5 | cited knowledge chunks with document ID, category, text and retrieval score |
 | `explain_recommendation` | empty object, after recommend | measured recommendation factors plus separately marked general listening guidance |
 
-One validated plan has 1–4 distinct calls, executed sequentially; there is no replanning loop.
+One validated plan has 0–4 distinct calls, executed sequentially; there is no replanning loop.
+Zero calls allow direct discussion, clarifications and explanation of previous canonical tracks.
+Last successful recommendation factors and optional language/vocal constraints live in existing
+conversation JSON alongside six turns; no schema migration or durable preference learning.
+Only supplied language/tags/genres can verify constraints; unknown metadata is excluded, with
+an honest no-match answer. The deterministic core filters candidates before its existing diversity
+step without changing scores or policy. A fresh listening request clears prior constraints;
+refinements preserve them. General listening concepts are allowed without citations, while
+specific music facts require tool evidence. Raw model reasoning is never conversation memory.
 The default whole-turn deadline is 30 seconds (configurable 1–60), with at most four active
 Agent requests per event loop. Excess requests receive `agent_busy`. Synchronous jobs also
 have four slots retained until completion after cancellation; provider adapters retain their

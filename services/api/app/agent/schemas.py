@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.api.schemas import RecommendationItem
+from app.domain.listening import ListeningConstraints
 from app.domain.music import ProviderResult
 from app.rag.schemas import Citation
 
@@ -36,6 +37,7 @@ class RecommendInput(StrictModel):
     seed: Query
     limit: int = Field(default=5, ge=1, le=10)
     intent: Literal["auto", "theme", "song"] = "auto"
+    constraints: ListeningConstraints | None = None
 
 
 class KnowledgeInput(StrictModel):
@@ -49,7 +51,7 @@ class ToolCall(StrictModel):
 
 
 class Plan(StrictModel):
-    calls: list[ToolCall] = Field(min_length=1, max_length=4)
+    calls: list[ToolCall] = Field(min_length=0, max_length=4)
 
 
 class Answer(StrictModel):

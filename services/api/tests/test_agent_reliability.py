@@ -222,3 +222,102 @@ def test_successful_theme_tool_does_not_claim_song_resolution_failed(engine):
             return await super().answer(context, results)
 
     assert chat(Agent(engine, CatalogRegistry(), InspectAnswer()), "缓慢的歌").recommended_tracks
+
+
+def test_screenshot_followup_understands_slow_style_in_basic_mode(engine):
+    registry = CatalogRegistry()
+    agent = Agent(engine, registry, PlanUnavailable())
+    first = chat(agent, "缓慢的歌")
+    second = chat(agent, "曲风缓慢的", first.conversation_id)
+    assert second.recommended_tracks
+    assert second.conversation_id == first.conversation_id
+    assert registry.calls[-1][0] == "calm"
+    assert "知识库没有" not in second.answer
+
+
+def test_refined_language_and_vocals_use_metadata_and_persist_until_new_request(engine):
+    tracks = [song("Quiet Voice", "Singer", ("calm", "vocal", "mandopop")),
+              song("Quiet Piano", "Pianist", ("calm", "instrumental", "mandopop")),
+              song("Unknown Song", "Unknown", ("calm",)),
+              song("English Voice", "Other", ("calm", "vocal"))]
+    tracks[0].language = tracks[1].language = "zh"
+    tracks[3].language = "en"
+    agent = Agent(engine, CatalogRegistry(tracks), LocalLLMProvider())
+    first = chat(agent, "缓慢的歌")
+    second = chat(agent, "不要纯音乐", first.conversation_id)
+    assert {item.title for item in second.recommended_tracks} == {"Quiet Voice", "English Voice"}
+    third = chat(agent, "偏华语一点", first.conversation_id)
+    assert [item.title for item in third.recommended_tracks] == ["Quiet Voice"]
+    fourth = chat(agent, "再来几首", first.conversation_id)
+    assert [item.title for item in fourth.recommended_tracks] == ["Quiet Voice"]
+    new = chat(agent, "摇滚的歌", first.conversation_id)
+    assert len(new.recommended_tracks) > 1
+
+
+def test_unknown_metadata_is_not_claimed_to_satisfy_vocal_requirement(engine):
+    agent = Agent(engine, CatalogRegistry([song("Unknown", "Artist")]), LocalLLMProvider())
+    first = chat(agent, "缓慢的歌")
+    second = chat(agent, "不要纯音乐", first.conversation_id)
+    assert second.recommended_tracks == []
+    assert "人声" in second.answer and "确认" in second.answer
+
+
+def test_explain_previous_tracks_without_a_new_search_and_keep_grounded_context(engine):
+    registry = CatalogRegistry()
+    agent = Agent(engine, registry, LocalLLMProvider())
+    first = chat(agent, "缓慢的歌")
+    second = chat(agent, "为什么推荐这些歌", first.conversation_id)
+    assert len(registry.calls) == 1
+    assert second.used_tools == []
+    assert first.recommended_tracks[0].title in second.answer
+    assert "BPM" in second.answer
+
+
+def test_direct_discussion_and_topic_change_do_not_force_recommendations(engine):
+    registry = CatalogRegistry()
+    agent = Agent(engine, registry, LocalLLMProvider())
+    first = chat(agent, "缓慢的歌")
+    second = chat(agent, "先不推荐，聊聊爵士和摇滚的区别", first.conversation_id)
+    assert second.recommended_tracks == []
+    assert second.used_tools == []
+    assert "爵士" in second.answer and "知识库没有" not in second.answer
+    third = chat(agent, "说不上来，我现在有点累", first.conversation_id)
+    assert third.recommended_tracks == []
+    assert "？" in third.answer
+    assert len(registry.calls) == 1
+
+
+def test_catalog_constraints_keep_original_scores_and_do_not_guess_from_titles():
+    from app.domain.listening import ListeningConstraints
+
+    tracks = [song("中文标题", "Chinese Named Artist", ("calm",)),
+              song("Soft Voice", "Singer", ("calm", "vocal")),
+              song("Another Voice", "Other", ("vocal",))]
+    tracks[1].language = "zh"
+    tracks[2].language = "Mandarin"
+    result = discover("calm", 5, CatalogRegistry(tracks), intent="theme",
+                      constraints=ListeningConstraints(language="zh", vocals="vocal"))
+    expected = {item.key: item for item in rank(deduplicate(tracks + local_catalog()),
+                                               "calm", PreferenceProfile())}
+    assert {item.track.title for item in result.items} == {"Soft Voice", "Another Voice"}
+    for item in result.items:
+        assert item.score == expected[item.key].score
+        assert item.score_breakdown == expected[item.key].score_breakdown
+
+
+def test_remote_direct_answer_receives_previous_canonical_explanations_after_reload(engine):
+    registry = CatalogRegistry()
+    first = chat(Agent(engine, registry, LocalLLMProvider()), "缓慢的歌")
+
+    class InspectContext(LocalLLMProvider):
+        name = "openai_compatible"
+
+        async def plan(self, context, tools):
+            assert context["last_recommendation"][0]["title"] == first.recommended_tracks[0].title
+            assert context["last_recommendation"][0]["score_breakdown"] == first.recommended_tracks[0].score_breakdown
+            assert [entry["role"] for entry in context["history"]] == ["user", "assistant"]
+            return {"calls": []}
+
+    second = chat(Agent(engine, registry, InspectContext()), "为什么推荐这些歌", first.conversation_id)
+    assert second.used_tools == [] and second.recommended_tracks == []
+    assert len(registry.calls) == 1

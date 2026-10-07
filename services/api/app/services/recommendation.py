@@ -13,6 +13,7 @@ from app.domain.discovery import (
     resolve_seed,
     title_matches_query,
 )
+from app.domain.listening import ListeningConstraints
 from app.domain.music import (
     Artist,
     ProviderResult,
@@ -170,7 +171,7 @@ def _recording_candidates(tracks: list[Track]) -> list[Candidate]:
 
 
 def finish_discovery(state: DiscoverySearch, resolution: SeedResolution | None = None,
-                     *, allow_theme: bool = False) -> DiscoveryResult:
+                     *, allow_theme: bool = False, constraints: ListeningConstraints | None = None) -> DiscoveryResult:
     resolution = resolution or state.resolution
 
     if resolution.track is not None:
@@ -190,6 +191,8 @@ def finish_discovery(state: DiscoverySearch, resolution: SeedResolution | None =
     else:
         search = state.search
         candidates, ranked = [], []
+    if constraints:
+        ranked = [item for item in ranked if constraints.matches(item.track)]
     items = [replace(item, track=enrich_track(item.track)) for item in rerank_diverse(ranked, state.limit)]
     emit("recommendation", candidate_count=len(candidates), result_count=len(items),
          source_count=len(search.sources), failed_sources=sum(bool(s.error) for s in search.sources.values()),
@@ -200,19 +203,24 @@ def finish_discovery(state: DiscoverySearch, resolution: SeedResolution | None =
 
 def discover(seed: str, limit: int, registry: ProviderRegistry,
              profile: PreferenceProfile | None = None, seed_artist: str | None = None, *,
-             intent: Literal["auto", "theme", "song"] = "auto") -> DiscoveryResult:
+             intent: Literal["auto", "theme", "song"] = "auto",
+             constraints: ListeningConstraints | None = None) -> DiscoveryResult:
     if intent not in ("auto", "theme", "song"):
         raise ValueError("invalid discovery intent")
     if intent == "theme" and not seed_artist:
         state = DiscoverySearch(seed, limit, registry, profile or PreferenceProfile(), None,
                                 SeedResolution(None, [], "unresolved"), personalized=profile is not None)
-        state.query(seed)
-        return finish_discovery(state, allow_theme=True)
+        hints = ("华语" if constraints and constraints.language == "zh" else
+                 "english" if constraints and constraints.language == "en" else "")
+        vocals = ("vocal" if constraints and constraints.vocals == "vocal" else
+                  "instrumental" if constraints and constraints.vocals == "instrumental" else "")
+        state.query(" ".join(value for value in (seed, hints, vocals) if value))
+        return finish_discovery(state, allow_theme=True, constraints=constraints)
     state = begin_discovery(seed, limit, registry, profile, seed_artist)
     resolution = state.resolution
     theme = intent != "song" and not (
         resolution.title_matches or original_hint(seed, seed_artist) or seed_artist)
-    return finish_discovery(state, allow_theme=theme)
+    return finish_discovery(state, allow_theme=theme, constraints=constraints)
 
 
 def recommend(seed: str, limit: int, registry: ProviderRegistry,

@@ -35,6 +35,14 @@ keeps its existing non-thinking budget. Raw model reasoning is not returned, sto
 可点击“停止”取消。接口不支持或模型故障时明确显示实际模式；首页识曲保持原预算。
 仅展示回答、依据和工具进度，模型原始思考不返回、不入库、不写日志。
 
+Follow-ups combine the latest correction with six recent turns. Discussion and explanations
+of earlier recommendations can answer without a fresh playlist. Language/vocal refinements use
+explicit catalog metadata; insufficient evidence yields a clarification instead of guessed matches.
+General music concepts may use model knowledge; specific recording facts require supplied evidence.
+
+连续追问结合最近六轮与最新补充；聊风格、心情或解释上一轮推荐时可直接回答。华语、人声等条件
+只按曲库明确资料筛选，资料不足时说明无法确认并追问。一般音乐概念可交流，具体作品事实须有依据。
+
 Historical captures below predate account login and use the offline fixture catalog and local rule-based assistant, with a
 temporary SQLite test database. They do not verify Docker/PostgreSQL or live providers/LLMs.
 截图来自真实运行页面：离线固定曲库、本地规则助手、临时 SQLite 测试库；不代表容器、PostgreSQL 或真实来源/模型验证。

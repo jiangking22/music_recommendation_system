@@ -1,5 +1,29 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-034: Contextual dialogue and metadata-backed listening refinements
+
+**Status:** Accepted (approved assistant plan; revises ADR-014/016)
+**Date:** 2026-10-07
+
+Allow 0–4 distinct validated calls: music discussion, one clarification and explanation of
+previous results do not require a fresh recommendation. Store bounded canonical recommendation
+factors and language/vocal constraints in existing account/session conversation JSON. Latest
+corrections win; refinements preserve earlier constraints and explicit new listening requests
+reset them. No migration, cross-session history or inferred durable preference writes.
+
+Optional typed constraints run inside the deterministic core before diversity selection, using
+only explicit catalog metadata. Unknown/conflicting metadata cannot satisfy a hard requirement;
+names or language scripts cannot prove vocals, BPM or language. Existing score weights and
+unconstrained outputs remain unchanged. Answers separate general concepts from verified song facts.
+
+Live DeepSeek chat intermittently returned malformed JSON or extra fields despite JSON output
+mode. Conversation prose therefore uses text mode, canonically wrapped as Answer at the adapter
+and length/completion-validated by the core. Plans, identification and homepage guidance still
+use strict JSON. No permissive JSON repair, retry loop or ranking output from model prose.
+
+支持自然讨论与逐轮澄清，解释使用上一轮真实匹配因素；语言与人声条件只用明确曲库元数据，
+缺资料不伪造符合条件的歌。聊天正文由适配器包装为类型化回答，工具计划仍严格校验。
+
 ## ADR-033: Manual assistant deep thinking with isolated budgets
 
 **Status:** Accepted (approved assistant plan; revises ADR-021 for chat only)

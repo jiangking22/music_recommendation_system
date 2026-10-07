@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -8,6 +8,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.agent.schemas import AgentRequest
+from app.domain.listening import ListeningConstraints
 from app.repository.models import (
     AccountConversation,
     AccountPreferenceSummary,
@@ -39,6 +40,8 @@ class Conversation:
     last_seed: str | None
     preference_summary: str
     last_intent: str = "auto"
+    constraints: ListeningConstraints = field(default_factory=ListeningConstraints)
+    recommendation_context: list[dict] = field(default_factory=list)
 
 
 class Memory:
@@ -58,8 +61,11 @@ class Memory:
                 if row is None:
                     raise MemoryError("conversation_not_found")
                 intent = row.messages[-1].get("seed_intent", "auto") if row.messages else "auto"
+                state = row.messages[-1] if row.messages else {}
                 return Conversation(row.conversation_id, row.version, row.messages, row.last_seed,
-                                    preference, intent if intent in ("theme", "song") else "auto")
+                                    preference, intent if intent in ("theme", "song") else "auto",
+                                    ListeningConstraints.model_validate(state.get("listening_constraints", {})),
+                                    state.get("recommendation_context", [])[:10])
             conversation_id = str(uuid4())
             session.add(AccountConversation(conversation_id=conversation_id, user_id=request.user_id, session_id=request.session_id,
                                           messages=[], version=0))
@@ -69,7 +75,9 @@ class Memory:
     def save(self, request: AgentRequest, conversation: Conversation, answer: str) -> None:
         messages = (conversation.messages + [{"role": "user", "content": request.message},
                                              {"role": "assistant", "content": answer,
-                                              "seed_intent": conversation.last_intent}])[-12:]
+                                              "seed_intent": conversation.last_intent,
+                                              "listening_constraints": conversation.constraints.model_dump(),
+                                              "recommendation_context": conversation.recommendation_context}])[-12:]
         with bounded_session(self.engine) as session:
             self.check_session(session, request)
             updated = session.execute(update(AccountConversation).where(

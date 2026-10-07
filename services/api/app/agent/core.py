@@ -46,10 +46,12 @@ class Agent:
                 yield {"event": "status", "data": {"stage": "analyzing", "label": "分析需求"}}
                 memory = Memory(self.engine)
                 conversation = await run_blocking(lambda: memory.load(request))
-                context = {"message": request.message, "history": conversation.messages,
+                context = {"task": "conversation", "message": request.message, "history": conversation.messages,
                            "last_seed": conversation.last_seed,
                            "last_intent": conversation.last_intent,
-                           "preference_summary": conversation.preference_summary, "deep_thinking": deep}
+                           "preference_summary": conversation.preference_summary, "deep_thinking": deep,
+                           "listening_constraints": conversation.constraints.model_dump(),
+                           "last_recommendation": conversation.recommendation_context}
                 if deep:
                     yield {"event": "status", "data": {"stage": "thinking", "label": "深入理解上下文"}}
                 provider = self.provider

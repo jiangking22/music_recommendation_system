@@ -3,10 +3,10 @@
 ## Assistant deep conversation / 音乐助手深度对话
 
 - [x] 1. Manual deep-thinking request/UI, bounded model budget, progress and cancellation.
-- [ ] 2. Context-aware follow-ups, direct discussion and evidence-aware answers.
+- [x] 2. Context-aware follow-ups, direct discussion and evidence-aware answers.
 - [ ] 3. Verify configured-model native search capability; expose honest availability and sources.
 
-Current checked-out item: none (item 1 complete; item 2 next).
+Current checked-out item: none (item 2 complete; item 3 next).
 Scope: target Agent API/adapter, assistant UI/transport, focused tests and bilingual docs.
 Verification: failing regressions first; API pytest/Ruff/compile, web tests/lint/types/build,
 targeted runtime checks, real model/browser acceptance and legacy smoke. Execute sequentially,
@@ -19,6 +19,14 @@ configured DeepSeek plan/answer calls with thinking enabled return valid structu
 Tests cover strict opt-in, unchanged seed payload, truncated output rejection, distinct deadline,
 cancellation without a saved turn, logout cancellation of stalled SSE and ignored late replies.
 Full integrated browser acceptance follows after items 2/3; no native-search claim is made.
+
+Item 2 acceptance 2026-10-07: five failing conversation regressions preceded implementation;
+297 API tests pass, including canonical explanation reuse after reload and unchanged scores with
+metadata-only constraints. Ruff/compile and fixed deterministic evaluation pass. Six real configured
+DeepSeek turns cover the screenshot, explanation without new tools, discussion without playlists,
+and retained vocal/Chinese constraints. Model prose JSON failures were reproduced, then removed by
+plain-text conversation composition at the adapter; plans and homepage JSON remain strict. Unknown
+vocal/language metadata yields honest empty results, not fixture padding. No migration or key change.
 
 ## Credential bounds / 账号与密码长度统一
 

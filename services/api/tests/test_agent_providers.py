@@ -144,6 +144,23 @@ def test_truncated_even_valid_json_output_is_rejected():
         asyncio.run(provider.answer({"message": "jazz", "deep_thinking": True}, []))
 
 
+def test_conversation_reply_is_plain_text_wrapped_at_adapter_boundary():
+    def respond(request):
+        body = json.loads(request.content)
+        assert body["response_format"] == {"type": "text"}
+        assert "plain text" in body["messages"][0]["content"]
+        return httpx.Response(200, json={"choices": [{"finish_reason": "stop", "message": {
+            "content": '听感柔和与速度慢是两个维度。\n你更在意哪一种？',
+            "reasoning_content": "private-reasoning-marker"}}]})
+
+    provider = OpenAICompatibleProvider("https://api.deepseek.com", "mock-key", "deepseek-flash",
+                                        httpx.MockTransport(respond))
+    result = asyncio.run(provider.answer({"message": "曲风缓慢的", "task": "conversation",
+                                          "deep_thinking": True}, []))
+    assert Answer.model_validate(result).answer.startswith("听感柔和")
+    assert "private-reasoning" not in json.dumps(result)
+
+
 def test_model_transport_uses_system_trust_with_hostname_verification(monkeypatch):
     original_client = httpx.AsyncClient
     contexts = []
