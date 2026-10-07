@@ -74,6 +74,8 @@ class ModelCapabilities(StrictModel):
     provider: str
     supports_deep_thinking: bool
     native_search: NativeSearchState
+    music_catalog_search: Literal['available', 'unavailable'] = 'unavailable'
+    web_search: Literal['available', 'not_configured'] = 'not_configured'
 
 
 class AgentSearchReport(StrictModel):

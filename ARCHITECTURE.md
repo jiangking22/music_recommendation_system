@@ -14,6 +14,13 @@ web-clue calls share a 24-operation/45-second budget. Results are merged then ra
 policy, with partial counts/reasons and verified web references returned additively in JSON/SSE.
 Cancellation prevents scheduling additional operations; an in-flight synchronous request may finish.
 Ordinary/deep request deadlines are 90/120 seconds. No Brave key is configured on this host.
+Task 4 exposes optional reports/evidence/references through compatible JSON/SSE responses and
+shows actual stages and partial reasons. Capability metadata separates catalog, Brave and native
+model search. Browser deadlines are 100/130 seconds; proxy lifetime remains 140 seconds.
+Full pools protect qualifying old matches and admit new recall ahead of stale nonmatches.
+Original recording metadata survives storage; attribute filtering precedes deduplication so one
+version cannot donate its tags to another. Generic recall may request structured artist/title
+clues from the model, counted against the same search budget. Sadness and calmness can coexist.
 曲库属性缺失进入未知状态；模型辅助属性明确标注为推断，不修改曲库元数据或评分。
 
 Account addition (implemented; verification recorded in docs/DEPLOYMENT.md): authenticated HTTP business access,

@@ -19,14 +19,16 @@ router = APIRouter(prefix="/v1/agent", tags=["agent"])
 
 
 @router.get("/capabilities", response_model=ModelCapabilities)
-def capabilities(provider: Annotated[LLMProvider, Depends(get_llm_provider)]):
-    return model_capabilities(provider)
+def capabilities(provider: Annotated[LLMProvider, Depends(get_llm_provider)],
+                 registry: Annotated[ProviderRegistry, Depends(get_provider_registry)]):
+    return model_capabilities(provider, registry)
 
 
 def get_agent(session: Annotated[Session, Depends(get_session)],
               registry: Annotated[ProviderRegistry, Depends(get_provider_registry)],
               provider: Annotated[LLMProvider, Depends(get_llm_provider)]) -> Agent:
-    return Agent(session.get_bind(), registry, provider, get_settings().agent_timeout_seconds)
+    # Existing deployments may still carry the old 30-second environment setting.
+    return Agent(session.get_bind(), registry, provider, max(90, get_settings().agent_timeout_seconds))
 
 
 def error_envelope(error: AgentError) -> dict:

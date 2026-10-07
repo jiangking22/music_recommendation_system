@@ -47,7 +47,7 @@ jobs:
           DATABASE_URL: postgresql+psycopg://music:placeholder@localhost/music
         run: |
           alembic upgrade head --sql > /tmp/upgrade.sql
-          alembic downgrade 0008_account_preferences:base --sql > /tmp/downgrade.sql
+          alembic downgrade 0009_candidate_pool:base --sql > /tmp/downgrade.sql
       - name: Legacy help and HTTP smoke
         working-directory: .
         run: python scripts/legacy_smoke.py

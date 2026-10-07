@@ -78,3 +78,5 @@
   .agent-artwork { width: 56px; height: 56px; }
   .agent-track .open-link { grid-column: 2; }
 }
+.agent-search-report { margin-top: 18px; font-size: 13px; line-height: 1.6; color: var(--ink); }
+.agent-inference { font-size: 11px; color: var(--muted); margin: 3px 0; }

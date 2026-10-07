@@ -16,6 +16,15 @@ function streamed(parts: string[]) {
 beforeEach(testSession);
 
 describe("Agent SSE client", () => {
+  it('rejects malformed additive search reports and web references', async () => {
+    const base = { conversation_id: 'one', answer: 'music', recommended_tracks: [], used_tools: [],
+      explanation: '', citations: [], sources: {}, provider: 'local' };
+    for (const fields of [{ search_report: { requested: 200, returned: -1 } },
+      { web_references: [{ title: 'bad', url: 'javascript:alert(1)', track_ids: [] }] }]) {
+      const fetcher = vi.fn().mockResolvedValue(streamed(['event: done\ndata: ' + JSON.stringify({ ...base, ...fields }) + '\n\n']));
+      await expect(streamAgentChat('/api', 'music', undefined, vi.fn(), undefined, withCsrf(fetcher))).rejects.toThrow();
+    }
+  });
   it("gives deep chat a longer deadline and aborts a stalled stream on logout", async () => {
     const cancel = vi.fn();
     const fetcher = vi.fn().mockResolvedValue(new Response(new ReadableStream({ cancel }), {

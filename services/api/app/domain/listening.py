@@ -54,8 +54,14 @@ class ListeningConstraints(BaseModel):
             supplied = [row for row in (evidence or []) if row.track_id == track.canonical_key
                         and row.attribute == attribute and row.value is not None]
             values |= {row.value for row in supplied if row.origin in ("provider", "web")}
+            relevant = ({wanted, {'calm': 'energetic', 'energetic': 'calm'}.get(wanted)}
+                        if attribute == 'feel' else None)
+            if relevant is not None:
+                values &= relevant  # Sadness can coexist with calmness or energy.
             if not values:
                 values = {row.value for row in supplied if row.origin == "model"}
+                if relevant is not None:
+                    values &= relevant
             states.append("unknown" if not values else "match" if values == {wanted} else "mismatch")
         if "mismatch" in states:
             return "mismatch"

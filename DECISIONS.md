@@ -2,7 +2,7 @@
 
 ## ADR-038: Progressive assistant recall and recording-bound attribute evidence
 
-**Status:** Accepted; implementation proceeds through the four ordered TODO tasks.
+**Status:** Accepted and implemented through the four ordered TODO tasks.
 **Date:** 2026-10-07
 
 Preserve deterministic recall orchestration and ranking weights. Missing listening metadata is
@@ -17,6 +17,13 @@ Bound platform expansion and optional Brave clues to three platform rounds, two 
 no arbitrary page fetching or model-authored citations. Ordinary/deep deadlines are 90/120 seconds.
 An absent Brave key reports unavailable, never successful web verification. Existing native model
 search remains separately unavailable. Additive JSON/SSE fields expose reports and evidence.
+
+Runtime acceptance refinements: retain matching old candidates before new recall and evict
+nonmatching stale records at capacity. Preserve original per-provider/version metadata; apply
+attributes before song deduplication and retain source conflicts across the same recording.
+Calm and sad are overlapping listening dimensions; sadness alone neither proves nor negates calm.
+Validate model evidence row by row, rejecting invalid or unbound rows. When generic recall is
+insufficient, obtain bounded structured artist/title queries within the same discovery budget.
 
 模型辅助属性属于推断，歌曲身份须由曲库核实；候选不足时扩搜，缺少密钥时诚实降级。
 No ranking-policy replacement, public deployment, credential purchase or legacy migration.

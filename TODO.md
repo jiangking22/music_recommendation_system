@@ -1,11 +1,11 @@
 # TODO
 
-## Progressive assistant discovery / 音乐助手渐进检索（active）
+## Progressive assistant discovery / 音乐助手渐进检索（complete）
 
 - [x] 1. Three-state listening attributes and labelled structured model assistance.
 - [x] 2. Account/session candidate pool, expiry, refinements and unseen follow-ups.
 - [x] 3. Bounded platform expansion, Brave clues with catalog verification and cancellation.
-- [ ] 4. Search/evidence UI, real runtime acceptance and current-state bilingual documentation.
+- [x] 4. Search/evidence UI, real runtime acceptance and current-state bilingual documentation.
 
 Approved 2026-10-07. Default five / maximum ten qualifying unique tracks; reuse at most 150
 candidates for 30 minutes, expand when insufficient, never fill constrained results with fixtures.
@@ -16,14 +16,22 @@ Execute sequentially, failing tests first, one focused commit per item. Verifica
 Ruff/compile, web tests/lint/types/build, live PostgreSQL/model/browser and legacy HTTP smoke.
 Task 1: 50 focused regressions pass after prior failing domain/adapter tests. Model assistance is
 bounded to 20 catalog-confirmed unknown recordings and 60 validated evidence rows. Source
-conflicts/version identity are enforced; model evidence cannot supply source URLs. Later tasks
-remain pending. Real Brave acceptance requires a key.
+conflicts/version identity are enforced; model evidence cannot supply source URLs.
 
 Task 2: 45 focused tests and PostgreSQL upgrade/downgrade SQL pass; migration 0009 adds JSON
 candidate memory independent of six-turn chat context. Task 3: 54 Agent/API/search regressions
 pass, including earlier failures, staged recall, partial/deadline results, operation cap, early stop,
 web recording-ID mismatch and cancellation. Brave snippets follow the official Web Search schema
 and never cause arbitrary page requests. Live Brave remains unverified without a configured key.
+
+Task 4: 351 API tests and 90 Web tests pass, with Ruff/compile, ESLint/types, production builds,
+dependency audit policy and legacy help/HTTP 200. A custom PostgreSQL backup was restored into
+a separate database; 0008→0009→0008→0009/check passed before live upgrade. Three existing
+conversations received empty state. Real model/catalog SSE acceptance returned 5/5/5/5 for
+舒缓歌曲→带人声→偏华语→再来几首, using 13/5/5/0 external operations respectively. Both refinements
+expanded; the last turn reused unseen matches. Isolated Edge desktop/mobile and Stop passed.
+See docs/progressive-discovery-acceptance.md. The conditional live Brave check awaits an environment
+key; the implementation and mocked catalog-verification/cancellation/budget regressions are complete.
 
 ## Assistant expression and bounded chat / 曲风表达与固定聊天区
 

@@ -144,3 +144,12 @@ def test_no_constraints_match_without_any_attribute_evidence():
 
     assert constraints.assess(song) == "match"
     assert constraints.matches(song) is True
+
+
+def test_sadness_does_not_negate_or_prove_a_calm_listening_feel():
+    song=track(tags=('sad',))
+    constraints=listening.ListeningConstraints(feel='calm')
+    assert constraints.assess(song)=='unknown'
+    assert constraints.assess(song,[evidence(song,'feel','calm')])=='match'
+    song.tags.append('calm')
+    assert constraints.assess(song)=='match'

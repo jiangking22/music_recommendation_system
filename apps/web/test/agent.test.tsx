@@ -15,6 +15,25 @@ beforeEach(() => {
     native_search: { status: "unavailable", reason: "unsupported" } });
 });
 
+it('shows expanded-search counts, inference and separate web capability', async () => {
+  api.capabilities.mockResolvedValue({ provider: 'openai_compatible', supports_deep_thinking: true,
+    native_search: { status: 'unavailable', reason: 'unsupported' },
+    music_catalog_search: 'available', web_search: 'not_configured' });
+  api.stream.mockResolvedValue({ ...result,
+    search_report: { requested: 5, returned: 1, reused: true, expanded: true,
+      external_requests: 6, web_search: 'not_configured', end_reason: 'insufficient_evidence', attempts: [] },
+    recommended_tracks: [{ id: 'one', title: 'Verified song', artist: 'Artist', explanation: 'Matching factors',
+      score: 1, score_breakdown: {}, provenance: [{ provider: 'itunes' }],
+      attribute_evidence: [1, 2].map(() => ({ track_id: 'one', attribute: 'vocals', value: 'vocal', origin: 'model', basis: 'Familiar recording' })),
+      track: { artist: { name: 'Artist' }, source: {}, artwork_url: null } }] });
+  render(<AgentClient />);
+  fireEvent.change(screen.getByLabelText('想听什么？'), { target: { value: '带人声' } });
+  fireEvent.click(screen.getByRole('button', { name: '发送' }));
+  expect(await screen.findByText('找到 1 / 5 首 · 已扩大检索')).toBeInTheDocument();
+  expect(screen.getByText(/带人声 · 模型推断/)).toBeInTheDocument();
+  expect(screen.getByText('网页搜索未配置')).toBeInTheDocument();
+});
+
 it("shows history, statuses and sends follow-up in the same conversation", async () => {
   api.stream.mockImplementationOnce(async (_url, _message, _conversation, onStatus) => {
     onStatus({ stage: "preferences", label: "查询偏好", tool: "get_user_profile" });

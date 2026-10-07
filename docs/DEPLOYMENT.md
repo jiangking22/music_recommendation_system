@@ -33,8 +33,8 @@ a future trusted-proxy policy must explicitly establish which forwarding hop can
 密码使用 Argon2id（19 MiB、2 次、并行度 1），最多四个并发哈希工作；会话令牌只存摘要。
 Cookie 为 HttpOnly、SameSite=Lax、host-only；24 小时或保持登录 30 天。所有写操作校验来源及 CSRF。
 
-Assistant thinking is a per-turn opt-in, not a new credential setting. Ordinary chat retains
-`AGENT_TIMEOUT_SECONDS`; supported deep chat has a 120s API deadline, 130s browser deadline and
+Assistant thinking is a per-turn opt-in, not a new credential setting. Ordinary chat uses at least
+90s even with legacy `AGENT_TIMEOUT_SECONDS=30` (100s browser); supported deep chat has a 120s API deadline, 130s browser deadline and
 140s proxy lifetime. Homepage identification keeps its original budget. The authenticated
 `GET /v1/agent/capabilities` reports actual adapter support before chat.
 
@@ -42,9 +42,12 @@ Native search is currently unavailable on the configured official DeepSeek servi
 the separate bounded check using the existing model settings, run
 `docker compose exec -T api python scripts/model_capability_probe.py`. The probe reports only
 capability metadata, does not enable search, and never treats prose links as retrieval evidence.
-Do not configure an additional search key for this feature.
+Native model search has no additional key. Optional Brave discovery separately uses the existing
+`BRAVE_SEARCH_API_KEY`; without it the UI says “网页搜索未配置” and catalog expansion continues.
+Never put credentials in chat. Real Brave acceptance requires configuration outside source control.
 
-深度对话由每次请求手动开启，后端最多两分钟；首页识曲预算不变。联网实测未通过，页面明确提示暂不可用。
+深度对话由每次请求手动开启，后端最多两分钟；普通聊天至少 90 秒，检索阶段独立限 45 秒与 24 次外部调用。
+首页识曲预算不变。模型原生搜索实测未通过；音乐平台搜索独立可用，Brave 未配置时不会阻断曲库扩搜。
 独立探测只使用已配置的模型服务与密钥，不改配置、不自动启用检索、不记录模型正文。
 
 ## Start and acceptance / 启动与验收
@@ -68,7 +71,8 @@ No default account/password is shipped. Forgot-password text directs users to th
 账号切换、退出或检测到失效时清空私有内容，取消旧请求；页面加载、焦点恢复与业务操作刷新画像。
 
 Startup upgrades Alembic before serving; ordering is PostgreSQL/Redis → API → web. Current head is
-`0008_account_preferences`; `0007_accounts`/`0008_account_preferences` are additive to
+`0009_candidate_pool`; `0009_candidate_pool` adds a JSON search_state column with an empty default
+for old conversations. The previous `0007_accounts`/`0008_account_preferences` are additive to
 `0006_recording_resolution`. The smoke uses two Cookie jars through the real Next proxy and tests
 401 access, registration/login, shared preferences, different-account isolation, Agent JSON/SSE,
 login-session isolation and logout. The PostgreSQL check tests concurrent feedback, vector equality

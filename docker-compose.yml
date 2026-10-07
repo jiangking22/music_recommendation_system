@@ -35,7 +35,7 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
       LLM_MODEL: ${LLM_MODEL:-gpt-4.1-mini}
       LLM_API_KEY: ${LLM_API_KEY:-}
-      AGENT_TIMEOUT_SECONDS: ${AGENT_TIMEOUT_SECONDS:-30}
+      AGENT_TIMEOUT_SECONDS: ${AGENT_TIMEOUT_SECONDS:-90}
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:

@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from app.domain.discovery import rank_related
 from app.domain.listening import AttributeEvidence
 from app.domain.music import ProviderResult, Track
-from app.domain.pipeline import deduplicate, rank
+from app.domain.pipeline import dedup_key, deduplicate, rank
 
 
 class CandidatePool(BaseModel):
@@ -32,19 +32,42 @@ class CandidatePool(BaseModel):
     def fresh(self):
         return 0 <= time() - self.captured_at < 1800
 
-    def ranked(self, profile):
-        candidates = deduplicate(self.candidates)
+    def ranked(self, profile, constraints=None):
+        tracks = [t for t in self.candidates if constraints is None or self.assess(t, constraints) == 'match']
+        candidates = deduplicate(tracks)
         return (rank_related(candidates, self.seed_track, profile) if self.seed_track
                 else rank(candidates, self.seed, profile))
 
-    def merge(self, candidates, sources):
-        tracks = list(self.candidates)
+    def assess(self, track, constraints):
+        recordings = [t for t in self.candidates if t.canonical_key == track.canonical_key] or [track]
+        source_evidence = [e for e in self.evidence if e.origin != 'model']
+        states = []
+        for attribute, wanted in constraints.model_dump().items():
+            if wanted is None:
+                continue
+            single = constraints.model_copy(update={k: wanted if k == attribute else None
+                for k in constraints.model_dump()})
+            known = [single.assess(recording, source_evidence) for recording in recordings]
+            states.append('mismatch' if 'mismatch' in known else 'match' if 'match' in known
+                          else single.assess(track, self.evidence))
+        return 'mismatch' if 'mismatch' in states else 'unknown' if 'unknown' in states else 'match'
+
+    def merge(self, candidates, sources, *, retain_keys=None):
+        incoming = [t for result in sources.values() for t in result.tracks[:25]]
+        known_sources = {(t.source.provider, t.source.provider_track_id) for t in incoming}
         for item in candidates:
-            tracks.extend(item.track.model_copy(update={'source': source}) for source in item.provenance)
-        # A richer metadata representative wins; retained provider identities preserve provenance.
-        merged = deduplicate(tracks)
-        self.candidates = [c.track.model_copy(update={'source': source})
-                           for c in merged for source in c.provenance][:150]
+            if (item.track.source.provider, item.track.source.provider_track_id) not in known_sources:
+                incoming.append(item.track)
+        # Keep each provider's recording metadata intact, including its version/title.
+        identities = {(t.source.provider, t.source.provider_track_id): t for t in self.candidates}
+        identities.update({(t.source.provider, t.source.provider_track_id): t for t in incoming})
+        new_keys = {dedup_key(t) for t in incoming}
+        groups = {}
+        for track in identities.values():
+            groups.setdefault(dedup_key(track), []).append(track)
+        # Protected matches survive; new recall displaces stale nonmatching candidates at capacity.
+        keys = sorted(groups, key=lambda key: (key not in (retain_keys or set()), key not in new_keys))
+        self.candidates = [t for key in keys for t in groups[key]][:150]
         for name, result in sources.items():
             self.sources[name] = result.model_copy(update={'tracks': result.tracks[:25]})
 

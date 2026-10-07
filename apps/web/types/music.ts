@@ -26,6 +26,8 @@ export type RecommendationItem = {
   score: number;
   score_breakdown: Record<string, number>;
   provenance: ProviderSource[];
+  attribute_evidence?: { track_id: string; attribute: "language" | "vocals" | "feel";
+    value: string | null; origin: "provider" | "model" | "web"; basis: string; source_url?: string | null }[];
 };
 export type ProviderResult = {
   provider: string;

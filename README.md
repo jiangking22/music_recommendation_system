@@ -19,11 +19,14 @@ source conflicts override inference. Candidate pools reuse up to 150 records for
 exclude previously shown songs for follow-ups. Insufficient pools expand across existing catalogs
 and optional Brave clues, which must be verified against catalog identities. Requests share a
 24-operation/45-second discovery budget. Brave needs BRAVE_SEARCH_API_KEY; native model search
-is a separate unavailable capability. The results UI is updated in the final ordered task.
+is a separate unavailable capability. The assistant displays actual stages, returned/requested
+counts, expansion status, inference labels and catalog-verified web references.
 
 聆听条件已区分未知属性与不匹配；模型辅助判断单独标注，不覆盖来源冲突。
 候选池可复用 30 分钟，“再来几首”排除已展示歌曲；不足时自动多轮曲库扩搜，网页线索须回曲库核实。
-检索最多 24 次外部调用、45 秒；Brave 须配置环境密钥，当前主机未配置。结果 UI 随第四项更新。
+检索最多 24 次外部调用、45 秒；Brave 须配置环境密钥，当前主机未配置，页面显示“网页搜索未配置”。
+助手显示实际检索阶段、返回数量、是否扩搜、模型推断标识和核实过的网页来源。
+See [local acceptance / 本地验收记录](docs/progressive-discovery-acceptance.md).
 
 Sonora **v1.0.0** uses the [MIT License](LICENSE), copyright 2026 jiangking22.
 API, web and OpenAPI application metadata are version **1.0.0**.
@@ -49,14 +52,16 @@ keeps its existing non-thinking budget. Raw model reasoning is not returned, sto
 
 Follow-ups combine the latest correction with six recent turns. Discussion and explanations
 of earlier recommendations can answer without a fresh playlist. Language/vocal refinements use
-explicit catalog metadata; insufficient evidence yields a clarification instead of guessed matches.
+catalog evidence or separately labelled structured inference; insufficient candidates trigger new
+catalog searches. Unresolved attributes remain unknown and do not count toward the requested total.
 General music concepts and qualitative interpretations of familiar recordings may use model music
 knowledge. Such interpretations are not listening measurements or verified catalog facts and do
 not affect ranking. Exact BPM, verified instrumentation/version details and current events require
 evidence; an unfamiliar recording prompts an artist/version clarification.
 
 连续追问结合最近六轮与最新补充；聊风格、心情或解释上一轮推荐时可直接回答。华语、人声等条件
-只按曲库明确资料筛选，资料不足时说明无法确认并追问。一般曲风及熟悉歌曲的定性听感可以基于模型音乐
+按来源依据或单独标注的结构化模型推断筛选，候选不足时实际扩搜；仍未知的属性不计入合格数量。
+一般曲风及熟悉歌曲的定性听感可以基于模型音乐
 知识交流，不机械提示缺少 BPM；这类解读不改变排序，也不代表实听、实测或联网核验。精确 BPM、
 可核对的乐器配置、版本及最新事实仍需证据；陌生作品会询问歌手或版本。
 
@@ -73,11 +78,13 @@ Recommendation cards and references remain outside the panel.
 
 Native web search is **currently unavailable**. The configured DeepSeek service was probed on
 2026-10-07 without verified search records or source citations; the page reports this before chat.
-Thinking does not imply web access. No additional search service/key is required, and model-generated
+Thinking does not imply web access. Optional Brave search uses the existing BRAVE_SEARCH_API_KEY;
+music catalogs search independently without it. Model-generated
 links are not treated as search evidence. To repeat the bounded manual check from the repository root:
 
-联网检索**暂不可用**：2026-10-07 使用已配置的同一 DeepSeek 服务实测，未取得可验证的搜索记录与来源引用。
-页面会明确提示；深度思考可正常使用。未新增搜索服务或密钥，模型生成的链接不算检索证据。
+模型原生联网检索**暂不可用**：2026-10-07 使用已配置的同一 DeepSeek 服务实测，未取得可验证的搜索记录与来源引用。
+页面分别报告音乐平台检索、Brave 网页搜索和模型原生搜索；音乐平台扩搜不需要 Brave 密钥。
+深度思考可正常使用，模型生成的链接不算检索证据。
 手动复查命令（不会修改配置或自动启用联网）：
 
 ```powershell

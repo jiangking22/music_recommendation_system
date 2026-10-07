@@ -12,6 +12,12 @@ import type { AgentResponse, AgentStatus, ModelCapabilities, ToolName } from "..
 
 const LABELS: Record<ToolName, string> = { get_user_profile: "音乐偏好", recommend_tracks: "查找推荐",
   search_music_knowledge: "音乐知识", explain_recommendation: "推荐理由" };
+const ATTRIBUTES: Record<string, string> = { zh: "华语", en: "英语", vocal: "带人声",
+  instrumental: "纯音乐", calm: "舒缓", sad: "伤感", energetic: "有活力" };
+const SEARCH_REASONS: Record<string, string> = { insufficient_matches: "已扩大检索，匹配歌曲仍不足。",
+  insufficient_evidence: "部分歌曲的属性仍无法确认，先展示符合条件的曲目。",
+  upstream_failure: "部分音乐来源暂不可用，先展示已确认的曲目。", deadline: "检索达到时间上限，先展示已确认的曲目。",
+  budget_exhausted: "本轮检索已结束，先展示已确认的曲目。", ambiguous: "请先确认歌手或录音版本。" };
 const API_BASE = "/api";
 const ERRORS: Record<string, string> = {
   agent_timeout: "请求超时，请重试。",
@@ -189,6 +195,12 @@ export default function AgentClient() {
             <ul className="agent-tools">{result.used_tools.map((tool) => <li key={tool.name}>
               {LABELS[tool.name]} · {tool.status === "ok" ? "完成" : "未完成"}</li>)}</ul></> : null}
           <p className="agent-footnote">音乐偏好随账号同步，对话仅限当前登录会话。</p>
+          {result?.search_report ? <div className="agent-search-report" role="status">
+            <p>{`找到 ${result.search_report.returned} / ${result.search_report.requested} 首 · ${result.search_report.expanded ? "已扩大检索" : result.search_report.reused ? "复用已有候选" : "曲库检索"}`}</p>
+            {SEARCH_REASONS[result.search_report.end_reason] ? <p>{SEARCH_REASONS[result.search_report.end_reason]}</p> : null}
+          </div> : null}
+          {capabilities?.music_catalog_search ? <p className="agent-footnote">音乐平台检索：{capabilities.music_catalog_search === "available" ? "可用" : "已关闭"}</p> : null}
+          {capabilities?.web_search ? <p className="agent-footnote">{capabilities.web_search === "available" ? "Brave 网页搜索：已配置" : "网页搜索未配置"}</p> : null}
           {capabilities || result?.native_search ? <p className="agent-footnote">当前模型接口暂不支持联网检索</p>
             : capabilityError ? <p className="agent-footnote">暂时无法确认联网能力，可继续对话。</p> : null}
         </aside>
@@ -198,9 +210,13 @@ export default function AgentClient() {
         <div className="agent-track-list">{result.recommended_tracks.map((item, i) => {
           const artwork = safeExternalUrl(item.track.artwork_url);
           const link = safeExternalUrl(item.track.source.external_url);
+          const inference = new Map(item.attribute_evidence?.filter((e) => e.origin === "model" && e.value)
+            .map((e) => [`${e.attribute}:${e.value}`, e]));
           return <article className="agent-track" key={item.id}><span className="agent-track-number">{i + 1}</span>
             <div className="agent-artwork">{artwork ? <Image src={artwork} width={80} height={80} alt={`${item.title} 封面`} unoptimized /> : <span aria-hidden="true">♪</span>}</div>
             <div><h3>{item.title}</h3><p>{artistDisplayName(item.track.artist)}</p><p className="agent-track-reason">{item.explanation}</p>
+              {[...inference.values()].map((e, n) =>
+                <p className="agent-inference" key={`${e.attribute}-${n}`} title={e.basis}>{ATTRIBUTES[e.value!] ?? e.value} · 模型推断</p>)}
               <div className="providers">{[...new Set(item.provenance.map((source) => source.provider))].map((name) => <span key={name}>{name}</span>)}</div></div>
             {link ? <a className="open-link" href={link} target="_blank" rel="noopener noreferrer">播放 ↗</a> : null}</article>;
         })}</div>
@@ -209,6 +225,11 @@ export default function AgentClient() {
       </section> : null}
       {result?.citations.length ? <section className="agent-citations"><h2>参考资料</h2>
         {result.citations.map((citation) => <p key={citation.chunk_id}><strong>{citation.title}</strong> · {citation.text}</p>)}</section> : null}
+      {result?.web_references?.length ? <section className="agent-citations"><h2>联网检索来源</h2>
+        {result.web_references.map((reference, i) => {
+          const url = safeExternalUrl(reference.url);
+          return url ? <p key={`${url}-${i}`}><a href={url} target="_blank" rel="noopener noreferrer">{reference.title || "歌曲来源"} ↗</a></p> : null;
+        })}</section> : null}
     </main>
   </div>;
 }

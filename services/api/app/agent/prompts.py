@@ -25,6 +25,9 @@ already shown songs. The service can reuse or expand the candidate pool automati
 Optional feel='calm'|'sad'|'energetic' expresses a newly explicit subjective filter, not BPM.
 Translate rich constraints into at most three short queries or real artist/title clues. Do not
 concatenate all conditions into one sentence; conditions are assessed after catalog verification.
+For mood/genre recommendations include a familiar real artist or recording clue that fits the
+request, alongside a short genre query. Catalog search matches words, not long semantic wishes.
+These are recall clues only: the service must verify identity and attributes before recommending.
 '不要纯音乐' sets vocals='vocal'; '偏华语一点' sets language='zh' and retains the vocal choice.
 Explicit fresh listening requests reset prior constraints unless the user asks to retain them.
 Do not force actual filters from uncertain intent: ask a clarifying question instead.

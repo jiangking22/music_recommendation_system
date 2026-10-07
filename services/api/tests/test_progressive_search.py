@@ -12,7 +12,7 @@ setup = pool_setup
 from app.agent.core import Agent
 from app.agent.providers import LocalLLMProvider
 from app.agent.schemas import AgentRequest
-from app.domain.music import ProviderResult, SearchResult, WebClue
+from app.domain.music import ProviderResult, ProviderSource, SearchResult, WebClue
 from app.providers.brave import BraveSearch
 from app.providers.registry import ProviderRegistry
 
@@ -134,3 +134,62 @@ def test_external_budget_counts_all_rounds_and_returns_only_qualifying_tracks(se
     assert result.search_report.end_reason == 'budget_exhausted'
     assert result.search_report.external_requests == 2
     assert not result.recommended_tracks
+
+
+def test_failed_external_calls_are_reported_as_source_failure(setup):
+    agent, registry = setup
+    def unavailable(query, limit):
+        raise RuntimeError('upstream failed')
+    registry.search_tracks = unavailable
+    result = chat(agent, '不要纯音乐')
+    assert result.search_report.end_reason == 'upstream_failure'
+    assert all(a.status == 'error' for a in result.search_report.attempts)
+
+
+def test_web_failure_is_distinct_from_no_web_results(setup):
+    base, _ = setup
+    class Web:
+        def search(self, query):
+            raise RuntimeError('upstream failed')
+    agent = Agent(base.engine, ProviderRegistry([], web_search=Web()), LocalLLMProvider())
+    result = chat(agent, '不要纯音乐')
+    assert result.search_report.web_search == 'error'
+    assert result.search_report.end_reason == 'upstream_failure'
+
+
+def test_conflicting_platform_metadata_is_not_lost_during_pool_deduplication(setup):
+    agent, registry = setup
+    vocal = registry.tracks[0]
+    instrumental = vocal.model_copy(update={'tags':['instrumental'],
+        'source':ProviderSource(provider='netease',provider_track_id='conflict')})
+    registry.tracks=[vocal,instrumental]
+    result=chat(agent,'不要纯音乐')
+    assert not result.recommended_tracks
+
+
+def test_a_matching_version_can_survive_song_deduplication(setup):
+    agent,registry=setup
+    vocal=registry.tracks[0]
+    live=vocal.model_copy(update={'title':vocal.title+' (Live)', 'canonical_key':vocal.canonical_key+' live',
+        'tags':['instrumental'], 'source':ProviderSource(provider='itunes',provider_track_id='live')})
+    registry.tracks=[vocal,live]
+    result=chat(agent,'只要纯音乐')
+    assert len(result.recommended_tracks)==1
+    assert result.recommended_tracks[0].track.source.provider_track_id=='live'
+
+
+def test_insufficient_generic_recall_uses_structured_artist_clues(setup):
+    base,registry=setup
+    class Model(LocalLLMProvider):
+        name='openai_compatible'
+        async def suggest_queries(self,context):
+            return {'queries':['Artist 1','Artist 2']}
+    def search(query,limit):
+        registry.calls.append(query)
+        tracks=registry.tracks if query=='Artist 1' else []
+        return SearchResult(tracks=tracks,sources={'itunes':ProviderResult(provider='itunes',tracks=tracks)})
+    registry.search_tracks=search
+    result=chat(Agent(base.engine,registry,Model()),'不要纯音乐')
+    assert len(result.recommended_tracks)==5
+    assert registry.calls==['calm jazz','Artist 1']
+    assert result.search_report.external_requests==3  # two catalog calls and the query-clue call

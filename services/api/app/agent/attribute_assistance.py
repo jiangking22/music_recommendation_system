@@ -11,7 +11,7 @@ from app.observability.events import emit
 
 class AttributeAssessment(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
-    evidence: list[AttributeEvidence] = Field(default_factory=list, max_length=60)
+    evidence: list[object] = Field(default_factory=list, max_length=60)
 
 
 async def infer_attributes(provider, tracks, constraints, *, timeout=10, clues=None):
@@ -28,8 +28,16 @@ async def infer_attributes(provider, tracks, constraints, *, timeout=10, clues=N
                 'tracks': [{'id': t.canonical_key, 'title': t.title, 'artist': t.artist.name,
                             'album': t.album.name if t.album else None,
                             'genres': t.genres[:5], 'tags': t.tags[:5]} for t in selected]}))
-        return [row for row in result.evidence if row.track_id in identities
-                and row.origin == 'model' and row.source_url is None]
+        evidence = []
+        for raw in result.evidence:
+            try:
+                row = AttributeEvidence.model_validate(raw)
+            except ValidationError:
+                emit('attribute_assistance', status='error', code='invalid_row')
+                continue
+            if row.track_id in identities and row.origin == 'model' and row.source_url is None:
+                evidence.append(row)
+        return evidence
     except (httpx.HTTPError, ValidationError, ValueError, TypeError, TimeoutError):
         emit('attribute_assistance', status='error', code='invalid_or_unavailable')
         return []

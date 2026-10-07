@@ -27,7 +27,7 @@ def main():
     username = "smoke_" + uuid4().hex[:14]
     password = secrets.token_urlsafe(15)
     with Session(get_engine()) as db:
-        assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0008_account_preferences"
+        assert db.scalar(text("SELECT version_num FROM alembic_version")) == "0009_candidate_pool"
         assert db.scalar(text("SELECT extname FROM pg_extension WHERE extname='vector'")) == "vector"
         assert db.scalar(text("SELECT count(*) FROM music_knowledge_chunks")) == 4
         track = local_catalog()[0]

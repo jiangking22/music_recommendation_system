@@ -38,7 +38,7 @@ TOOL_INPUTS = {
 }
 DESCRIPTIONS = {
     "get_user_profile": "Read authenticated account musical preferences; accepts no device override.",
-    "recommend_tracks": "Call deterministic recommender. Use theme for mood/tempo/genre, song for a recording. Optional language/vocal constraints require catalog metadata; never guess. Preserves ranking policy.",
+    "recommend_tracks": "Call deterministic staged recommender. Theme for mood/genre, song for a recording. Refinement reuses candidates then expands catalogs/web when insufficient. Optional labelled inference supplements unknown attributes. Never rank or invent songs.",
     "search_music_knowledge": "Retrieve small local music knowledge with citations.",
     "explain_recommendation": "Explain already returned tracks using measured factors and knowledge.",
 }
@@ -110,17 +110,16 @@ def invoke_tool(call: ToolCall, context: ToolContext) -> dict:
             captured_at=time(), seed=seed, intent=intent, shown=old.shown)
         context.pool = pool
         context.candidates = pool.ranked(profile)
-        existing = [s for s in context.candidates if constraints.matches(s.track, pool.evidence)
-                    and (not context.more or s.key not in pool.shown)]
+        existing = [s for s in pool.ranked(profile, constraints) if not context.more or s.key not in pool.shown]
         result = None
         if len(existing) < context.requested and not context.defer_recall:
             result = discover(seed, context.requested, context.registry, profile, intent=intent, constraints=constraints)
-            pool.merge(result.candidates, result.search.sources)
+            pool.merge(result.candidates, result.search.sources, retain_keys={s.key for s in existing})
             pool.seed_track = result.seed_track
             pool.queries = list(dict.fromkeys([*pool.queries, seed]))[-60:]
             context.candidates = pool.ranked(profile)
-        songs = rerank_diverse([s for s in context.candidates if constraints.matches(s.track, pool.evidence)
-                               and (not context.more or s.key not in pool.shown)], context.requested)
+        songs = rerank_diverse([s for s in pool.ranked(profile, constraints)
+                               if not context.more or s.key not in pool.shown], context.requested)
         context.conversation.last_seed = seed
         context.conversation.last_intent = intent
         context.sources = pool.sources

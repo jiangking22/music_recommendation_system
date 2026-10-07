@@ -6,7 +6,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.agent.attribute_assistance import infer_attributes
-from app.agent.schemas import AgentSearchReport, RecommendInput, WebReference
+from app.agent.schemas import AgentSearchReport, Query, RecommendInput, WebReference
 from app.api.schemas import RecommendationItem, SearchAttempt
 from app.domain.artist_names import enrich_track
 from app.domain.discovery import resolve_seed
@@ -34,11 +34,17 @@ class SongClues(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
     songs: list[SongClue] = Field(default_factory=list, max_length=5)
 
+
+class QueryClues(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    queries: list[Query] = Field(default_factory=list, max_length=3)
+
 class SearchBudget:
     def __init__(self):
         self.deadline = perf_counter() + SEARCH_SECONDS
         self.count = 0
         self.end_reason = None
+        self.failed = False
 
     async def call(self, operation):
         if self.count >= MAX_OPERATIONS:
@@ -56,6 +62,7 @@ class SearchBudget:
             self.end_reason = 'deadline'
             return None
         except Exception:  # noqa: BLE001 - isolate upstream failures, never log raw messages.
+            self.failed = True
             emit('progressive_search', status='error', code='upstream_unavailable')
             return None
 
@@ -72,14 +79,32 @@ class SearchBudget:
         self.count += 1
         return await infer_attributes(provider, tracks, constraints, timeout=min(10, remaining), clues=snippets)
 
+    async def queries(self, provider, context):
+        suggest = getattr(provider, 'suggest_queries', None)
+        if provider.name == 'local' or not suggest:
+            return []
+        if self.count >= MAX_OPERATIONS:
+            self.end_reason = 'budget_exhausted'
+            return []
+        remaining = self.deadline - perf_counter()
+        if remaining <= 0:
+            self.end_reason = 'deadline'
+            return []
+        self.count += 1
+        try:
+            async with asyncio.timeout(min(10, remaining)):
+                return QueryClues.model_validate(await suggest(context)).queries
+        except (httpx.HTTPError, ValidationError, ValueError, TypeError, TimeoutError):
+            emit('progressive_search', status='error', code='query_clues_unavailable')
+            return []
+
 
 def qualifying(context):
     constraints = context.conversation.constraints
     if context.pool.intent == 'song' and not context.pool.seed_track:
         return []
-    return [item for item in context.pool.ranked(context.profile)
-            if constraints.matches(item.track, context.pool.evidence)
-            and (not context.more or item.key not in context.pool.shown)]
+    return [item for item in context.pool.ranked(context.profile, constraints)
+            if not context.more or item.key not in context.pool.shown]
 
 
 def query_variants(context, args):
@@ -112,7 +137,8 @@ def add_result(context, result):
         'genres': [v[:60] for v in t.genres[:10]], 'language': t.language[:32] if t.language else None,
         'artwork_url': t.artwork_url if t.artwork_url and len(t.artwork_url) <= 2000 else None}) for t in tracks]
     canonical = result.model_copy(update={'tracks': tracks})
-    context.pool.merge(rank(deduplicate(tracks), context.pool.seed, context.profile), {result.provider: canonical})
+    context.pool.merge(rank(deduplicate(tracks), context.pool.seed, context.profile), {result.provider: canonical},
+                       retain_keys={item.key for item in qualifying(context)})
     return len(tracks)
 
 
@@ -141,7 +167,7 @@ async def progressive_recommendation(call, context, provider, output):
 
     async def supplement():
         unknown = [t for t in pool.candidates if t.source.provider != 'fixture'
-                   and t.canonical_key not in attempted_attributes and constraints.assess(t, pool.evidence) == 'unknown']
+                   and t.canonical_key not in attempted_attributes and pool.assess(t, constraints) == 'unknown']
         batch = list({t.canonical_key: t for t in unknown}.values())[:20]
         attempted_attributes.update(t.canonical_key for t in batch)
         evidence = await budget.attributes(provider, batch, constraints, snippets)
@@ -177,7 +203,9 @@ async def progressive_recommendation(call, context, provider, output):
                     add_result(context, ProviderResult(provider=name,
                         tracks=[t for t in result.tracks if t.source.provider == name]))
             report.attempts.append(SearchAttempt(platform='catalog', stage='recall',
-                status='hit' if result and result.tracks else 'no_results', result_count=len(result.tracks) if result else 0))
+                status='error' if result is None else 'hit' if result.tracks else 'no_results',
+                result_count=len(result.tracks) if result else 0,
+                error_code='unavailable' if result is None else None))
         for catalog in providers:
             if len(qualifying(context)) >= context.requested or budget.end_reason:
                 break
@@ -208,13 +236,18 @@ async def progressive_recommendation(call, context, provider, output):
             pool.merge(rank(deduplicate(local_catalog()), pool.seed, context.profile), {})
         yield {'stage': 'verifying', 'label': '核实歌曲信息'}
         await supplement()
+        if round_number == 0 and len(qualifying(context)) < context.requested and not budget.end_reason:
+            extra = await budget.queries(provider, {'seed': pool.seed, 'constraints': constraints.model_dump(),
+                'previous_queries': pool.queries[-60:], 'more_songs': context.more,
+                'catalog_artists': list(dict.fromkeys(t.artist.name for t in pool.candidates))[:10]})
+            queries = [*extra, *queries]
     # Optional identity/metadata source; exact recording title and artist must agree.
     if len(qualifying(context)) < context.requested and not budget.end_reason and not ambiguous:
         extensions = getattr(context.registry, 'extensions', [])
         for track in pool.candidates[:3]:
             if len(qualifying(context)) >= context.requested or budget.end_reason:
                 break
-            if track.source.provider == 'fixture' or constraints.assess(track, pool.evidence) != 'unknown':
+            if track.source.provider == 'fixture' or pool.assess(track, constraints) != 'unknown':
                 continue
             for catalog in extensions[:1]:
                 yield {'stage': 'verifying', 'label': '核实歌曲信息'}
@@ -239,6 +272,8 @@ async def progressive_recommendation(call, context, provider, output):
         query = f'{pool.seed} 歌曲 歌手' if web_round == 0 else f'{pool.seed} 推荐 音乐'
         try:
             clues = await budget.call(lambda query=query: web.search(query))
+            if clues is None:
+                report.web_search = 'error'
         except Exception:  # noqa: BLE001 - no external messages/private content in logs.
             clues = []
             report.web_search = 'error'
@@ -288,6 +323,8 @@ async def progressive_recommendation(call, context, provider, output):
                 context.web_references.append(WebReference(title=clue.title, url=clue.url,
                     track_ids=[t.canonical_key for t in hits][:25]))
             await supplement()
+    if perf_counter() >= budget.deadline and not budget.end_reason:
+        budget.end_reason = 'deadline'
     if ambiguous:
         context.items = []
         output.update(seed_status='ambiguous', seed_candidates=[{'title': t.title, 'artist': t.artist.name}
@@ -298,8 +335,8 @@ async def progressive_recommendation(call, context, provider, output):
         report.end_reason = budget.end_reason or 'insufficient_matches'
     else:
         render(context)
-        unknown = any(constraints.assess(t, pool.evidence) == 'unknown' for t in pool.candidates)
-        failed = any(s.error for s in pool.sources.values())
+        unknown = any(pool.assess(t, constraints) == 'unknown' for t in pool.candidates)
+        failed = budget.failed or any(s.error for s in pool.sources.values())
         report.end_reason = ('enough' if len(context.items) >= context.requested else budget.end_reason
             or ('insufficient_evidence' if unknown else 'upstream_failure' if failed else 'insufficient_matches'))
     report.returned = len(context.items)

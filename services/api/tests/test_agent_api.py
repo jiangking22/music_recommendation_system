@@ -44,6 +44,16 @@ def client(tmp_path: Path):
 BODY = {"message": "推荐适合学习的歌"}
 
 
+def test_legacy_timeout_setting_still_allows_the_full_progressive_chat_budget(monkeypatch):
+    from types import SimpleNamespace
+
+    from app.api import agent as agent_api
+    monkeypatch.setattr(agent_api, 'get_settings', lambda: SimpleNamespace(agent_timeout_seconds=30))
+    session = SimpleNamespace(get_bind=lambda: None)
+    agent = agent_api.get_agent(session, ProviderRegistry([]), LocalLLMProvider())
+    assert agent.timeout_seconds == 90
+
+
 def test_real_recommendation_tool_emits_display_name_without_replacing_identity(client):
     class FayeRegistry:
         def search_tracks(self, query, limit):
@@ -149,7 +159,8 @@ def test_capabilities_and_chat_do_not_claim_native_search(client):
     capability = client.get("/v1/agent/capabilities")
     assert capability.status_code == 200
     assert capability.json() == {"provider": "local", "supports_deep_thinking": False,
-                                  "native_search": {"status": "unavailable", "reason": "local_mode"}}
+                                  "native_search": {"status": "unavailable", "reason": "local_mode"},
+                                  "music_catalog_search": "unavailable", "web_search": "not_configured"}
     response = client.post("/v1/agent/chat", json={"message": "请联网查询最新音乐动态"})
     assert response.status_code == 200
     assert response.json()["native_search"]["status"] == "unavailable"

@@ -1,5 +1,6 @@
 import { ApiError } from "./errors";
 import { authFetch, sessionSignal } from "./auth";
+import { safeExternalUrl } from "./url";
 import type { AgentResponse, AgentStatus, ModelCapabilities, NativeSearchState } from "../types/agent";
 
 function validSearch(value: NativeSearchState | undefined): boolean {
@@ -11,12 +12,16 @@ export async function getAgentCapabilities(baseUrl: string, signal?: AbortSignal
   if (!response.ok) throw new ApiError("capabilities_unavailable", "Cannot check model capabilities.", response.status);
   const result = await response.json() as ModelCapabilities;
   if (!result || typeof result.provider !== "string" || typeof result.supports_deep_thinking !== "boolean"
-    || !validSearch(result.native_search)) throw new ApiError("invalid_response", "Invalid model capabilities.", 502);
+    || !validSearch(result.native_search)
+    || (result.music_catalog_search != null && !["available", "unavailable"].includes(result.music_catalog_search))
+    || (result.web_search != null && !["available", "not_configured"].includes(result.web_search)))
+    throw new ApiError("invalid_response", "Invalid model capabilities.", 502);
   return result;
 }
 
 function validateResult(value: unknown): AgentResponse {
   const result = value as AgentResponse;
+  const report = result?.search_report;
   if (!result || typeof result.answer !== "string" || typeof result.conversation_id !== "string"
     || typeof result.explanation !== "string" || typeof result.provider !== "string"
     || !Array.isArray(result.recommended_tracks) || !Array.isArray(result.used_tools)
@@ -25,10 +30,24 @@ function validateResult(value: unknown): AgentResponse {
     || (result.thinking_mode != null && !["basic", "standard", "deep"].includes(result.thinking_mode))
     || (result.thinking_unavailable_reason != null && !["unsupported", "llm_unavailable"].includes(result.thinking_unavailable_reason))
     || (result.native_search != null && !validSearch(result.native_search))
+    || (report != null && (!Number.isInteger(report.requested) || report.requested < 1 || report.requested > 10
+      || !Number.isInteger(report.returned) || report.returned < 0 || report.returned > report.requested
+      || !Number.isInteger(report.external_requests) || report.external_requests < 0 || report.external_requests > 24
+      || typeof report.expanded !== "boolean" || typeof report.reused !== "boolean"
+      || !["not_configured", "not_needed", "used", "error"].includes(report.web_search)
+      || !["enough", "insufficient_matches", "insufficient_evidence", "upstream_failure", "deadline", "budget_exhausted", "ambiguous"].includes(report.end_reason)
+      || !Array.isArray(report.attempts) || report.attempts.length > 24))
+    || (result.web_references != null && (!Array.isArray(result.web_references) || result.web_references.length > 10
+      || result.web_references.some((reference) => !reference || typeof reference.title !== "string"
+        || !safeExternalUrl(reference.url) || !Array.isArray(reference.track_ids))))
     || result.recommended_tracks.some((item) => !item || typeof item.id !== "string"
       || typeof item.title !== "string" || typeof item.artist !== "string"
       || typeof item.explanation !== "string" || typeof item.score !== "number"
-      || !item.track?.source || !Array.isArray(item.provenance))
+      || !item.track?.source || !Array.isArray(item.provenance)
+      || (item.attribute_evidence != null && (!Array.isArray(item.attribute_evidence) || item.attribute_evidence.length > 10
+        || item.attribute_evidence.some((e) => !e || typeof e.basis !== "string" || typeof e.track_id !== "string"
+          || !["language", "vocals", "feel"].includes(e.attribute) || !["provider", "model", "web"].includes(e.origin)
+          || (e.value != null && !["zh", "en", "vocal", "instrumental", "calm", "sad", "energetic"].includes(e.value))))))
     || result.used_tools.some((tool) => !tool || typeof tool.name !== "string" || typeof tool.status !== "string")
     || result.citations.some((citation) => !citation || typeof citation.title !== "string"
       || typeof citation.text !== "string" || typeof citation.chunk_id !== "string")) {
@@ -43,13 +62,13 @@ export async function streamAgentChat(
   deepThinking = false,
 ): Promise<AgentResponse> {
   const epoch = sessionSignal();
-  const deadline = AbortSignal.any([epoch, AbortSignal.timeout(deepThinking ? 130000 : 65000), ...(signal ? [signal] : [])]);
+  const deadline = AbortSignal.any([epoch, AbortSignal.timeout(deepThinking ? 130000 : 100000), ...(signal ? [signal] : [])]);
   const response = await authFetch(`${baseUrl.replace(/\/$/, "")}/v1/agent/chat/stream`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message, conversation_id: conversationId, deep_thinking: deepThinking }),
     signal: deadline,
     cache: "no-store",
-  }, fetcher, deepThinking ? 130000 : 70000);
+  }, fetcher, deepThinking ? 130000 : 100000);
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new ApiError(body.error?.code ?? "http_error", body.error?.message ?? "Music assistant unavailable.", response.status);
