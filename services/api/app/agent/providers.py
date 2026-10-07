@@ -48,6 +48,8 @@ class LocalLLMProvider:
 
     async def plan(self, context: dict, tools: list[dict]) -> dict:
         message = context["message"].lower()
+        if context.get("last_seed") and message.strip().startswith(("曲风", "风格")) and theme_seed(message):
+            return {"calls": []}
         if is_discussion(message):
             return {"calls": []}
         theme = theme_seed(message)
@@ -73,8 +75,16 @@ class LocalLLMProvider:
 
     async def answer(self, context: dict, results: list[dict]) -> dict:
         recommendation = next((r for r in results if r["name"] == "recommend_tracks"), None)
-        if any(word in context["message"].casefold() for word in ("联网", "上网", "web search", "search online")):
+        message = context["message"].casefold()
+        if any(word in message for word in ("联网", "上网", "web search", "search online")):
             return {"answer": "当前模型接口暂不支持联网检索。我可以继续讨论一般音乐概念，或根据已有曲库与本地资料回答。你想了解哪一方面？"}
+        if any(word in message for word in ("bpm", "每分钟几拍", "精确速度")):
+            if any(word in message for word in ("是什么", "什么意思", "what is", "meaning")) and not any(
+                    word in message for word in ("这首", "精确", "准确", "数值", "this song")):
+                return {"answer": "BPM 是每分钟的节拍数，用来描述拍速。它和听感不完全相同：同样拍速的音乐，律动、音色与留白不同，也会显得松弛或紧凑。"}
+            return {"answer": "当前资料没有可核对的 BPM 数值，因此无法给出精确拍速。听感上的舒缓、松弛可以从律动、音色和情绪继续讨论。"}
+        if any(word in message for word in ("具体乐器", "哪些乐器", "录音版本", "最新动态", "最近发行")):
+            return {"answer": "这类具体资料需要对应作品与可靠来源，目前基础模式无法核实。请补充歌名、歌手和你关注的版本，我可以根据已有资料继续说明。"}
         if recommendation is not None:
             count = len(recommendation["output"]["items"])
             if not count:
@@ -93,12 +103,12 @@ class LocalLLMProvider:
         knowledge = next((r["output"]["citations"] for r in results
                           if r["name"] == "search_music_knowledge"), [])
         if not knowledge:
-            message = context["message"].casefold()
             previous = context.get("last_recommendation", [])
+            if context.get("last_seed") and message.strip().startswith(("曲风", "风格")) and theme_seed(message) == "calm":
+                return {"answer": "明白，你想要整体舒缓、松弛的听感。慢板抒情、舒缓民谣和偏柔和的 R&B 都是可以讨论的方向，它们的律动、音色和情绪各有侧重。你更偏向温暖治愈，还是安静伤感？"}
             if previous and any(word in message for word in ("为什么", "为何", "解释", "why", "explain")):
                 factors = "；".join(f"{item['title']}：{item['explanation']}" for item in previous[:5])
-                return {"answer": (f"上一轮的匹配依据是：{factors}。这些是推荐器已有的匹配因素，曲库没有 BPM 或编曲测量，"
-                                   "因此不能据此确认实际节奏快慢。你更在意速度慢，还是听感柔和？")[:2000]}
+                return {"answer": f"上一轮的匹配依据是：{factors}。这些是推荐器已有的匹配因素；风格与听感可以作为补充解读。"[:2000]}
             if "爵士" in message and "摇滚" in message:
                 return {"answer": "一般听感上，爵士常重视即兴、切分与和声变化；摇滚常突出节拍、吉他和能量。这是一般风格描述，具体作品也会交叉。你偏爱松弛的律动，还是更有力量的节奏？"}
             if any(word in message for word in ("有点累", "心情", "难过", "疲惫")):

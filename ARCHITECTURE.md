@@ -304,6 +304,12 @@ a model; the OpenAI-compatible adapter uses bounded Chat Completions JSON plans 
 outputs. Conversation prose uses plain text wrapped into the canonical Answer by the adapter,
 avoiding model-authored JSON escaping/extra-field errors; transport, completion status and answer
 length remain validated. No Key defaults to the local provider.
+Chat and homepage composition have independent rules: chat allows qualitative interpretation
+of familiar recordings using model music knowledge, while homepage guidance explains supplied
+catalog/ranking factors only. Exact measurements/configuration/version/current facts require
+evidence; unfamiliar catalog titles do not imply the model knows their audio. Tools no longer
+inject a repeated missing-measurements list. No-tool discussion is not an empty discovery result.
+Music interpretation cannot alter deterministic scores, filters or recommendation ordering.
 Requests to the official `api.deepseek.com` host disable thinking by default. Assistant chat
 opts in through `ChatRequest.deep_thinking=false|true`; only chat plan/answer context enables
 thinking, leaving homepage seed identification and guidance on the original budget. Responses

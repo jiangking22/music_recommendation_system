@@ -88,7 +88,6 @@ def invoke_tool(call: ToolCall, context: ToolContext) -> dict:
                              "language": i.track.language, "genres": i.track.genres[:5], "tags": i.track.tags[:5]}
                             for i in context.items],
                   "constraints": constraints.model_dump(),
-                  "missing_measurements": ["bpm", "arrangement"],
                   "partial_sources": any(s.error for s in search.sources.values())}
         context.conversation.recommendation_context = [
             {"title": i.title, "artist": i.artist, "explanation": i.explanation,

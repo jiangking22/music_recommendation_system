@@ -1,12 +1,33 @@
 # TODO
 
+## Assistant expression and bounded chat / 曲风表达与固定聊天区
+
+- [x] 1. Qualitative music discussion, precise-fact boundaries and independent homepage rules.
+- [ ] 2. Fixed-height conversation panel, considerate scrolling and mobile keyboard handling.
+
+Current checked-out item: none (expression item 1 complete; bounded panel item 2 next).
+Scope: Agent prompts/providers/tool context and focused API regressions; then assistant UI/CSS
+and interaction tests. Existing JSON/SSE interfaces, six-turn context and native-search status remain.
+Verification: failing regressions first; API pytest/Ruff/compile, real ordinary/deep model chats,
+web tests/lint/types/build, desktop/390px/keyboard browser acceptance and legacy HTTP smoke.
+Complete sequentially with one focused commit per item and current-state bilingual docs/ADRs.
+
+Item 1 acceptance 2026-10-07: failing regressions preceded local/context changes. The full API
+suite passed 308 tests; additional joined Chinese/BPM regressions bring the focused Agent run to
+44 tests. Ruff/compile, deterministic evaluation and legacy help/HTTP smoke pass. Real configured
+model checks in ordinary and deep modes cover qualitative style clarification with retained vocal/
+language preferences, previous reasons, familiar recording interpretation and exact BPM refusal.
+Earlier real probes exposed invented empty-discovery claims and invalid isolated explanation calls;
+plan/composition rules now distinguish no tools from empty results and use cached matching factors.
+Independent homepage guidance remains factor-grounded. No schema/ranking/search change.
+
 ## Assistant deep conversation / 音乐助手深度对话
 
 - [x] 1. Manual deep-thinking request/UI, bounded model budget, progress and cancellation.
 - [x] 2. Context-aware follow-ups, direct discussion and evidence-aware answers.
 - [x] 3. Verify configured-model native search capability; expose honest availability and sources.
 
-Current checked-out item: none (all three assistant items complete).
+Previous assistant deep-conversation items: all three complete.
 Scope: target Agent API/adapter, assistant UI/transport, focused tests and bilingual docs.
 Verification: failing regressions first; API pytest/Ruff/compile, web tests/lint/types/build,
 targeted runtime checks, real model/browser acceptance and legacy smoke. Execute sequentially,

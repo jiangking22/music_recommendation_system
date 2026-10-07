@@ -38,10 +38,15 @@ keeps its existing non-thinking budget. Raw model reasoning is not returned, sto
 Follow-ups combine the latest correction with six recent turns. Discussion and explanations
 of earlier recommendations can answer without a fresh playlist. Language/vocal refinements use
 explicit catalog metadata; insufficient evidence yields a clarification instead of guessed matches.
-General music concepts may use model knowledge; specific recording facts require supplied evidence.
+General music concepts and qualitative interpretations of familiar recordings may use model music
+knowledge. Such interpretations are not listening measurements or verified catalog facts and do
+not affect ranking. Exact BPM, verified instrumentation/version details and current events require
+evidence; an unfamiliar recording prompts an artist/version clarification.
 
 连续追问结合最近六轮与最新补充；聊风格、心情或解释上一轮推荐时可直接回答。华语、人声等条件
-只按曲库明确资料筛选，资料不足时说明无法确认并追问。一般音乐概念可交流，具体作品事实须有依据。
+只按曲库明确资料筛选，资料不足时说明无法确认并追问。一般曲风及熟悉歌曲的定性听感可以基于模型音乐
+知识交流，不机械提示缺少 BPM；这类解读不改变排序，也不代表实听、实测或联网核验。精确 BPM、
+可核对的乐器配置、版本及最新事实仍需证据；陌生作品会询问歌手或版本。
 
 Native web search is **currently unavailable**. The configured DeepSeek service was probed on
 2026-10-07 without verified search records or source citations; the page reports this before chat.

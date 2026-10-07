@@ -1,5 +1,22 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-036: Qualitative music interpretation without measurement boilerplate
+
+**Status:** Accepted (explicit user correction; revises ADR-034/035 answer restrictions)
+**Date:** 2026-10-07
+
+Music chat may explain styles and familiar recordings' qualitative listening impressions from
+model music knowledge, framed as interpretation rather than audio measurement or verified retrieval.
+Precise BPM, verified instrumentation/version details and current facts still require evidence.
+Unfamiliar recordings require identity clarification; catalog labels only support possible genre
+tendencies. Separate chat prose rules from homepage factor-grounded JSON guidance. Remove the
+repeated missing-measurements tool field and local explanation warning. Zero new tools means no
+new search, not failed/empty discovery; cached explanations use canonical previous factors.
+
+Interpretations never become ranking evidence, filters or a replacement order. No API, schema,
+model budget, credential, search capability or migration change. Current six-turn memory remains.
+允许定性曲风交流；精确事实仍须核对。模型解读不参与筛选排序，也不能伪装成实听、实测或联网结果。
+
 ## ADR-035: Verified native-search capability and explicit unavailability
 
 **Status:** Accepted (approved assistant plan)

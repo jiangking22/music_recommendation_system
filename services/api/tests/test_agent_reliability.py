@@ -229,10 +229,12 @@ def test_screenshot_followup_understands_slow_style_in_basic_mode(engine):
     agent = Agent(engine, registry, PlanUnavailable())
     first = chat(agent, "缓慢的歌")
     second = chat(agent, "曲风缓慢的", first.conversation_id)
-    assert second.recommended_tracks
+    assert second.recommended_tracks == []
+    assert second.used_tools == []
     assert second.conversation_id == first.conversation_id
     assert registry.calls[-1][0] == "calm"
     assert "知识库没有" not in second.answer
+    assert "舒缓" in second.answer and "BPM" not in second.answer
 
 
 def test_refined_language_and_vocals_use_metadata_and_persist_until_new_request(engine):
@@ -270,7 +272,45 @@ def test_explain_previous_tracks_without_a_new_search_and_keep_grounded_context(
     assert len(registry.calls) == 1
     assert second.used_tools == []
     assert first.recommended_tracks[0].title in second.answer
-    assert "BPM" in second.answer
+    assert "BPM" not in second.answer and "编曲测量" not in second.answer
+
+
+def test_recommendation_material_does_not_push_missing_measurements_into_every_answer(engine):
+    class InspectAnswer(LocalLLMProvider):
+        async def answer(self, context, results):
+            output = next(result["output"] for result in results if result["name"] == "recommend_tracks")
+            assert "missing_measurements" not in output
+            assert output["items"] and "genres" in output["items"][0]
+            return await super().answer(context, results)
+
+    assert chat(Agent(engine, CatalogRegistry(), InspectAnswer()), "缓慢的歌").recommended_tracks
+
+
+@pytest.mark.parametrize("message", ["解释一下这首歌的精确 BPM 是多少", "这首BPM是多少？"])
+def test_precise_bpm_question_does_not_repeat_old_recommendation_or_invent_measurements(engine, message):
+    registry = CatalogRegistry()
+    agent = Agent(engine, registry, LocalLLMProvider())
+    first = chat(agent, "缓慢的歌")
+    response = chat(agent, message, first.conversation_id)
+    assert "BPM" in response.answer and "数值" in response.answer
+    assert first.recommended_tracks[0].title not in response.answer
+    assert response.recommended_tracks == []
+    assert len(registry.calls) == 1
+
+
+@pytest.mark.parametrize("message", ["BPM 是什么意思？", "BPM是什么意思？"])
+def test_general_bpm_concept_is_explained_without_a_missing_measurement_warning(engine, message):
+    response = chat(Agent(engine, CatalogRegistry(), LocalLLMProvider()), message)
+    assert "每分钟" in response.answer and "节拍" in response.answer
+    assert "没有可核对" not in response.answer
+
+
+def test_unfamiliar_recording_style_requests_identity_instead_of_guessing(engine):
+    agent = Agent(engine, CatalogRegistry(), LocalLLMProvider())
+    response = chat(agent, "《从未收录的虚构作品》是什么曲风？")
+    assert "歌手" in response.answer or "版本" in response.answer
+    assert "BPM" not in response.answer
+    assert response.recommended_tracks == []
 
 
 def test_direct_discussion_and_topic_change_do_not_force_recommendations(engine):
