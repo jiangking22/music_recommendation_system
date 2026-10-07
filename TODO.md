@@ -1,5 +1,25 @@
 # TODO
 
+## CI provider test isolation / CI 音乐来源测试环境隔离
+
+- [x] Isolate the default-provider test from inherited global/QQ environment switches,
+  retaining default/QQ opt-out/offline assertions and local CI-environment verification.
+
+Approved 2026-10-07. Scope: `services/api/tests/test_providers.py` and this checklist.
+The earlier CI at `fdb45ac` had 350 passing API tests and one failure because its offline
+environment disabled catalogs before the default-provider assertion. The same focused test
+failed locally with `ENABLE_MUSIC_PROVIDERS=false` and passed with `true` before the fix.
+Verification: focused tests with the switch absent/true/false; full API pytest/Ruff/compile in
+the CI offline environment; legacy HTTP smoke; sensitive-diff review; normal main push and
+successful API/web/clean-start jobs on the pushed SHA. Preserve CI's offline and HTTP guards.
+
+Local acceptance 2026-10-07: the focused test passes with the inherited global switch absent,
+true and false. All 351 API tests pass with CI's offline/database/local-model environment;
+Ruff, compile and legacy help/HTTP 200 pass. Only this test and checklist changed; reviewed
+diff contains no credential values or generated artifacts. Remote publication acceptance
+requires the API, web and clean-start jobs to pass on this fix's exact pushed commit;
+the original `fdb45ac` run remains failed historical evidence, not a successful verification.
+
 ## Sonora repository identity / 项目更名与仓库同步
 
 - [x] Rename the GitHub repository to `sonora`, synchronize project links and bilingual README,
