@@ -5,9 +5,9 @@ import asyncio
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from app.agent.schemas import RecommendInput
 from app.agent.tools import ToolContext
 from app.api.schemas import RecommendationItem
+from app.domain.artist_names import enrich_track
 from app.domain.listening import AttributeEvidence
 from app.domain.pipeline import rerank_diverse
 from app.observability.events import emit
@@ -41,15 +41,17 @@ async def infer_attributes(provider, tracks, constraints, *, timeout=10):
 async def invoke_recommendation(call, context: ToolContext, provider, output):
     constraints = context.conversation.constraints
     unknown = [item.track for item in context.candidates if item.track.source.provider != 'fixture'
-               and constraints.assess(item.track) == 'unknown']
+               and constraints.assess(item.track, context.pool.evidence) == 'unknown']
     evidence = await infer_attributes(provider, unknown, constraints)
     if evidence:
+        context.pool.evidence = (context.pool.evidence + evidence)[-450:]
         songs = rerank_diverse([item for item in context.candidates
-                               if constraints.matches(item.track, evidence)],
-                              RecommendInput.model_validate(call.arguments).limit)
+                               if constraints.matches(item.track, context.pool.evidence)
+                               and (not context.more or item.key not in context.pool.shown)],
+                              context.requested)
         context.items = [RecommendationItem(id=s.key, title=s.track.title, artist=s.track.artist.name,
-            explanation=s.explanation, track=s.track, score=s.score, score_breakdown=s.score_breakdown,
-            provenance=list(s.provenance), attribute_evidence=[e for e in evidence
+            explanation=s.explanation, track=enrich_track(s.track), score=s.score, score_breakdown=s.score_breakdown,
+            provenance=list(s.provenance), attribute_evidence=[e for e in context.pool.evidence
                 if e.track_id == s.track.canonical_key][:10]) for s in songs]
         context.conversation.recommendation_context = [
             {'title': i.title, 'artist': i.artist, 'explanation': i.explanation,
@@ -58,4 +60,6 @@ async def invoke_recommendation(call, context: ToolContext, provider, output):
                            'attribute_evidence': [e.model_dump() for e in i.attribute_evidence]} for i in context.items]
         if context.items:
             output.pop('empty_reason', None)
+    context.pool.shown = list(dict.fromkeys([*context.pool.shown, *(i.id for i in context.items)]))[-500:]
+    context.pool.save(context.conversation)
     return output

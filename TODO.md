@@ -3,7 +3,7 @@
 ## Progressive assistant discovery / 音乐助手渐进检索（active）
 
 - [x] 1. Three-state listening attributes and labelled structured model assistance.
-- [ ] 2. Account/session candidate pool, expiry, refinements and unseen follow-ups.
+- [x] 2. Account/session candidate pool, expiry, refinements and unseen follow-ups.
 - [ ] 3. Bounded platform expansion, Brave clues with catalog verification and cancellation.
 - [ ] 4. Search/evidence UI, real runtime acceptance and current-state bilingual documentation.
 

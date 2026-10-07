@@ -68,6 +68,7 @@ class AccountConversation(Base):
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("accounts.user_id"), index=True)
     session_id: Mapped[str] = mapped_column(String(36), ForeignKey("login_sessions.session_id"), index=True)
     messages: Mapped[list[dict]] = mapped_column(JSON, nullable=False)
+    search_state: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict, server_default='{}')
     last_seed: Mapped[str | None] = mapped_column(String(120))
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

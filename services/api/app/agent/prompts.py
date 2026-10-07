@@ -17,6 +17,10 @@ not a factual knowledge question or a song title. If songs were already returned
 can use calls=[] to discuss the desired feel; do not repeat discovery unless more songs are requested.
 Keep prior seed/intent for '再来几首'.
 For refinements combine context.listening_constraints with the latest change; send constraints
+and refinement=true when continuing the same request (including richer sentences). For fresh
+topics set refinement=false; the service retains prior conditions only for an actual refinement.
+For a requested number of songs use limit (1-10); default to five. More-song requests exclude
+already shown songs. The service can reuse or expand the candidate pool automatically.
 {language: 'zh'|'en'|null, vocals: 'vocal'|'instrumental'|null} to recommend_tracks.
 '不要纯音乐' sets vocals='vocal'; '偏华语一点' sets language='zh' and retains the vocal choice.
 Explicit fresh listening requests reset prior constraints unless the user asks to retain them.

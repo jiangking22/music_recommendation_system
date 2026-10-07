@@ -163,9 +163,8 @@ def test_followup_after_fallback_reuses_conversation_and_listening_theme(engine)
     first = chat(agent, "emo的歌")
     second = chat(agent, "再来几首", first.conversation_id)
     assert second.conversation_id == first.conversation_id
-    assert second.recommended_tracks
-    assert [item.id for item in second.recommended_tracks] == [
-        item.id for item in first.recommended_tracks]
+    assert not {item.id for item in second.recommended_tracks} & {item.id for item in first.recommended_tracks}
+    assert second.recommended_tracks == []
     assert second.fallback_reason == "llm_unavailable"
     assert len(registry.calls) == 2
     assert registry.calls[0][0] == registry.calls[1][0]
@@ -251,7 +250,7 @@ def test_refined_language_and_vocals_use_metadata_and_persist_until_new_request(
     third = chat(agent, "偏华语一点", first.conversation_id)
     assert [item.title for item in third.recommended_tracks] == ["Quiet Voice"]
     fourth = chat(agent, "再来几首", first.conversation_id)
-    assert [item.title for item in fourth.recommended_tracks] == ["Quiet Voice"]
+    assert fourth.recommended_tracks == []  # The only qualifying song was already shown.
     new = chat(agent, "摇滚的歌", first.conversation_id)
     assert len(new.recommended_tracks) > 1
 

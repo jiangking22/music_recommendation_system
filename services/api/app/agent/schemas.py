@@ -38,6 +38,7 @@ class RecommendInput(StrictModel):
     limit: int = Field(default=5, ge=1, le=10)
     intent: Literal["auto", "theme", "song"] = "auto"
     constraints: ListeningConstraints | None = None
+    refinement: bool = False
 
 
 class KnowledgeInput(StrictModel):

@@ -5,7 +5,10 @@
 Progressive assistant discovery: task 1 implements match/mismatch/unknown listening constraints
 and bounded structured model assistance for catalog-confirmed recordings (ADR-038). Model
 evidence is exposed separately from Track metadata; explicit source conflicts cannot be overridden.
-Candidate persistence and automatic expanded recall remain pending in the ordered TODO tasks.
+Task 2 adds a bounded JSON search_state column to account_conversations (migration 0009).
+It keeps canonical candidates/evidence/query records independently of the six-turn model history,
+reuses fresh qualifying candidates, and excludes session-shown songs for more-song requests.
+Automatic multi-round expanded recall remains pending in task 3.
 曲库属性缺失进入未知状态；模型辅助属性明确标注为推断，不修改曲库元数据或评分。
 
 Account addition (implemented; verification recorded in docs/DEPLOYMENT.md): authenticated HTTP business access,

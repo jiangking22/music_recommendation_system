@@ -33,8 +33,17 @@ def theme_seed(message: str) -> str | None:
 
 
 def is_followup(message: str) -> bool:
-    return bool(re.fullmatch(r"(?:再来(?:几首|一些|点|一首)?(?:歌)?|more(?: songs| like this)?)"
+    return bool(re.fullmatch(r"(?:再来(?:几首|一些|点|一首|[0-9一二两三四五六七八九十]+首)?(?:歌)?|more(?: songs| like this)?)"
                              r"[。！!?？.]*", message.casefold().strip()))
+
+
+def requested_count(message: str, default: int = 5) -> int:
+    match = re.search(r'([0-9]{1,3}|[一二两三四五六七八九十])\s*首|\b([0-9]{1,3})\s+songs\b', message)
+    if not match:
+        return default
+    value = match[1] or match[2]
+    number = int(value) if value.isdecimal() else '一二三四五六七八九十'.find(value) + 1 if value != '两' else 2
+    return max(1, min(number, 10))
 
 
 def preference_updates(message: str) -> dict:

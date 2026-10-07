@@ -49,7 +49,9 @@ def test_conversation_context_survives_new_agent_instance(agent):
     first = chat(agent, "推荐适合学习的歌")
     fresh = Agent(agent.engine, EmptyRegistry(), LocalLLMProvider())
     again = chat(fresh, "再来几首", first.conversation_id)
-    assert again.recommended_tracks[0].id == first.recommended_tracks[0].id
+    assert not {item.id for item in again.recommended_tracks} & {item.id for item in first.recommended_tracks}
+    with Session(agent.engine) as db:
+        assert db.get(AccountConversation, str(first.conversation_id)).last_seed == 'calm jazz'
     assert again.conversation_id == first.conversation_id
     with pytest.raises(AgentError, match="conversation_not_found"):
         chat(fresh, "再来几首", first.conversation_id, "account_other")

@@ -42,6 +42,7 @@ class Conversation:
     last_intent: str = "auto"
     constraints: ListeningConstraints = field(default_factory=ListeningConstraints)
     recommendation_context: list[dict] = field(default_factory=list)
+    search_state: dict = field(default_factory=dict)
 
 
 class Memory:
@@ -65,7 +66,7 @@ class Memory:
                 return Conversation(row.conversation_id, row.version, row.messages, row.last_seed,
                                     preference, intent if intent in ("theme", "song") else "auto",
                                     ListeningConstraints.model_validate(state.get("listening_constraints", {})),
-                                    state.get("recommendation_context", [])[:10])
+                                    state.get("recommendation_context", [])[:10], row.search_state or {})
             conversation_id = str(uuid4())
             session.add(AccountConversation(conversation_id=conversation_id, user_id=request.user_id, session_id=request.session_id,
                                           messages=[], version=0))
@@ -86,6 +87,7 @@ class Memory:
                 AccountConversation.session_id == request.session_id,
                 AccountConversation.version == conversation.version).values(
                     messages=messages, last_seed=conversation.last_seed,
+                    search_state=conversation.search_state,
                     version=conversation.version + 1, updated_at=datetime.now(UTC)))
             if updated.rowcount != 1:
                 raise MemoryError("conversation_conflict")

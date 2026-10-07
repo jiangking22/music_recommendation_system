@@ -15,11 +15,11 @@ and ordering decision; the Agent selects tools and explains their results.
 
 Listening constraints distinguish unknown metadata from mismatches. Optional structured model
 assistance supplements catalog-confirmed tracks and appears as separate `attribute_evidence`;
-source conflicts override inference. Progressive candidate reuse/expanded discovery is being
-implemented in four ordered tasks (TODO / ADR-038), not yet fully available at this checkpoint.
+source conflicts override inference. Candidate pools reuse up to 150 records for 30 minutes and
+exclude previously shown songs for follow-ups; automatic multi-round expansion is the next task.
 
 聆听条件已区分未知属性与不匹配；模型辅助判断单独标注，不覆盖来源冲突。
-候选复用和渐进扩搜仍按 TODO 顺序实施，不能据此声称网页搜索已可用。
+候选池可复用 30 分钟，“再来几首”排除已展示歌曲；多轮扩搜仍待第三项，网页搜索未配置。
 
 Sonora **v1.0.0** uses the [MIT License](LICENSE), copyright 2026 jiangking22.
 API, web and OpenAPI application metadata are version **1.0.0**.
