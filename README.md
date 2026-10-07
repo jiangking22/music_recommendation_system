@@ -26,6 +26,15 @@ The Next.js homepage offers seed input, recommendation cards, explanations, prov
 like/dislike and preferences. `/agent` presents chat, tool status and knowledge citations.
 
 新版首页提供参考输入、推荐卡片、理由、来源、喜欢/不喜欢与画像；`/agent` 提供对话、工具状态和知识引用。
+The assistant has a manual deep-thinking checkbox (off by default, kept for this page visit).
+Official DeepSeek chat uses an opt-in 120-second budget; Stop cancels the pending reply.
+Unsupported model endpoints and local fallback report their actual mode. Homepage identification
+keeps its existing non-thinking budget. Raw model reasoning is not returned, stored or logged.
+
+助手提供默认关闭的“深度思考”开关，本页面内保留选择；官方 DeepSeek 对话开启后最多等待约两分钟，
+可点击“停止”取消。接口不支持或模型故障时明确显示实际模式；首页识曲保持原预算。
+仅展示回答、依据和工具进度，模型原始思考不返回、不入库、不写日志。
+
 Historical captures below predate account login and use the offline fixture catalog and local rule-based assistant, with a
 temporary SQLite test database. They do not verify Docker/PostgreSQL or live providers/LLMs.
 截图来自真实运行页面：离线固定曲库、本地规则助手、临时 SQLite 测试库；不代表容器、PostgreSQL 或真实来源/模型验证。

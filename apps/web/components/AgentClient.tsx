@@ -21,6 +21,7 @@ const ERRORS: Record<string, string> = {
   conversation_conflict: "对话已更新，请重试这条消息。",
   invalid_model_output: "暂时无法理解这次请求，请换个说法或重试。",
   incomplete_stream: "回复中断，请重试。",
+  model_output_truncated: "回答超出长度限制，请缩小问题范围后重试。",
 };
 
 export default function AgentClient() {
@@ -31,6 +32,8 @@ export default function AgentClient() {
   const [statuses, setStatuses] = useState<AgentStatus[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deepThinking, setDeepThinking] = useState(false);
+  const [stopped, setStopped] = useState(false);
   const conversation = useRef<string | undefined>(undefined);
   const controller = useRef<AbortController | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -45,10 +48,11 @@ export default function AgentClient() {
     controller.current = new AbortController();
     const signal = controller.current.signal;
     setLoading(true); setError(null); setStatuses([]); setResult(null);
+    setStopped(false);
     setPending(text);
     try {
       const next = await streamAgentChat(API_BASE, text, conversation.current,
-        (status) => { if (!signal.aborted) setStatuses((items) => [...items, status].slice(-8)); }, signal);
+        (status) => { if (!signal.aborted) setStatuses((items) => [...items, status].slice(-8)); }, signal, undefined, deepThinking);
       if (signal.aborted) return;
       conversation.current = next.conversation_id;
       setResult(next); setMessage("");
@@ -59,9 +63,19 @@ export default function AgentClient() {
       if (!signal.aborted) setError(failure instanceof ApiError
         ? ERRORS[failure.code] ?? "暂时无法回答，请重试。" : "连接中断，请检查网络后重试。");
     } finally {
-      inFlight.current = false;
-      if (!signal.aborted) setLoading(false);
+      if (controller.current?.signal === signal) {
+        inFlight.current = false;
+        setLoading(false);
+      }
     }
+  }
+
+  function stop() {
+    controller.current?.abort();
+    controller.current = null;
+    inFlight.current = false;
+    setLoading(false); setPending(null); setStatuses([]); setStopped(true);
+    input.current?.focus();
   }
 
   return <div className="site-shell agent-shell">
@@ -87,10 +101,18 @@ export default function AgentClient() {
           <form onSubmit={send} className="agent-form"><label htmlFor="agent-message">想听什么？</label>
             <div><input id="agent-message" ref={input} value={message} maxLength={2000} required
               onChange={(event) => setMessage(event.target.value)} placeholder="推荐适合学习的歌…" />
-              <button type="submit" className="primary-button" disabled={loading}>{loading ? "处理中…" : "发送"}</button></div></form>
+              <button type="submit" className="primary-button" disabled={loading}>{loading ? "处理中…" : "发送"}</button></div>
+            <div className="agent-controls"><label className="agent-thinking"><input type="checkbox" checked={deepThinking}
+              disabled={loading} onChange={(event) => setDeepThinking(event.target.checked)} />深度思考</label>
+              {loading ? <button type="button" className="agent-stop" onClick={stop}>停止</button> : null}
+              {deepThinking ? <small>深入理解与分析，最多等待约两分钟。</small> : null}</div></form>
+          {stopped ? <p role="status" className="notice">已停止，可修改问题或重新发送。</p> : null}
           {error ? <p role="alert" className="error-state">{error}</p> : null}
           {result?.fallback_reason ? <p role="status" className="notice">
             智能服务暂不可用，已使用基础模式。推荐仍按音乐匹配与已有偏好排序。
+          </p> : null}
+          {result?.thinking_unavailable_reason === "unsupported" ? <p className="notice">
+            当前模型接口暂不支持深度思考，已使用{result.provider === "local" ? "基础" : "普通"}模式。
           </p> : null}
         </section>
         <aside className="agent-progress" aria-labelledby="progress-title"><h2 id="progress-title">这次聆听</h2>
@@ -99,7 +121,7 @@ export default function AgentClient() {
               {status.label}{status.tool ? ` · ${LABELS[status.tool] ?? status.tool}` : ""}</li>)}</ol>}
           </div>
           {result ? <><span className="agent-mode">{result.fallback_reason ? "基础模式"
-            : result.provider === "local" ? "本地助手" : "音乐助手"}</span>
+            : result.provider === "local" ? "本地助手" : result.thinking_mode === "deep" ? "深度思考" : "音乐助手"}</span>
             <ul className="agent-tools">{result.used_tools.map((tool) => <li key={tool.name}>
               {LABELS[tool.name]} · {tool.status === "ok" ? "完成" : "未完成"}</li>)}</ul></> : null}
           <p className="agent-footnote">音乐偏好随账号同步，对话仅限当前登录会话。</p>

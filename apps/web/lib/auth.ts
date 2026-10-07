@@ -49,12 +49,13 @@ export function subscribeSession(listener: () => void) {
   return () => { listeners.delete(listener); window.removeEventListener("storage", storage); };
 }
 
-export async function authFetch(url: string, options: RequestInit = {}, fetcher: typeof fetch = fetch): Promise<Response> {
+export async function authFetch(url: string, options: RequestInit = {}, fetcher: typeof fetch = fetch,
+  timeoutMs = 70000): Promise<Response> {
   const authenticated = !url.includes("/v1/auth/");
   if (authenticated && !identity) throw new ApiError("authentication_required", "Please sign in.", 401);
   const current = identity;
   const epoch = lifetime.signal;
-  const signal = AbortSignal.any([epoch, AbortSignal.timeout(70000), ...(options.signal ? [options.signal] : [])]);
+  const signal = AbortSignal.any([epoch, AbortSignal.timeout(timeoutMs), ...(options.signal ? [options.signal] : [])]);
   const headers = new Headers(options.headers);
   if (current && (authenticated || /\/auth\/(logout|change-password)$/.test(url))) headers.set("X-Session-Id", current.session_id);
   if (options.method && !["GET", "HEAD", "OPTIONS"].includes(options.method)) {

@@ -107,7 +107,7 @@ def test_sse_has_public_statuses_and_one_terminal_result(client, caplog):
     events = [(block.splitlines()[0][7:], json.loads(block.splitlines()[1][6:])) for block in blocks]
     assert events[0] == ("status", {"stage": "analyzing", "label": "分析需求"})
     assert [data["stage"] for name, data in events if name == "status"] == [
-        "analyzing", "preferences", "tool", "tool", "tool", "complete"]
+        "analyzing", "preferences", "tool", "tool", "tool", "composing", "complete"]
     assert [name for name, data in events].count("done") == 1
     assert events[-1][1]["recommended_tracks"]
     assert "reasoning" not in response.text
@@ -127,6 +127,20 @@ def test_chat_validation(client, changes):
     response = client.post("/v1/agent/chat", json={**BODY, **changes})
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "validation_error"
+
+
+@pytest.mark.parametrize("suffix", ["", "/stream"])
+def test_deep_thinking_request_is_accepted_with_honest_local_mode(client, suffix):
+    response = client.post(f"/v1/agent/chat{suffix}", json={**BODY, "deep_thinking": True})
+    assert response.status_code == 200
+    result = (json.loads(response.text.split("event: done\ndata: ")[1].split("\n\n")[0])
+              if suffix else response.json())
+    assert result["thinking_mode"] == "basic"
+    assert result["thinking_unavailable_reason"] == "unsupported"
+
+
+def test_thinking_flag_is_strict_boolean(client):
+    assert client.post("/v1/agent/chat", json={**BODY, "deep_thinking": "true"}).status_code == 422
 
 
 def test_invalid_llm_output_is_safe_in_json_and_sse(client):

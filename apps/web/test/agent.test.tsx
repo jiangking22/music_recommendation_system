@@ -25,7 +25,7 @@ it("shows history, statuses and sends follow-up in the same conversation", async
   fireEvent.change(screen.getByLabelText("想听什么？"), { target: { value: "再来几首" } });
   fireEvent.click(screen.getByRole("button", { name: "发送" }));
   await waitFor(() => expect(api.stream).toHaveBeenLastCalledWith(
-    expect.any(String), "再来几首", "one", expect.any(Function), expect.any(AbortSignal)));
+    expect.any(String), "再来几首", "one", expect.any(Function), expect.any(AbortSignal), undefined, false));
 });
 
 it("shows recoverable request errors", async () => {
@@ -77,4 +77,26 @@ it("uses the catalog artist display name in recommended tracks", async () => {
   fireEvent.click(screen.getByRole("button", { name: "发送" }));
   expect(await screen.findByText("王菲")).toBeInTheDocument();
   expect(screen.queryByText("Faye Wong")).not.toBeInTheDocument();
+});
+
+it("opts into deep thinking, keeps selection and ignores a stopped reply", async () => {
+  let finish: (value: typeof result) => void = () => {};
+  api.stream.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+  render(<AgentClient />);
+  const toggle = screen.getByRole("checkbox", { name: "深度思考" });
+  expect(toggle).not.toBeChecked();
+  fireEvent.click(toggle);
+  fireEvent.change(screen.getByLabelText("想听什么？"), { target: { value: "缓慢的歌" } });
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+  const call = api.stream.mock.calls[0];
+  expect(call[6]).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "停止" }));
+  expect(call[4].aborted).toBe(true);
+  expect(screen.getByRole("button", { name: "发送" })).toBeEnabled();
+  expect(toggle).toBeChecked();
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+  expect(await screen.findByText(result.answer)).toBeInTheDocument();
+  finish({ ...result, answer: "late response" });
+  await waitFor(() => expect(screen.queryByText("late response")).not.toBeInTheDocument());
+  expect(screen.getAllByText("缓慢的歌")).toHaveLength(1);
 });

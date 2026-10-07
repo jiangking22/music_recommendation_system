@@ -12,7 +12,7 @@ from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.agent.memory import Memory, MemoryError
-from app.agent.providers import LLMProvider, LocalLLMProvider
+from app.agent.providers import LLMProvider, LocalLLMProvider, ModelOutputTruncated
 from app.agent.schemas import AgentRequest, Answer, ChatResponse, Plan, ToolTrace
 from app.agent.tools import TOOL_INPUTS, ToolContext, invoke_tool, tool_schemas
 from app.infrastructure.workers import run_blocking
@@ -20,6 +20,7 @@ from app.observability.events import emit
 from app.providers.registry import ProviderRegistry
 
 _agent_slots = WeakKeyDictionary()
+DEEP_TIMEOUT_SECONDS = 120
 
 
 class AgentError(Exception):
@@ -40,14 +41,17 @@ class Agent:
             slots = _agent_slots.setdefault(asyncio.get_running_loop(), asyncio.Semaphore(4))
             if slots.locked():
                 raise AgentError("agent_busy", 503)
-            async with slots, asyncio.timeout(self.timeout_seconds):
+            deep = request.deep_thinking and getattr(self.provider, "supports_deep_thinking", False)
+            async with slots, asyncio.timeout(DEEP_TIMEOUT_SECONDS if deep else self.timeout_seconds):
                 yield {"event": "status", "data": {"stage": "analyzing", "label": "分析需求"}}
                 memory = Memory(self.engine)
                 conversation = await run_blocking(lambda: memory.load(request))
                 context = {"message": request.message, "history": conversation.messages,
                            "last_seed": conversation.last_seed,
                            "last_intent": conversation.last_intent,
-                           "preference_summary": conversation.preference_summary}
+                           "preference_summary": conversation.preference_summary, "deep_thinking": deep}
+                if deep:
+                    yield {"event": "status", "data": {"stage": "thinking", "label": "深入理解上下文"}}
                 provider = self.provider
                 fallback_reason = None
                 started = perf_counter()
@@ -93,6 +97,7 @@ class Agent:
                     results.append({"name": call.name, "output": output})
                     yield {"event": "tool_result", "data": {"tool": call.name, "status": "ok"}}
                 started = perf_counter()
+                yield {"event": "status", "data": {"stage": "composing", "label": "整理回答"}}
                 try:
                     answer_data = await provider.answer(context, results)
                 except httpx.HTTPError:
@@ -108,7 +113,10 @@ class Agent:
                                         recommended_tracks=tools.items, used_tools=traces,
                                         explanation=tools.explanation, citations=tools.citations,
                                         sources=tools.sources, provider=provider.name,
-                                        fallback_reason=fallback_reason)
+                                        fallback_reason=fallback_reason,
+                                        thinking_mode="basic" if provider.name == "local" else "deep" if deep else "standard",
+                                        thinking_unavailable_reason=(fallback_reason or "unsupported")
+                                        if request.deep_thinking and (provider.name == "local" or not deep) else None)
                 await run_blocking(lambda: memory.save(request, conversation, answer.answer))
                 yield {"event": "status", "data": {"stage": "complete", "label": "返回结果"}}
                 yield {"event": "done", "data": response.model_dump(mode="json")}
@@ -116,6 +124,8 @@ class Agent:
             raise AgentError("agent_timeout", 504) from exc
         except MemoryError as exc:
             raise AgentError(str(exc), 404 if str(exc) == "conversation_not_found" else 409) from exc
+        except ModelOutputTruncated as exc:
+            raise AgentError("model_output_truncated") from exc
         except (ValidationError, ValueError, KeyError, TypeError) as exc:
             raise AgentError("invalid_model_output") from exc
         except httpx.HTTPError as exc:

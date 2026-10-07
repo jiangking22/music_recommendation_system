@@ -168,3 +168,45 @@ def test_stale_memory_write_cannot_overwrite_a_completed_turn(agent):
     current = memory.load(resumed_request)
     assert current.messages[-1]["content"] == "first answer"
     assert current.version == 1
+
+
+def test_deep_budget_is_distinct_and_cancellation_does_not_save_a_turn(agent, monkeypatch):
+    from app.agent import core
+
+    monkeypatch.setattr(core, "DEEP_TIMEOUT_SECONDS", 0.5)
+
+    class SlowDeep(LocalLLMProvider):
+        name = "openai_compatible"
+        supports_deep_thinking = True
+
+        async def plan(self, context, tools):
+            assert context["deep_thinking"]
+            await asyncio.sleep(0.01)
+            return await super().plan(context, tools)
+
+    agent.timeout_seconds = 0.001
+    agent.provider = SlowDeep()
+    result = asyncio.run(agent.chat(AgentRequest(message="介绍爵士乐", user_id="account_test",
+                                                session_id="session_test", deep_thinking=True)))
+    assert result.thinking_mode == "deep"
+    assert result.thinking_unavailable_reason is None
+
+    async def cancel():
+        waiting = asyncio.Event()
+
+        class Waiting(SlowDeep):
+            async def answer(self, context, results):
+                waiting.set()
+                await asyncio.Event().wait()
+
+        agent.provider = Waiting()
+        task = asyncio.create_task(agent.chat(AgentRequest(message="介绍爵士乐", user_id="account_test",
+            session_id="session_test", conversation_id=result.conversation_id, deep_thinking=True)))
+        await waiting.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(cancel())
+    with Session(agent.engine) as session:
+        assert session.get(AccountConversation, str(result.conversation_id)).version == 1

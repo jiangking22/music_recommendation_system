@@ -109,6 +109,41 @@ def test_llm_size_cap():
         asyncio.run(provider.plan({"message": "jazz"}, tool_schemas()))
 
 
+def test_deep_thinking_opt_in_applies_to_both_chat_calls_but_not_seed_identification():
+    bodies = []
+
+    def respond(request):
+        body = json.loads(request.content)
+        bodies.append(body)
+        data = json.loads(body["messages"][1]["content"])
+        output = ({"calls": [{"name": "search_music_knowledge", "arguments": {"query": "jazz"}}]}
+                  if "tools" in data else {"kind": "unknown", "title": None, "artist": None}
+                  if data["context"].get("task") == "identify_original" else {"answer": "音乐讨论"})
+        return httpx.Response(200, json={"choices": [{"finish_reason": "stop", "message": {
+            "content": json.dumps(output), "reasoning_content": "private-reasoning-marker"}}]})
+
+    provider = OpenAICompatibleProvider("https://api.deepseek.com/v1", "mock-key", "deepseek-flash",
+                                        httpx.MockTransport(respond))
+    context = {"message": "曲风有什么区别", "deep_thinking": True}
+    asyncio.run(provider.plan(context, tool_schemas()))
+    asyncio.run(provider.answer(context, []))
+    asyncio.run(provider.identify_seed({"message": "晴天", "task": "identify_original"}))
+    for body in bodies[:2]:
+        assert body["thinking"] == {"type": "enabled"}
+        assert body["max_tokens"] == 8192
+        assert body["response_format"] == {"type": "json_object"}
+    assert bodies[2]["thinking"] == {"type": "disabled"}
+    assert bodies[2]["max_tokens"] == 1200
+
+
+def test_truncated_even_valid_json_output_is_rejected():
+    provider = OpenAICompatibleProvider("https://api.deepseek.com", "mock-key", "deepseek-flash",
+        httpx.MockTransport(lambda _: httpx.Response(200, json={"choices": [{
+            "finish_reason": "length", "message": {"content": '{"answer":"cut off"}'}}]})))
+    with pytest.raises(ValueError, match="truncated"):
+        asyncio.run(provider.answer({"message": "jazz", "deep_thinking": True}, []))
+
+
 def test_model_transport_uses_system_trust_with_hostname_verification(monkeypatch):
     original_client = httpx.AsyncClient
     contexts = []

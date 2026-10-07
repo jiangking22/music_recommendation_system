@@ -16,6 +16,7 @@ from app.observability.events import correlation_headers, emit
 
 class LLMProvider(Protocol):
     name: str
+    supports_deep_thinking: bool
 
     async def plan(self, context: dict, tools: list[dict]) -> dict: ...
 
@@ -28,6 +29,7 @@ class LocalLLMProvider:
     """Deterministic offline intent router, explicitly not a language model."""
 
     name = "local"
+    supports_deep_thinking = False
 
     async def identify_seed(self, context: dict) -> dict:
         return {"kind": "unknown", "title": None, "artist": None}
@@ -77,6 +79,11 @@ class CompletionMessage(BaseModel):
 
 class CompletionChoice(BaseModel):
     message: CompletionMessage
+    finish_reason: str | None = None
+
+
+class ModelOutputTruncated(ValueError):
+    pass
 
 
 class CompletionPayload(BaseModel):
@@ -91,6 +98,10 @@ class OpenAICompatibleProvider:
                  transport: httpx.AsyncBaseTransport | None = None) -> None:
         self.base_url, self.api_key, self.model = base_url.rstrip("/"), api_key, model
         self.transport = transport
+
+    @property
+    def supports_deep_thinking(self) -> bool:
+        return urlsplit(self.base_url).hostname == "api.deepseek.com"
 
     async def _complete(self, prompt: str, data: dict, operation: str | None = None) -> dict:
         started = perf_counter()
@@ -119,16 +130,18 @@ class OpenAICompatibleProvider:
                  level=logging.INFO if status == "ok" else logging.WARNING)
 
     async def _request(self, prompt: str, data: dict, usage: dict) -> dict:
+        deep = self.supports_deep_thinking and data.get("context", {}).get("deep_thinking") is True
         request_body = {
-            "model": self.model, "max_tokens": 1200,
+            "model": self.model, "max_tokens": 8192 if deep else 1200,
             "response_format": {"type": "json_object"},
             "messages": [{"role": "system", "content": prompt},
                          {"role": "user", "content": json.dumps(data, ensure_ascii=False)}],
         }
-        if urlsplit(self.base_url).hostname == "api.deepseek.com":
-            request_body["thinking"] = {"type": "disabled"}
+        if self.supports_deep_thinking:
+            request_body["thinking"] = {"type": "enabled" if deep else "disabled"}
         async with (
-            httpx.AsyncClient(timeout=10, transport=self.transport, follow_redirects=False,
+            httpx.AsyncClient(timeout=httpx.Timeout(50 if deep else 10, connect=5),
+                              transport=self.transport, follow_redirects=False,
                               verify=ssl.create_default_context(), trust_env=False) as client,
             client.stream("POST", f"{self.base_url}/chat/completions",
                           headers={"Authorization": f"Bearer {self.api_key}", **correlation_headers()},
@@ -138,9 +151,13 @@ class OpenAICompatibleProvider:
             body = bytearray()
             async for part in response.aiter_bytes():
                 body.extend(part)
-                if len(body) > 65536:
+                if len(body) > (262144 if deep else 65536):
                     raise ValueError("LLM response exceeds limit")
         payload = CompletionPayload.model_validate_json(body)
+        if payload.choices[0].finish_reason == "length":
+            raise ModelOutputTruncated("Model output truncated")
+        if payload.choices[0].finish_reason not in (None, "stop"):
+            raise ValueError("Model did not complete an answer")
         # Optional usage is telemetry only; malformed metadata must not break an answer.
         for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
             value = (payload.usage or {}).get(key)

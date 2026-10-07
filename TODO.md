@@ -1,11 +1,31 @@
 # TODO
 
+## Assistant deep conversation / 音乐助手深度对话
+
+- [x] 1. Manual deep-thinking request/UI, bounded model budget, progress and cancellation.
+- [ ] 2. Context-aware follow-ups, direct discussion and evidence-aware answers.
+- [ ] 3. Verify configured-model native search capability; expose honest availability and sources.
+
+Current checked-out item: none (item 1 complete; item 2 next).
+Scope: target Agent API/adapter, assistant UI/transport, focused tests and bilingual docs.
+Verification: failing regressions first; API pytest/Ruff/compile, web tests/lint/types/build,
+targeted runtime checks, real model/browser acceptance and legacy smoke. Execute sequentially,
+one focused commit per item. Keep ranking, account isolation, model credentials and legacy files.
+Native search uses only the configured model service; unsupported search is explicitly unavailable.
+
+Item 1 acceptance 2026-10-07: API/UI regressions failed before behavior changes. 60 focused Agent
+tests and all 82 web tests pass; Ruff/compile, ESLint/types/build and legacy smoke pass. Real
+configured DeepSeek plan/answer calls with thinking enabled return valid structured outputs.
+Tests cover strict opt-in, unchanged seed payload, truncated output rejection, distinct deadline,
+cancellation without a saved turn, logout cancellation of stalled SSE and ignored late replies.
+Full integrated browser acceptance follows after items 2/3; no native-search claim is made.
+
 ## Credential bounds / 账号与密码长度统一
 
 - [x] Restrict usernames and passwords to 6–20 characters inclusive, retaining case-insensitive
   username uniqueness; synchronize auth/CLI, bilingual visible hints, fixtures, smoke and docs.
 
-Current checked-out item: none.
+Credential-bounds item: complete.
 Scope: target authentication, auth tests, deployment smoke and current account documentation.
 Verification: API pytest/Ruff/compile, web tests/lint/types/build, real Edge and legacy smoke.
 

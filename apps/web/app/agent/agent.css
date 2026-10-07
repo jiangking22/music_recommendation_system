@@ -31,6 +31,11 @@
 .agent-form > div { display: flex; gap: 8px; }
 .agent-form input { width: 100%; min-width: 0; border: 1px solid #c5c5ca; padding: 14px; border-radius: 8px; background: white; font-size: 14px; }
 .agent-form .primary-button { border-radius: 8px; min-width: 88px; justify-content: center; }
+.agent-form .agent-controls { flex-wrap: wrap; align-items: center; margin-top: 12px; gap: 12px; }
+.agent-form .agent-thinking { display: inline-flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; }
+.agent-form .agent-thinking input { width: 16px; height: 16px; padding: 0; accent-color: var(--orange); }
+.agent-controls small { font-size: 12px; color: var(--muted); }
+.agent-stop { border: 1px solid var(--line); background: white; border-radius: 6px; padding: 6px 12px; color: var(--ink); }
 .agent-shell .primary-button:hover:not(:disabled) { background: #a51c35; }
 .agent-progress { color: var(--muted); font-size: 12px; line-height: 1.8; }
 .agent-progress h2 { color: var(--ink); }

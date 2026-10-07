@@ -302,8 +302,11 @@ No migration or recommendation policy change was needed.
 planning/answer interface. The local provider is a deterministic bilingual intent router, not
 a model; the OpenAI-compatible adapter uses bounded Chat Completions JSON requests, validates
 payloads and then validates the plan/answer schemas. No Key defaults to the local provider.
-Requests to the official `api.deepseek.com` host explicitly disable thinking to fit the bounded
-planner/answer deadlines. JSON output mode and strict response validation remain enabled.
+Requests to the official `api.deepseek.com` host disable thinking by default. Assistant chat
+opts in through `ChatRequest.deep_thinking=false|true`; only chat plan/answer context enables
+thinking, leaving homepage seed identification and guidance on the original budget. Responses
+report `thinking_mode=basic|standard|deep` and an optional `thinking_unavailable_reason`.
+JSON output mode and strict response validation remain enabled.
 Real model quality/compatibility is not inferred from mocked transport tests.
 
 Assistant reliability (2026-10-06): the shared model adapter uses an explicit system-trust SSL
@@ -353,8 +356,13 @@ The default whole-turn deadline is 30 seconds (configurable 1–60), with at mos
 Agent requests per event loop. Excess requests receive `agent_busy`. Synchronous jobs also
 have four slots retained until completion after cancellation; provider adapters retain their
 existing four-second timeouts and result caps. LLM HTTP uses ten seconds, no retries/redirects,
-a 64 KiB response cap and 1,200 output tokens. Agent database transactions set PostgreSQL
-statement/lock timeouts of three/one seconds. Cancellation bounds the waiting request;
+a 64 KiB response cap and 1,200 output tokens. Deep chat has a 120-second whole-turn deadline,
+50-second model HTTP timeouts (5-second connect), 8,192 generated tokens per call and a 256 KiB
+response cap including discarded reasoning. Non-stop/truncated output is rejected. The browser,
+auth transport and chat-only proxy use 130/130/140-second lifetimes; other requests retain theirs.
+The checkbox is page-local; Stop cancels HTTP/SSE, ignores late replies and allows retry.
+Agent database transactions set PostgreSQL statement/lock timeouts of three/one seconds.
+Cancellation bounds the waiting request;
 already-running synchronous work can finish, including an in-flight memory commit.
 
 `0004_agent_memory` adds `agent_conversations` and `agent_preference_summaries`. Conversation

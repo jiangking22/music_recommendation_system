@@ -19,6 +19,7 @@ class StrictModel(BaseModel):
 class ChatRequest(StrictModel):
     message: Text
     conversation_id: UUID | None = Field(default=None, strict=False)
+    deep_thinking: bool = False
 
 
 class AgentRequest(ChatRequest):
@@ -70,3 +71,5 @@ class ChatResponse(BaseModel):
     sources: dict[str, ProviderResult] = Field(default_factory=dict)
     provider: str
     fallback_reason: Literal["llm_unavailable"] | None = None
+    thinking_mode: Literal["basic", "standard", "deep"] = "standard"
+    thinking_unavailable_reason: Literal["unsupported", "llm_unavailable"] | None = None

@@ -1,5 +1,24 @@
 # Architecture Decision Records / 架构决策记录
 
+## ADR-033: Manual assistant deep thinking with isolated budgets
+
+**Status:** Accepted (approved assistant plan; revises ADR-021 for chat only)
+**Date:** 2026-10-07
+
+Expose optional strict `deep_thinking=false` on both chat transports. Only the official DeepSeek
+adapter has a documented thinking mapping: enable thinking for chat plan and answer when requested,
+with 8,192 tokens, 256 KiB response cap and 50-second model timeouts inside a 120-second turn.
+Homepage calls retain non-thinking/1,200-token/10-second behavior. Local/unsupported providers
+report actual mode; outages retain the existing labeled deterministic fallback. Reject truncated
+or non-complete outputs even if their content happens to be valid JSON. Discard raw reasoning.
+
+The page-local checkbox defaults off; Stop aborts the stream, permits retry and ignores late replies.
+Extend browser/auth/proxy deadlines only for assistant chat. No ranking, authentication, credentials
+or database schema change. Cancellation cannot roll back a synchronous memory commit already running.
+
+对话支持手动思考，深度模式最多两分钟；识曲保持原配置，降级如实显示。不保存或输出原始思考，
+截断回答不能充当成功结果。后续连续对话和联网状态仍按独立 TODO 顺序实施。
+
 ## ADR-032: Matching username and password length bounds
 
 **Status:** Accepted (explicit user correction; supersedes ADR-031)

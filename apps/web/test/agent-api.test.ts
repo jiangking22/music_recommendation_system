@@ -1,6 +1,7 @@
 import { testSession, withCsrf } from "./auth-helpers";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { streamAgentChat } from "../lib/agent";
+import { invalidateSession } from "../lib/auth";
 
 function streamed(parts: string[]) {
   const encoder = new TextEncoder();
@@ -15,6 +16,23 @@ function streamed(parts: string[]) {
 beforeEach(testSession);
 
 describe("Agent SSE client", () => {
+  it("gives deep chat a longer deadline and aborts a stalled stream on logout", async () => {
+    const cancel = vi.fn();
+    const fetcher = vi.fn().mockResolvedValue(new Response(new ReadableStream({ cancel }), {
+      headers: { "Content-Type": "text/event-stream" },
+    }));
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const pending = streamAgentChat("/api", "聊音乐", undefined, vi.fn(), undefined, withCsrf(fetcher), true);
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalled());
+    expect(JSON.parse(fetcher.mock.calls[0][1].body).deep_thinking).toBe(true);
+    expect(timeout.mock.calls.some(([ms]) => ms === 130000)).toBe(true);
+    expect(timeout.mock.calls.some(([ms]) => ms === 70000)).toBe(false);
+    invalidateSession(false);
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
+    expect(cancel).toHaveBeenCalled();
+  });
+
   it("parses fragmented status frames and forwards authenticated session and conversation", async () => {
     const result = { conversation_id: "one", answer: "Found music", recommended_tracks: [],
       used_tools: [], explanation: "", citations: [], sources: {}, provider: "local" };
@@ -28,7 +46,7 @@ describe("Agent SSE client", () => {
       "previous", onStatus, undefined, withCsrf(fetcher))).toEqual(result);
     expect(onStatus).toHaveBeenCalledWith({ stage: "analyzing", label: "分析需求" });
     expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({
-      message: "学习", conversation_id: "previous" });
+      message: "学习", conversation_id: "previous", deep_thinking: false });
   });
 
   it("rejects stream errors, missing done, and malformed terminal results", async () => {

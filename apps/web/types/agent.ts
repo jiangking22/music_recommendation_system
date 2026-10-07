@@ -12,4 +12,6 @@ export type AgentResponse = {
   sources: Record<string, ProviderResult>;
   provider: string;
   fallback_reason?: "llm_unavailable" | null;
+  thinking_mode?: "basic" | "standard" | "deep";
+  thinking_unavailable_reason?: "unsupported" | "llm_unavailable" | null;
 };

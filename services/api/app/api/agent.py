@@ -33,6 +33,7 @@ def error_envelope(error: AgentError) -> dict:
                 "llm_unavailable": "Language provider unavailable.",
                 "database_unavailable": "Database unavailable.",
                 "invalid_model_output": "Music assistant returned invalid output."}
+    messages["model_output_truncated"] = "Model answer exceeded its output budget. Please narrow the question."
     return {"error": {"code": error.code, "message": messages.get(error.code, "Music assistant unavailable.")}}
 
 

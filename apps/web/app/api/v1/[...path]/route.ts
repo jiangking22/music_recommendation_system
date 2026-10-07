@@ -30,8 +30,9 @@ async function proxy(request: Request, context: { params: Promise<{ path: string
       for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.length; }
     }
     const target = `${ROOT.replace(/\/$/, "")}/v1/${path.join("/")}${new URL(request.url).search}`;
+    const chat = path.join("/") === "agent/chat" || path.join("/") === "agent/chat/stream";
     const result = await fetch(target, { method: request.method, headers, body,
-      cache: "no-store", redirect: "manual", signal: AbortSignal.any([request.signal, AbortSignal.timeout(70000)]) });
+      cache: "no-store", redirect: "manual", signal: AbortSignal.any([request.signal, AbortSignal.timeout(chat ? 140000 : 70000)]) });
     const outgoing = new Headers({ "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
     for (const key of ["content-type", "x-request-id", "x-trace-id", "retry-after", "x-accel-buffering"])
       if (result.headers.has(key)) outgoing.set(key, result.headers.get(key)!);

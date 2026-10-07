@@ -9,6 +9,8 @@ function validateResult(value: unknown): AgentResponse {
     || !Array.isArray(result.recommended_tracks) || !Array.isArray(result.used_tools)
     || !Array.isArray(result.citations) || !result.sources
     || (result.fallback_reason != null && result.fallback_reason !== "llm_unavailable")
+    || (result.thinking_mode != null && !["basic", "standard", "deep"].includes(result.thinking_mode))
+    || (result.thinking_unavailable_reason != null && !["unsupported", "llm_unavailable"].includes(result.thinking_unavailable_reason))
     || result.recommended_tracks.some((item) => !item || typeof item.id !== "string"
       || typeof item.title !== "string" || typeof item.artist !== "string"
       || typeof item.explanation !== "string" || typeof item.score !== "number"
@@ -24,14 +26,16 @@ function validateResult(value: unknown): AgentResponse {
 export async function streamAgentChat(
   baseUrl: string, message: string, conversationId: string | undefined,
   onStatus: (status: AgentStatus) => void, signal?: AbortSignal, fetcher: typeof fetch = fetch,
+  deepThinking = false,
 ): Promise<AgentResponse> {
   const epoch = sessionSignal();
+  const deadline = AbortSignal.any([epoch, AbortSignal.timeout(deepThinking ? 130000 : 65000), ...(signal ? [signal] : [])]);
   const response = await authFetch(`${baseUrl.replace(/\/$/, "")}/v1/agent/chat/stream`, {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, conversation_id: conversationId }),
-    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(65000)]) : AbortSignal.timeout(65000),
+    body: JSON.stringify({ message, conversation_id: conversationId, deep_thinking: deepThinking }),
+    signal: deadline,
     cache: "no-store",
-  }, fetcher);
+  }, fetcher, deepThinking ? 130000 : 70000);
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new ApiError(body.error?.code ?? "http_error", body.error?.message ?? "Music assistant unavailable.", response.status);
@@ -39,13 +43,19 @@ export async function streamAgentChat(
   if (!response.body || !response.headers.get("Content-Type")?.startsWith("text/event-stream"))
     throw new ApiError("invalid_response", "Music assistant did not return a stream.", 502);
   const reader = response.body.getReader();
+  const cancel = () => { void reader.cancel().catch(() => {}); };
+  deadline.addEventListener("abort", cancel, { once: true });
+  if (deadline.aborted) cancel();
   const decoder = new TextDecoder();
   let buffer = "";
   let size = 0;
   try {
     while (true) {
       const { value, done } = await reader.read();
-      if (epoch.aborted) throw new DOMException("Session changed.", "AbortError");
+      if (deadline.aborted) {
+        if (deadline.reason?.name === "TimeoutError") throw new ApiError("agent_timeout", "Music assistant timed out.", 504);
+        throw new DOMException("Request cancelled.", "AbortError");
+      }
       if (done) break;
       size += value.byteLength;
       if (size > 1024 * 1024) throw new ApiError("invalid_response", "Response exceeds limit.", 502);
@@ -69,6 +79,7 @@ export async function streamAgentChat(
     }
     throw new ApiError("incomplete_stream", "The reply was interrupted. Please try again.", 502);
   } finally {
+    deadline.removeEventListener("abort", cancel);
     await reader.cancel().catch(() => {});
     reader.releaseLock();
   }

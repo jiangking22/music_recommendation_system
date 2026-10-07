@@ -22,7 +22,7 @@ Never commit credentials. Existing `.env` and provider/model settings are preser
 
 Browsers always call same-origin `/api/v1/*`; no `NEXT_PUBLIC_API_BASE_URL` is used.
 The proxy preserves Cookie, CSRF/session guards, correlation headers, Set-Cookie and SSE;
-request bodies are capped at 64 KiB/10s, upstream lifetime at 70s with disconnect cancellation.
+request bodies are capped at 64 KiB/10s, upstream lifetime at 70s (140s for assistant chat) with disconnect cancellation.
 The API checks Cookie authentication and CSRF/Origin independently of frontend routing.
 Redis login/register limits fail closed with retryable 503; 429 includes Retry-After.
 Forwarded client IP headers are deliberately ignored: clients behind the Next proxy share its
